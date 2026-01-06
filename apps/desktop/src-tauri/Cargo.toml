@@ -1,0 +1,40 @@
+[package]
+name = "private-assistant"
+version = "0.1.0"
+description = "Private Personal Assistant - Your private AI coach"
+authors = ["Stefano"]
+edition = "2021"
+
+[lib]
+name = "private_assistant_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+directories = "5"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+tokio = { version = "1", features = ["full"] }
+thiserror = "2"
+
+# TTS dependencies
+rodio = { version = "0.19", features = ["symphonia-all"] }
+reqwest = { version = "0.12", features = ["blocking", "stream"] }
+zip = "2"
+tempfile = "3"
+futures-util = "0.3"
+regex-lite = "0.1"
+
+# STT dependencies
+base64 = "0.22"
+hound = "3.5"
+
