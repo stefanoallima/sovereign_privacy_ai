@@ -18,21 +18,32 @@ export interface SttStatus {
   is_transcribing: boolean;
 }
 
-// Check if we're running in Tauri
+// Check if we're running in Tauri (v2 compatible)
 const isTauri = () => {
-  return typeof window !== "undefined" && "__TAURI__" in window;
+  const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
+  const hasTauriInternals = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  const result = hasTauri || hasTauriInternals;
+  console.log("[STT] isTauri check:", { result, hasTauri, hasTauriInternals });
+  return result;
 };
 
 /**
  * Get STT status from Tauri backend
  */
 export async function getSttStatus(): Promise<SttStatus | null> {
-  if (!isTauri()) return null;
+  console.log("[STT] getSttStatus called");
+  if (!isTauri()) {
+    console.log("[STT] Not in Tauri, returning null");
+    return null;
+  }
 
   try {
-    return await invoke<SttStatus>("stt_get_status");
+    console.log("[STT] Invoking stt_get_status...");
+    const status = await invoke<SttStatus>("stt_get_status");
+    console.log("[STT] Got status:", status);
+    return status;
   } catch (error) {
-    console.error("Failed to get STT status:", error);
+    console.error("[STT] Failed to get STT status:", error);
     return null;
   }
 }
@@ -121,35 +132,59 @@ export async function downloadModel(modelName: string): Promise<boolean> {
 }
 
 // ============ Audio Recording Utilities ============
+// Uses Web Audio API to capture raw PCM samples directly (avoids webm decoding issues)
 
-let mediaRecorder: MediaRecorder | null = null;
-let audioChunks: Blob[] = [];
+let audioContext: AudioContext | null = null;
+let mediaStream: MediaStream | null = null;
+let scriptProcessor: ScriptProcessorNode | null = null;
+let audioSamples: Float32Array[] = [];
+let isRecording = false;
 
 /**
- * Start recording audio from microphone
+ * Start recording audio from microphone using Web Audio API
  */
 export async function startRecording(): Promise<boolean> {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    console.log("[STT] Starting audio recording...");
 
-    // Use WAV-compatible format
-    const options: MediaRecorderOptions = {
-      mimeType: "audio/webm;codecs=opus",
-    };
-
-    mediaRecorder = new MediaRecorder(stream, options);
-    audioChunks = [];
-
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        audioChunks.push(event.data);
+    // Get microphone stream
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        sampleRate: 16000,
+        echoCancellation: true,
+        noiseSuppression: true,
       }
+    });
+
+    // Create audio context at 16kHz for Whisper
+    audioContext = new AudioContext({ sampleRate: 16000 });
+    const source = audioContext.createMediaStreamSource(mediaStream);
+
+    // Use ScriptProcessorNode to capture raw PCM samples
+    // Buffer size of 4096 samples
+    scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+    audioSamples = [];
+    isRecording = true;
+
+    scriptProcessor.onaudioprocess = (event) => {
+      if (!isRecording) return;
+
+      // Get input samples and make a copy
+      const inputData = event.inputBuffer.getChannelData(0);
+      const samples = new Float32Array(inputData.length);
+      samples.set(inputData);
+      audioSamples.push(samples);
     };
 
-    mediaRecorder.start(100); // Collect data every 100ms
+    // Connect the nodes
+    source.connect(scriptProcessor);
+    scriptProcessor.connect(audioContext.destination);
+
+    console.log("[STT] Recording started, sample rate:", audioContext.sampleRate);
     return true;
   } catch (error) {
-    console.error("Failed to start recording:", error);
+    console.error("[STT] Failed to start recording:", error);
     return false;
   }
 }
@@ -158,68 +193,72 @@ export async function startRecording(): Promise<boolean> {
  * Stop recording and get audio as base64 WAV
  */
 export async function stopRecording(): Promise<string | null> {
-  return new Promise((resolve) => {
-    if (!mediaRecorder) {
-      resolve(null);
-      return;
+  console.log("[STT] Stopping recording...");
+
+  if (!isRecording || audioSamples.length === 0) {
+    console.error("[STT] No audio recorded");
+    cleanup();
+    return null;
+  }
+
+  isRecording = false;
+
+  try {
+    // Combine all audio samples
+    const totalLength = audioSamples.reduce((acc, arr) => acc + arr.length, 0);
+    console.log("[STT] Total samples:", totalLength);
+
+    if (totalLength === 0) {
+      console.error("[STT] No audio samples captured");
+      cleanup();
+      return null;
     }
 
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+    const combined = new Float32Array(totalLength);
+    let offset = 0;
+    for (const samples of audioSamples) {
+      combined.set(samples, offset);
+      offset += samples.length;
+    }
 
-      // Convert to WAV format for Whisper
-      try {
-        const wavBlob = await convertToWav(audioBlob);
-        const base64 = await blobToBase64(wavBlob);
-        resolve(base64);
-      } catch (error) {
-        console.error("Failed to convert audio:", error);
-        resolve(null);
-      }
+    // Get the actual sample rate used
+    const sampleRate = audioContext?.sampleRate || 16000;
+    console.log("[STT] Encoding WAV at", sampleRate, "Hz");
 
-      // Stop all tracks
-      mediaRecorder?.stream.getTracks().forEach((track) => track.stop());
-      mediaRecorder = null;
-    };
+    // Encode as WAV
+    const wavBuffer = encodeWav(combined, sampleRate);
+    const wavBlob = new Blob([wavBuffer], { type: "audio/wav" });
+    const base64 = await blobToBase64(wavBlob);
 
-    mediaRecorder.stop();
-  });
+    console.log("[STT] WAV encoded, base64 length:", base64.length);
+
+    cleanup();
+    return base64;
+  } catch (error) {
+    console.error("[STT] Failed to process audio:", error);
+    cleanup();
+    return null;
+  }
 }
 
 /**
- * Convert audio blob to WAV format
+ * Cleanup audio resources
  */
-async function convertToWav(blob: Blob): Promise<Blob> {
-  const audioContext = new AudioContext({ sampleRate: 16000 });
-  const arrayBuffer = await blob.arrayBuffer();
-  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-  // Convert to mono 16-bit PCM WAV
-  const numberOfChannels = 1;
-  const sampleRate = 16000;
-  const length = audioBuffer.length;
-
-  // Resample if necessary
-  let samples: Float32Array;
-  if (audioBuffer.sampleRate !== sampleRate) {
-    const offlineContext = new OfflineAudioContext(
-      numberOfChannels,
-      Math.ceil(length * sampleRate / audioBuffer.sampleRate),
-      sampleRate
-    );
-    const source = offlineContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(offlineContext.destination);
-    source.start(0);
-    const resampledBuffer = await offlineContext.startRendering();
-    samples = resampledBuffer.getChannelData(0);
-  } else {
-    samples = audioBuffer.getChannelData(0);
+function cleanup() {
+  if (scriptProcessor) {
+    scriptProcessor.disconnect();
+    scriptProcessor = null;
   }
-
-  // Create WAV file
-  const wavBuffer = encodeWav(samples, sampleRate);
-  return new Blob([wavBuffer], { type: "audio/wav" });
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+    mediaStream = null;
+  }
+  audioSamples = [];
+  isRecording = false;
 }
 
 /**

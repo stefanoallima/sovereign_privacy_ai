@@ -52,7 +52,7 @@ impl Default for VoiceConfig {
     fn default() -> Self {
         Self {
             model_name: "en_US-libritts-high".to_string(),
-            speaker_id: Some(3922),
+            speaker_id: Some(0), // Valid range: 0-903 for libritts-high
             speed: 1.0,
         }
     }
@@ -64,7 +64,7 @@ pub struct PiperTts {
     models_dir: PathBuf,
     voice_config: VoiceConfig,
     is_speaking: Arc<AtomicBool>,
-    current_sink: Option<Arc<std::sync::Mutex<Option<Sink>>>>,
+    should_stop: Arc<AtomicBool>,
 }
 
 impl PiperTts {
@@ -93,7 +93,7 @@ impl PiperTts {
             models_dir,
             voice_config: VoiceConfig::default(),
             is_speaking: Arc::new(AtomicBool::new(false)),
-            current_sink: None,
+            should_stop: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -278,134 +278,223 @@ impl PiperTts {
         self.voice_config = config;
     }
 
-    /// Synthesize text to speech and play it
-    pub async fn speak(&mut self, text: &str) -> Result<(), TtsError> {
-        if !self.is_installed() {
-            return Err(TtsError::NotInitialized);
+    /// Split text into sentences for streaming TTS
+    fn split_into_sentences(text: &str) -> Vec<String> {
+        let mut sentences = Vec::new();
+        let mut current = String::new();
+
+        for char in text.chars() {
+            current.push(char);
+            // Split on sentence-ending punctuation followed by space or end
+            if (char == '.' || char == '!' || char == '?') {
+                let trimmed = current.trim().to_string();
+                if !trimmed.is_empty() && trimmed.len() > 2 {
+                    sentences.push(trimmed);
+                    current = String::new();
+                }
+            }
         }
 
-        // Clone config values to avoid borrow conflicts
-        let model_name = self.voice_config.model_name.clone();
-        let speaker_id = self.voice_config.speaker_id;
-        let speed = self.voice_config.speed;
-
-        if !self.is_voice_installed(&model_name) {
-            return Err(TtsError::NotInitialized);
+        // Don't forget the last part
+        let trimmed = current.trim().to_string();
+        if !trimmed.is_empty() {
+            sentences.push(trimmed);
         }
 
-        // Stop any current speech
-        self.stop();
+        sentences
+    }
 
-        self.is_speaking.store(true, Ordering::SeqCst);
+    /// Synthesize a single sentence to a WAV file
+    fn synthesize_sentence(&self, text: &str, output_path: &PathBuf) -> Result<(), TtsError> {
+        let model_path = self.models_dir.join(format!("{}.onnx", &self.voice_config.model_name));
 
-        let model_path = self.models_dir.join(format!("{}.onnx", model_name));
-
-        // Clean text for TTS
-        let clean_text = clean_text_for_tts(text);
-
-        if clean_text.is_empty() {
-            self.is_speaking.store(false, Ordering::SeqCst);
-            return Ok(());
-        }
-
-        // Create temp file for output
-        let temp_dir = tempfile::tempdir()?;
-        let output_path = temp_dir.path().join("output.wav");
-
-        // Build Piper command
         let mut cmd = Command::new(&self.piper_path);
         cmd.arg("--model")
             .arg(&model_path)
             .arg("--output_file")
-            .arg(&output_path);
+            .arg(output_path);
 
-        // Add speaker ID if specified
-        if let Some(sid) = speaker_id {
+        if let Some(sid) = self.voice_config.speaker_id {
             cmd.arg("--speaker").arg(sid.to_string());
         }
 
-        // Add length scale (inverse of speed)
-        let length_scale = 1.0 / speed;
+        let length_scale = 1.0 / self.voice_config.speed;
         cmd.arg("--length_scale").arg(length_scale.to_string());
 
-        // Pipe text to stdin
         cmd.stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped());
 
         let mut child = cmd.spawn()?;
 
-        // Write text to stdin
         if let Some(mut stdin) = child.stdin.take() {
-            stdin.write_all(clean_text.as_bytes())?;
+            stdin.write_all(text.as_bytes())?;
         }
 
-        // Wait for Piper to finish
         let output = child.wait_with_output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            self.is_speaking.store(false, Ordering::SeqCst);
             return Err(TtsError::PiperFailed(stderr.to_string()));
         }
-
-        // Play the audio
-        if output_path.exists() {
-            self.play_audio(&output_path)?;
-        }
-
-        // Keep temp dir alive until playback completes
-        // (the Sink holds a reference to the file)
-        std::mem::forget(temp_dir);
 
         Ok(())
     }
 
-    /// Play audio file
+    /// Synthesize text to speech and play it (streaming by sentence)
+    pub async fn speak(&mut self, text: &str) -> Result<(), TtsError> {
+        println!("[TTS] speak() called with text length: {}", text.len());
+
+        if !self.is_installed() {
+            println!("[TTS] Piper not installed!");
+            return Err(TtsError::NotInitialized);
+        }
+
+        let model_name = self.voice_config.model_name.clone();
+        if !self.is_voice_installed(&model_name) {
+            println!("[TTS] Voice {} not installed!", model_name);
+            return Err(TtsError::NotInitialized);
+        }
+
+        // Stop any current speech
+        self.stop();
+        self.is_speaking.store(true, Ordering::SeqCst);
+        self.should_stop.store(false, Ordering::SeqCst);
+
+        // Clean text for TTS
+        let clean_text = clean_text_for_tts(text);
+        println!("[TTS] Cleaned text: {} chars", clean_text.len());
+
+        if clean_text.is_empty() {
+            println!("[TTS] Clean text is empty, returning");
+            self.is_speaking.store(false, Ordering::SeqCst);
+            return Ok(());
+        }
+
+        // Split into sentences for streaming
+        let sentences = Self::split_into_sentences(&clean_text);
+        println!("[TTS] Split into {} sentences for streaming", sentences.len());
+
+        // If only 1-2 short sentences, process normally (no benefit from streaming)
+        if sentences.len() <= 2 && clean_text.len() < 200 {
+            return self.speak_single(&clean_text).await;
+        }
+
+        // Stream: synthesize and play each sentence
+        let temp_dir = tempfile::tempdir()?;
+
+        for (i, sentence) in sentences.iter().enumerate() {
+            // Check if we should stop
+            if self.should_stop.load(Ordering::SeqCst) {
+                println!("[TTS] Streaming stopped at sentence {}", i);
+                break;
+            }
+
+            let output_path = temp_dir.path().join(format!("sentence_{}.wav", i));
+
+            println!("[TTS] Synthesizing sentence {}/{}: '{}'", i + 1, sentences.len(),
+                if sentence.len() > 50 { &sentence[..50] } else { sentence });
+
+            // Synthesize this sentence
+            if let Err(e) = self.synthesize_sentence(sentence, &output_path) {
+                println!("[TTS] Failed to synthesize sentence {}: {}", i, e);
+                continue;
+            }
+
+            // Play it immediately
+            if output_path.exists() {
+                if let Err(e) = self.play_audio(&output_path) {
+                    println!("[TTS] Failed to play sentence {}: {}", i, e);
+                }
+                // Re-set is_speaking since play_audio sets it to false
+                if i < sentences.len() - 1 && !self.should_stop.load(Ordering::SeqCst) {
+                    self.is_speaking.store(true, Ordering::SeqCst);
+                }
+            }
+        }
+
+        self.is_speaking.store(false, Ordering::SeqCst);
+        std::mem::forget(temp_dir);
+        Ok(())
+    }
+
+    /// Synthesize and play a single piece of text (non-streaming)
+    async fn speak_single(&mut self, text: &str) -> Result<(), TtsError> {
+        let temp_dir = tempfile::tempdir()?;
+        let output_path = temp_dir.path().join("output.wav");
+
+        println!("[TTS] Single mode: synthesizing...");
+        self.synthesize_sentence(text, &output_path)?;
+
+        if output_path.exists() {
+            println!("[TTS] Playing audio...");
+            self.play_audio(&output_path)?;
+        }
+
+        std::mem::forget(temp_dir);
+        Ok(())
+    }
+
+    /// Play audio file with stop capability via polling
     fn play_audio(&mut self, path: &PathBuf) -> Result<(), TtsError> {
+        println!("[TTS] play_audio() starting...");
+
+        // Reset stop flag
+        self.should_stop.store(false, Ordering::SeqCst);
+
         let file = File::open(path)?;
         let reader = BufReader::new(file);
 
+        println!("[TTS] Creating output stream...");
+        // OutputStream must stay alive for the duration of playback
+        // Note: OutputStream is not Send, so we keep it local to this function
         let (_stream, stream_handle) = OutputStream::try_default()
             .map_err(|e| TtsError::Playback(e.to_string()))?;
 
+        println!("[TTS] Creating sink...");
         let sink = Sink::try_new(&stream_handle)
             .map_err(|e| TtsError::Playback(e.to_string()))?;
 
+        println!("[TTS] Decoding audio...");
         let source = Decoder::new(reader)
             .map_err(|e| TtsError::Playback(e.to_string()))?;
 
         sink.append(source);
+        println!("[TTS] Audio appended to sink, polling for completion...");
 
-        // Store sink for later control
-        let sink_arc = Arc::new(std::sync::Mutex::new(Some(sink)));
-        self.current_sink = Some(sink_arc.clone());
-
-        // Wait for playback in a separate task
-        let is_speaking = self.is_speaking.clone();
-        std::thread::spawn(move || {
-            if let Ok(guard) = sink_arc.lock() {
-                if let Some(ref sink) = *guard {
-                    sink.sleep_until_end();
-                }
+        // Poll for completion (allows stop() to interrupt via should_stop flag)
+        loop {
+            // Check if stop was requested
+            if self.should_stop.load(Ordering::SeqCst) {
+                println!("[TTS] Playback interrupted by stop signal");
+                sink.stop();
+                break;
             }
-            is_speaking.store(false, Ordering::SeqCst);
-        });
 
+            // Check if playback is done
+            if sink.empty() {
+                println!("[TTS] Audio playback finished normally");
+                break;
+            }
+
+            // Small sleep to prevent busy-waiting
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        self.is_speaking.store(false, Ordering::SeqCst);
+        self.should_stop.store(false, Ordering::SeqCst);
         Ok(())
     }
 
     /// Stop current speech
     pub fn stop(&mut self) {
-        if let Some(ref sink_arc) = self.current_sink {
-            if let Ok(mut guard) = sink_arc.lock() {
-                if let Some(sink) = guard.take() {
-                    sink.stop();
-                }
-            }
-        }
+        println!("[TTS] stop() called");
+
+        // Signal to stop - the play_audio loop will pick this up and stop the sink
+        self.should_stop.store(true, Ordering::SeqCst);
         self.is_speaking.store(false, Ordering::SeqCst);
-        self.current_sink = None;
+
+        println!("[TTS] stop() complete - stop flag set");
     }
 
     /// Check if currently speaking
@@ -433,9 +522,40 @@ pub struct TtsStatus {
     pub is_speaking: bool,
 }
 
-/// Clean text for TTS (remove markdown, code blocks, etc.)
+/// Clean text for TTS (remove markdown, code blocks, thinking blocks, etc.)
 fn clean_text_for_tts(text: &str) -> String {
     let mut result = text.to_string();
+
+    // Remove <think>...</think> blocks (Qwen thinking format)
+    if let Ok(think_re) = regex_lite::Regex::new(r"<[Tt]hink>[\s\S]*?</[Tt]hink>") {
+        result = think_re.replace_all(&result, "").to_string();
+    }
+
+    // Remove <thinking>...</thinking> blocks
+    if let Ok(thinking_re) = regex_lite::Regex::new(r"<[Tt]hinking>[\s\S]*?</[Tt]hinking>") {
+        result = thinking_re.replace_all(&result, "").to_string();
+    }
+
+    // Remove [thinking]...[/thinking] blocks
+    if let Ok(thinking_bracket_re) = regex_lite::Regex::new(r"\[[Tt]hinking\][\s\S]*?\[/[Tt]hinking\]") {
+        result = thinking_bracket_re.replace_all(&result, "").to_string();
+    }
+
+    // Remove **Thinking:** sections (simplified - removes until double newline)
+    if let Ok(thinking_section_re) = regex_lite::Regex::new(r"\*\*[Tt]hinking:\*\*[^\n]*(\n[^\n*]+)*") {
+        result = thinking_section_re.replace_all(&result, "").to_string();
+    }
+    if let Ok(reasoning_section_re) = regex_lite::Regex::new(r"\*\*[Rr]easoning:\*\*[^\n]*(\n[^\n*]+)*") {
+        result = reasoning_section_re.replace_all(&result, "").to_string();
+    }
+
+    // Remove lines starting with "Thinking:" or "Let me think"
+    if let Ok(thinking_line_re) = regex_lite::Regex::new(r"^[Tt]hinking:.*$") {
+        result = thinking_line_re.replace_all(&result, "").to_string();
+    }
+    if let Ok(letme_re) = regex_lite::Regex::new(r"^[Ll]et me think.*$") {
+        result = letme_re.replace_all(&result, "").to_string();
+    }
 
     // Remove code blocks
     let code_block_re = regex_lite::Regex::new(r"```[\s\S]*?```").unwrap();

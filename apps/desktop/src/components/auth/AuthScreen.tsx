@@ -24,7 +24,7 @@ export function AuthScreen() {
             </div>
           </div>
           <h1 className="text-4xl font-bold mb-4">
-            Private Assistant
+            AI Private Personal Assistant
           </h1>
           <p className="text-lg text-white/80 leading-relaxed">
             Your personal AI companion for coaching, therapy, and brainstorming.
@@ -48,7 +48,7 @@ export function AuthScreen() {
               <Bot className="h-8 w-8" />
             </div>
             <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">
-              Private Assistant
+              AI Private Personal Assistant
             </h1>
           </div>
 

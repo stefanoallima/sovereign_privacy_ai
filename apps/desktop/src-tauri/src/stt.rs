@@ -82,10 +82,12 @@ impl WhisperStt {
         fs::create_dir_all(&whisper_dir)?;
         fs::create_dir_all(&models_dir)?;
 
+        // The whisper.cpp release extracts to a Release/ subdirectory
+        // Note: main.exe is deprecated, use whisper-cli.exe instead
         #[cfg(target_os = "windows")]
-        let whisper_path = whisper_dir.join("main.exe");
+        let whisper_path = whisper_dir.join("Release").join("whisper-cli.exe");
         #[cfg(not(target_os = "windows"))]
-        let whisper_path = whisper_dir.join("main");
+        let whisper_path = whisper_dir.join("whisper-cli");
 
         Ok(Self {
             whisper_path,
@@ -125,13 +127,13 @@ impl WhisperStt {
 
         println!("Downloading Whisper...");
 
-        // whisper.cpp releases - using pre-built binaries
+        // whisper.cpp releases - using pre-built binaries (repo moved to ggml-org)
         #[cfg(target_os = "windows")]
-        let whisper_url = "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.4/whisper-bin-x64.zip";
+        let whisper_url = "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.2/whisper-bin-x64.zip";
         #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-        let whisper_url = "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.4/whisper-bin-linux-x64.zip";
+        let whisper_url = "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.2/whisper-bin-x64.zip";
         #[cfg(target_os = "macos")]
-        let whisper_url = "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.4/whisper-bin-macos-arm64.zip";
+        let whisper_url = "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.2/whisper-bin-x64.zip";
 
         let response = reqwest::get(whisper_url).await?;
 
@@ -224,17 +226,30 @@ impl WhisperStt {
         config: &SttConfig,
         audio_base64: &str,
     ) -> Result<String, SttError> {
+        println!("[STT] transcribe_audio() starting...");
+        println!("[STT] Whisper path: {:?}", whisper_path);
+        println!("[STT] Whisper exists: {}", whisper_path.exists());
+        println!("[STT] Models dir: {:?}", models_dir);
+        println!("[STT] Config: {:?}", config);
+        println!("[STT] Audio base64 length: {}", audio_base64.len());
+
         // Decode base64 audio
         let audio_bytes = BASE64.decode(audio_base64)?;
+        println!("[STT] Decoded audio bytes: {}", audio_bytes.len());
 
         // Save to temp WAV file
         let temp_dir = tempfile::tempdir()?;
         let input_path = temp_dir.path().join("input.wav");
+        println!("[STT] Input path: {:?}", input_path);
+
         let mut file = File::create(&input_path)?;
         file.write_all(&audio_bytes)?;
         drop(file);
+        println!("[STT] Wrote audio file");
 
         let model_path = models_dir.join(format!("{}.bin", config.model_name));
+        println!("[STT] Model path: {:?}", model_path);
+        println!("[STT] Model exists: {}", model_path.exists());
 
         // Build Whisper command
         let mut cmd = Command::new(whisper_path);
@@ -251,25 +266,38 @@ impl WhisperStt {
         cmd.stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
+        println!("[STT] Running Whisper command...");
         let output = cmd.output()?;
+        println!("[STT] Whisper exit status: {:?}", output.status);
+        println!("[STT] Whisper stdout: {}", String::from_utf8_lossy(&output.stdout));
+        println!("[STT] Whisper stderr: {}", String::from_utf8_lossy(&output.stderr));
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
+            println!("[STT] Whisper failed with stderr: {}", stderr);
             return Err(SttError::WhisperFailed(stderr.to_string()));
         }
 
         // Read the output text file
         let txt_path = input_path.with_extension("wav.txt");
+        println!("[STT] Looking for output at: {:?}", txt_path);
+        println!("[STT] Output file exists: {}", txt_path.exists());
+
         let transcription = if txt_path.exists() {
-            fs::read_to_string(&txt_path)
+            let text = fs::read_to_string(&txt_path)
                 .unwrap_or_default()
                 .trim()
-                .to_string()
+                .to_string();
+            println!("[STT] Read transcription from file: '{}'", text);
+            text
         } else {
             // Try to parse from stdout
-            String::from_utf8_lossy(&output.stdout).trim().to_string()
+            let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            println!("[STT] Parsed transcription from stdout: '{}'", text);
+            text
         };
 
+        println!("[STT] Final transcription: '{}'", transcription);
         Ok(transcription)
     }
 
