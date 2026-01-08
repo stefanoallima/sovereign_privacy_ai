@@ -37,7 +37,7 @@ export function MobileHeader({
           </div>
         ) : (
           <span className="font-medium text-[hsl(var(--muted-foreground))]">
-            Private Assistant
+            AI Private Personal Assistant
           </span>
         )}
       </div>

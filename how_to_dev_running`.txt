@@ -1,0 +1,5 @@
+### dev running
+
+  $env:Path = $env:Path + ";C:\Users\tucan\.cargo\bin"
+  cd C:\Users\tucan\Documents\stefano\hackaton\huggingface_gradio\private_personal_assistant\apps\desktop
+  pnpm tauri dev

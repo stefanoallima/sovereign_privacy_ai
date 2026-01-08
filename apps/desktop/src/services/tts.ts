@@ -18,9 +18,13 @@ export interface TtsStatus {
   is_speaking: boolean;
 }
 
-// Check if we're running in Tauri
+// Check if we're running in Tauri (v2 compatible)
 const isTauri = () => {
-  return typeof window !== "undefined" && "__TAURI__" in window;
+  const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
+  const hasTauriInternals = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  const result = hasTauri || hasTauriInternals;
+  console.log("[TTS] isTauri check:", { result, hasTauri, hasTauriInternals });
+  return result;
 };
 
 /**
@@ -106,7 +110,7 @@ export async function isSpeaking(): Promise<boolean> {
  */
 export async function setVoice(
   modelName: string,
-  speakerId: number | null = 904,
+  speakerId: number | null = 0, // Valid range: 0-903 for libritts-high
   speed: number = 1.0
 ): Promise<boolean> {
   if (!isTauri()) return false;

@@ -163,6 +163,12 @@ export function useVoice() {
       return;
     }
 
+    // Guard: Don't start listening while speaking
+    if (voiceState === "speaking") {
+      console.warn("[STT] Cannot start listening while TTS is speaking");
+      return;
+    }
+
     try {
       // Start recording timer
       let duration = 0;
@@ -187,7 +193,7 @@ export function useVoice() {
       stopRecording();
       setVoiceState("idle");
     }
-  }, [voiceInputEnabled, startRecording, stopRecording, setVoiceState, updateRecordingDuration]);
+  }, [voiceInputEnabled, voiceState, startRecording, stopRecording, setVoiceState, updateRecordingDuration]);
 
   // Stop listening with Whisper and get transcription
   const stopListeningWhisper = useCallback(async (): Promise<string> => {
@@ -230,6 +236,12 @@ export function useVoice() {
   const startListeningWebSpeech = useCallback(() => {
     if (!recognitionRef.current || !voiceInputEnabled) {
       console.warn("Speech recognition not available or disabled");
+      return;
+    }
+
+    // Guard: Don't start listening while speaking
+    if (voiceState === "speaking") {
+      console.warn("[STT] Cannot start listening while TTS is speaking");
       return;
     }
 
@@ -295,6 +307,7 @@ export function useVoice() {
     }
   }, [
     voiceInputEnabled,
+    voiceState,
     startRecording,
     stopRecording,
     setVoiceState,
@@ -346,23 +359,70 @@ export function useVoice() {
     }
   }, [useWhisper, sttReady, stopListeningWhisper, stopListeningWebSpeech]);
 
+  // Clean text for TTS - remove thinking blocks and other non-speech content
+  const cleanTextForSpeech = (text: string): string => {
+    let cleaned = text;
+
+    // Remove <think>...</think> blocks (Qwen thinking format)
+    cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
+    // Remove <thinking>...</thinking> blocks
+    cleaned = cleaned.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+
+    // Remove [thinking]...[/thinking] blocks
+    cleaned = cleaned.replace(/\[thinking\][\s\S]*?\[\/thinking\]/gi, '');
+
+    // Remove **Thinking:** or **Reasoning:** sections until next header or end
+    cleaned = cleaned.replace(/\*\*(?:Thinking|Reasoning|Analysis|Let me think):\*\*[\s\S]*?(?=\*\*[A-Z]|\n\n[A-Z]|$)/gi, '');
+
+    // Remove lines starting with "Thinking:" or "Let me think"
+    cleaned = cleaned.replace(/^(?:Thinking|Let me think|Hmm|Let's see)[:\.].*$/gim, '');
+
+    // Collapse multiple newlines
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+    return cleaned.trim();
+  };
+
   // Speak text using Piper TTS (or Web Speech API fallback)
   const speak = useCallback(
-    async (text: string): Promise<void> => {
+    async (text: string, onEnd?: () => void): Promise<void> => {
       if (!voiceOutputEnabled) {
+        if (onEnd) onEnd();
         return;
       }
+
+      // Clean text first (fast operation)
+      const cleanedText = cleanTextForSpeech(text);
+
+      if (!cleanedText) {
+        console.log("[TTS] No speakable content after cleaning");
+        if (onEnd) onEnd();
+        return;
+      }
+
+      // Stop any currently playing speech (fire and forget - don't wait)
+      ttsService.stopSpeaking().catch(() => {});
 
       startSpeaking();
       setVoiceState("speaking");
 
       try {
-        await ttsService.speak(text);
+        await ttsService.speak(cleanedText);
       } catch (error) {
         console.error("TTS error:", error);
       } finally {
         stopSpeaking();
         setVoiceState("idle");
+        if (onEnd) {
+          // Longer delay to prevent mic from picking up TTS audio/echo
+          // 1.5s allows speaker audio to fully dissipate and any room echo to fade
+          console.log("[TTS] Waiting 1.5s before enabling listening...");
+          setTimeout(() => {
+            console.log("[TTS] Ready for listening now");
+            onEnd();
+          }, 1500);
+        }
       }
     },
     [voiceOutputEnabled, startSpeaking, stopSpeaking, setVoiceState]
