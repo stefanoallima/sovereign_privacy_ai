@@ -33,7 +33,10 @@ export interface LocalMessage extends SyncMeta {
   inputTokens?: number;
   outputTokens?: number;
   latencyMs?: number;
-  createdAt: Date;
+  privacyLevel?: 'local-only' | 'anonymized' | 'public';
+  piiTypesDetected?: string[];
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  createdAt?: Date;
 }
 
 export interface LocalProject extends SyncMeta {
@@ -360,7 +363,6 @@ export const dbOps = {
     // Check if already migrated
     const existingConvs = await db.conversations.count();
     if (existingConvs > 0) {
-      console.log("IndexedDB already has data, skipping migration");
       return;
     }
 
@@ -452,7 +454,6 @@ export const dbOps = {
           }
         }
 
-        console.log("Migration from localStorage complete");
       } catch (err) {
         console.error("Failed to migrate from localStorage:", err);
       }

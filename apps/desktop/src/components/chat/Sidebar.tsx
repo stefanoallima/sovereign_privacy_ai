@@ -206,7 +206,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-[hsl(var(--border)/0.5)]">
+      <div className="p-3 border-t border-[hsl(var(--border)/0.5)] space-y-1">
         <button
           onClick={onSettingsClick}
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))] hover:text-[hsl(var(--foreground))] transition-all group"
@@ -245,9 +245,8 @@ function SectionHeader({
           </span>
         )}
         <ChevronDown
-          className={`h-3.5 w-3.5 text-[hsl(var(--muted-foreground)/0.5)] transition-transform duration-200 ${
-            isCollapsed ? "-rotate-90" : ""
-          }`}
+          className={`h-3.5 w-3.5 text-[hsl(var(--muted-foreground)/0.5)] transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""
+            }`}
         />
       </div>
     </button>
@@ -314,11 +313,10 @@ function ConversationItem({
 
   return (
     <div
-      className={`group relative flex items-center rounded-xl transition-all cursor-pointer ${
-        isActive
+      className={`group relative flex items-center rounded-xl transition-all cursor-pointer ${isActive
           ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] shadow-sm"
           : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))] hover:text-[hsl(var(--foreground))]"
-      }`}
+        }`}
       onClick={onClick}
     >
       <div className="flex items-center gap-3 flex-1 px-3 py-2.5 pr-16">

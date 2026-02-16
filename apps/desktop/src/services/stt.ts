@@ -23,7 +23,6 @@ const isTauri = () => {
   const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
   const hasTauriInternals = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
   const result = hasTauri || hasTauriInternals;
-  console.log("[STT] isTauri check:", { result, hasTauri, hasTauriInternals });
   return result;
 };
 
@@ -31,16 +30,12 @@ const isTauri = () => {
  * Get STT status from Tauri backend
  */
 export async function getSttStatus(): Promise<SttStatus | null> {
-  console.log("[STT] getSttStatus called");
   if (!isTauri()) {
-    console.log("[STT] Not in Tauri, returning null");
     return null;
   }
 
   try {
-    console.log("[STT] Invoking stt_get_status...");
     const status = await invoke<SttStatus>("stt_get_status");
-    console.log("[STT] Got status:", status);
     return status;
   } catch (error) {
     console.error("[STT] Failed to get STT status:", error);
@@ -145,7 +140,6 @@ let isRecording = false;
  */
 export async function startRecording(): Promise<boolean> {
   try {
-    console.log("[STT] Starting audio recording...");
 
     // Get microphone stream
     mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -181,7 +175,6 @@ export async function startRecording(): Promise<boolean> {
     source.connect(scriptProcessor);
     scriptProcessor.connect(audioContext.destination);
 
-    console.log("[STT] Recording started, sample rate:", audioContext.sampleRate);
     return true;
   } catch (error) {
     console.error("[STT] Failed to start recording:", error);
@@ -193,7 +186,6 @@ export async function startRecording(): Promise<boolean> {
  * Stop recording and get audio as base64 WAV
  */
 export async function stopRecording(): Promise<string | null> {
-  console.log("[STT] Stopping recording...");
 
   if (!isRecording || audioSamples.length === 0) {
     console.error("[STT] No audio recorded");
@@ -206,7 +198,6 @@ export async function stopRecording(): Promise<string | null> {
   try {
     // Combine all audio samples
     const totalLength = audioSamples.reduce((acc, arr) => acc + arr.length, 0);
-    console.log("[STT] Total samples:", totalLength);
 
     if (totalLength === 0) {
       console.error("[STT] No audio samples captured");
@@ -223,14 +214,12 @@ export async function stopRecording(): Promise<string | null> {
 
     // Get the actual sample rate used
     const sampleRate = audioContext?.sampleRate || 16000;
-    console.log("[STT] Encoding WAV at", sampleRate, "Hz");
 
     // Encode as WAV
     const wavBuffer = encodeWav(combined, sampleRate);
     const wavBlob = new Blob([wavBuffer], { type: "audio/wav" });
     const base64 = await blobToBase64(wavBlob);
 
-    console.log("[STT] WAV encoded, base64 length:", base64.length);
 
     cleanup();
     return base64;

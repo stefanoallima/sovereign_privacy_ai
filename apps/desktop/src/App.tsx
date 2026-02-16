@@ -11,6 +11,9 @@ import { MobileHeader } from "@/components/layout/MobileHeader";
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
 import { useSync } from "@/hooks/useSync";
 import { useIsMobile } from "@/hooks/useMediaQuery";
+// Tax Audit is now a persona - TaxAuditLayout removed
+import { DocumentUploadWidget } from "@/components/pii/DocumentUploadWidget";
+import { useProfileStore } from "@/stores/profiles";
 
 function LoadingScreen() {
   return (
@@ -25,7 +28,8 @@ function LoadingScreen() {
 
 function MainApp() {
   const { settings } = useSettingsStore();
-  const { isInitialized: chatInitialized, initialize: initChat } = useChatStore();
+  const { isInitialized: chatInitialized, initialize: initChat, currentConversationId } = useChatStore();
+  const { isUploadModalOpen, setUploadModalOpen, people } = useProfileStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
@@ -96,7 +100,7 @@ function MainApp() {
         />
 
         {/* Main Chat Area */}
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden relative">
           <ChatWindow />
         </main>
 
@@ -106,10 +110,12 @@ function MainApp() {
           onClose={() => setIsSidebarOpen(false)}
           title="Conversations"
         >
-          <Sidebar onSettingsClick={() => {
-            setIsSidebarOpen(false);
-            setIsSettingsOpen(true);
-          }} />
+          <Sidebar
+            onSettingsClick={() => {
+              setIsSidebarOpen(false);
+              setIsSettingsOpen(true);
+            }}
+          />
         </Drawer>
 
         {/* Context Panel Bottom Sheet */}
@@ -126,6 +132,35 @@ function MainApp() {
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
         />
+
+        {/* Document Ingestion Overlay */}
+        {isUploadModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm animate-fade-in">
+            <div className="absolute inset-0" onClick={() => setUploadModalOpen(false)} />
+            <div className="relative w-full bg-[hsl(var(--card))] rounded-3xl shadow-2xl border border-[hsl(var(--border)/0.5)] overflow-hidden">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">Import PII Document</h2>
+                  <button
+                    onClick={() => setUploadModalOpen(false)}
+                    className="p-2 rounded-full hover:bg-[hsl(var(--secondary))] transition-colors"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <DocumentUploadWidget
+                  conversationId={currentConversationId || 'default'}
+                  existingPersons={people}
+                  onProcessComplete={() => {
+                    // Optional: close or show success
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -134,10 +169,12 @@ function MainApp() {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[hsl(var(--background))]">
       {/* Sidebar - Conversations and Projects */}
-      <Sidebar onSettingsClick={() => setIsSettingsOpen(true)} />
+      <Sidebar
+        onSettingsClick={() => setIsSettingsOpen(true)}
+      />
 
-      {/* Main Chat Area */}
-      <main className="flex flex-1 flex-col overflow-hidden">
+      {/* Main Content Area */}
+      <main className="flex flex-1 flex-col overflow-hidden relative">
         <ChatWindow />
       </main>
 
@@ -149,6 +186,35 @@ function MainApp() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
+
+      {/* Document Ingestion Overlay */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/20 backdrop-blur-sm animate-fade-in">
+          <div className="absolute inset-0" onClick={() => setUploadModalOpen(false)} />
+          <div className="relative w-full max-w-2xl bg-[hsl(var(--card))] rounded-3xl shadow-2xl border border-[hsl(var(--border)/0.5)] overflow-hidden">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Import PII Document</h2>
+                <button
+                  onClick={() => setUploadModalOpen(false)}
+                  className="p-2 rounded-full hover:bg-[hsl(var(--secondary))] transition-colors"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <DocumentUploadWidget
+                conversationId={currentConversationId || 'default'}
+                existingPersons={people}
+                onProcessComplete={() => {
+                  // Optional: close or show success
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

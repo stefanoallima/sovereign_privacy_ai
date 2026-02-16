@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AILocalMind - Privacy-First AI Assistant</title>
+  <meta name="description" content="Your privacy-first AI coach that keeps your data local. Desktop assistant with local LLM, PII encryption, and hybrid cloud routing.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <div class="container">
+      <div class="nav-brand"><span>AI</span>LocalMind</div>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How It Works</a></li>
+        <li><a href="#tech">Tech Stack</a></li>
+        <li><a href="https://github.com/your-username/AILocalMind">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">Open Source &middot; MIT License</div>
+      <h1>AI that respects<br><span class="gradient">your privacy</span></h1>
+      <p>A desktop AI assistant where your personal data stays on your machine. Tax records, health info, financials &mdash; encrypted locally, never sent to the cloud.</p>
+      <div class="hero-buttons">
+        <a href="https://github.com/your-username/AILocalMind/releases" class="btn btn-primary">
+          Download for Windows
+        </a>
+        <a href="https://github.com/your-username/AILocalMind" class="btn btn-secondary">
+          View on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features">
+    <div class="container">
+      <div class="section-label">Features</div>
+      <h2 class="section-title">Privacy without compromise</h2>
+      <p class="section-desc">Every feature is built around one principle: your sensitive data never leaves your machine unless you say so.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon green">&#128274;</div>
+          <h3>Local PII Encryption</h3>
+          <p>ChaCha20-Poly1305 encryption for all sensitive data. Keys stored in your system credential manager, not in files.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon blue">&#129302;</div>
+          <h3>Local LLM via Ollama</h3>
+          <p>Run Mistral 7B or any Ollama model entirely on your machine. Zero cloud dependency for maximum privacy.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon purple">&#128101;</div>
+          <h3>Multi-Persona System</h3>
+          <p>Tax Navigator, Psychologist, Career Coach &mdash; each persona has independent privacy and routing settings.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon yellow">&#9889;</div>
+          <h3>Hybrid Cloud Routing</h3>
+          <p>When cloud AI is needed, only anonymized categorical attributes are sent. Real values stay local.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon green">&#128196;</div>
+          <h3>Document Parsing</h3>
+          <p>Ingest PDF and DOCX files with automatic PII detection. Sensitive fields are masked before processing.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon blue">&#128260;</div>
+          <h3>Re-hydration Templates</h3>
+          <p>Cloud generates responses with placeholders. Your local system fills in real values &mdash; PII never touches the network.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section id="how-it-works" style="background: rgba(18,18,26,0.5);">
+    <div class="container" style="text-align: center;">
+      <div class="section-label">How It Works</div>
+      <h2 class="section-title">The Privacy Pipeline</h2>
+      <p class="section-desc" style="margin-left: auto; margin-right: auto;">Your message goes through multiple privacy layers before any data reaches the cloud.</p>
+
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <strong>Your Message</strong>
+            <span>"I earn 62,500 and have a mortgage..."</span>
+          </div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <strong>Backend Router</strong>
+            <span>Decides: local only, cloud, or hybrid based on persona settings</span>
+          </div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <strong>Attribute Extraction</strong>
+            <span>Extracts categories: income 50k-75k, has_mortgage: true</span>
+          </div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">4</div>
+          <div class="step-text">
+            <strong>Cloud LLM</strong>
+            <span>Receives only: "User in 50k-75k bracket, has mortgage, Box 1"</span>
+          </div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">5</div>
+          <div class="step-text">
+            <strong>Re-hydration</strong>
+            <span>Fills [INCOME] placeholders with your real values locally</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section id="tech">
+    <div class="container" style="text-align: center;">
+      <div class="section-label">Built With</div>
+      <h2 class="section-title">Modern, fast, secure</h2>
+      <p class="section-desc" style="margin-left: auto; margin-right: auto;">A native desktop app with a web-tech frontend and a Rust-powered privacy engine.</p>
+
+      <div class="tech-grid">
+        <div class="tech-badge">Tauri 2</div>
+        <div class="tech-badge">React 19</div>
+        <div class="tech-badge">TypeScript</div>
+        <div class="tech-badge">Rust</div>
+        <div class="tech-badge">Zustand</div>
+        <div class="tech-badge">TailwindCSS v4</div>
+        <div class="tech-badge">Ollama</div>
+        <div class="tech-badge">Dexie (IndexedDB)</div>
+        <div class="tech-badge">ChaCha20-Poly1305</div>
+        <div class="tech-badge">LiveKit</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/your-username/AILocalMind">GitHub</a>
+        <a href="https://github.com/your-username/AILocalMind/releases">Releases</a>
+        <a href="https://github.com/your-username/AILocalMind/issues">Issues</a>
+      </div>
+      <p>MIT License &middot; 2025-2026 AILocalMind Contributors</p>
+    </div>
+  </footer>
+
+</body>
+</html>

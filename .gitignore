@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+target/
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+desktop.ini
+
+# Project-specific
+tmpclaude-*
+_bmad*/
+.agent/
+.gemini/
+models/*.onnx
+bin/*.exe
+
+# MCP
+.mcp.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Encryption keys (never commit)
+.encryption.key
+
+# Capacitor
+android/
+ios/

@@ -99,11 +99,9 @@ export class LiveKitService {
 
     // Generate properly signed token
     const token = this.config.token || await generateToken(roomName, participantName);
-    console.log('[LiveKit] Connecting with token for room:', roomName);
 
     try {
       await this.room.connect(this.config.url, token);
-      console.log('[LiveKit] Connected to room:', roomName);
     } catch (error) {
       console.error('[LiveKit] Connection error:', error);
       throw error;
@@ -124,7 +122,6 @@ export class LiveKitService {
       this.audioElement = null;
     }
 
-    console.log('[LiveKit] Disconnected');
   }
 
   /**
@@ -136,7 +133,6 @@ export class LiveKitService {
     }
 
     await this.room.localParticipant.setMicrophoneEnabled(true);
-    console.log('[LiveKit] Microphone enabled');
   }
 
   /**
@@ -148,7 +144,6 @@ export class LiveKitService {
     }
 
     await this.room.localParticipant.setMicrophoneEnabled(false);
-    console.log('[LiveKit] Microphone disabled');
   }
 
   /**
@@ -186,17 +181,14 @@ export class LiveKitService {
     if (!this.room) return;
 
     this.room.on(RoomEvent.Connected, () => {
-      console.log('[LiveKit] Room connected');
       this.callbacks.onConnected?.();
     });
 
     this.room.on(RoomEvent.Disconnected, () => {
-      console.log('[LiveKit] Room disconnected');
       this.callbacks.onDisconnected?.();
     });
 
-    this.room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
-      console.log('[LiveKit] Track subscribed:', track.kind, 'from', participant.identity);
+    this.room.on(RoomEvent.TrackSubscribed, (track, _publication, _participant) => {
 
       if (track.kind === Track.Kind.Audio) {
         // Attach audio track to an audio element for playback
@@ -205,8 +197,7 @@ export class LiveKitService {
       }
     });
 
-    this.room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
-      console.log('[LiveKit] Track unsubscribed:', track.kind, 'from', participant.identity);
+    this.room.on(RoomEvent.TrackUnsubscribed, (track, _publication, _participant) => {
 
       if (track.kind === Track.Kind.Audio) {
         track.detach();
@@ -214,12 +205,10 @@ export class LiveKitService {
     });
 
     this.room.on(RoomEvent.ParticipantConnected, (participant) => {
-      console.log('[LiveKit] Participant joined:', participant.identity);
       this.callbacks.onParticipantJoined?.(participant);
     });
 
     this.room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-      console.log('[LiveKit] Participant left:', participant.identity);
       this.callbacks.onParticipantLeft?.(participant);
     });
 
@@ -228,9 +217,6 @@ export class LiveKitService {
       this.callbacks.onError?.(error);
     });
 
-    this.room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
-      console.log('[LiveKit] Connection quality changed:', quality, 'for', participant.identity);
-    });
   }
 
   /**
@@ -248,7 +234,6 @@ export class LiveKitService {
 
     // Attach track to audio element
     track.attach(this.audioElement);
-    console.log('[LiveKit] Audio track attached to element');
   }
 
   /**

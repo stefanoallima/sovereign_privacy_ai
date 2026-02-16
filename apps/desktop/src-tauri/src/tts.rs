@@ -286,7 +286,7 @@ impl PiperTts {
         for char in text.chars() {
             current.push(char);
             // Split on sentence-ending punctuation followed by space or end
-            if (char == '.' || char == '!' || char == '?') {
+            if char == '.' || char == '!' || char == '?' {
                 let trimmed = current.trim().to_string();
                 if !trimmed.is_empty() && trimmed.len() > 2 {
                     sentences.push(trimmed);

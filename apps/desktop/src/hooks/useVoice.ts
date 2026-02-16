@@ -103,13 +103,10 @@ export function useVoice() {
       if (status) {
         if (status.piper_installed && status.voice_installed) {
           setTtsReady(true);
-          console.log("Piper TTS ready:", status.current_voice);
         } else {
-          console.log("Initializing Piper TTS (downloading if needed)...");
           const newStatus = await ttsService.initializeTts();
           if (newStatus?.piper_installed && newStatus?.voice_installed) {
             setTtsReady(true);
-            console.log("Piper TTS initialized successfully");
           }
         }
       }
@@ -131,15 +128,12 @@ export function useVoice() {
           setSttReady(true);
           setUseWhisper(true);
           setIsSupported(true);
-          console.log("Whisper STT ready:", status.current_config);
         } else {
-          console.log("Initializing Whisper STT (downloading if needed)...");
           const newStatus = await sttService.initializeStt();
           if (newStatus?.whisper_installed && newStatus?.model_installed) {
             setSttReady(true);
             setUseWhisper(true);
             setIsSupported(true);
-            console.log("Whisper STT initialized successfully");
           }
         }
       } else {
@@ -396,7 +390,6 @@ export function useVoice() {
       const cleanedText = cleanTextForSpeech(text);
 
       if (!cleanedText) {
-        console.log("[TTS] No speakable content after cleaning");
         if (onEnd) onEnd();
         return;
       }
@@ -417,9 +410,7 @@ export function useVoice() {
         if (onEnd) {
           // Longer delay to prevent mic from picking up TTS audio/echo
           // 1.5s allows speaker audio to fully dissipate and any room echo to fade
-          console.log("[TTS] Waiting 1.5s before enabling listening...");
           setTimeout(() => {
-            console.log("[TTS] Ready for listening now");
             onEnd();
           }, 1500);
         }

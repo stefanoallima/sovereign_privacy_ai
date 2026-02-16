@@ -5,6 +5,7 @@ import {
   CreateContextDialog,
   CreateProjectDialog,
 } from "@/components/dialogs";
+import { PersonaConfigPage } from "@/components/personas";
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,8 +18,12 @@ import {
   Clock,
   Coins,
   ChevronDown,
-  LayoutGrid
+  LayoutGrid,
+  Settings,
+  Shield,
+  Plane,
 } from "lucide-react";
+import { PIIProfileCard } from "@/components/profile/PIIProfileCard";
 
 export function ContextPanel() {
   const [isOpen, setIsOpen] = useState(true);
@@ -27,9 +32,10 @@ export function ContextPanel() {
   const [showPersonaDialog, setShowPersonaDialog] = useState(false);
   const [showContextDialog, setShowContextDialog] = useState(false);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [configPersonaId, setConfigPersonaId] = useState<string | null>(null);
 
   const { personas, selectedPersonaId, selectPersona } = usePersonasStore();
-  const { models, getEnabledModels } = useSettingsStore();
+  const { models, getEnabledModels, settings, toggleAirplaneMode } = useSettingsStore();
   const {
     contexts,
     projects,
@@ -94,26 +100,46 @@ export function ContextPanel() {
             <CollapsibleSection title="Persona" icon={<Users className="h-3.5 w-3.5" />} defaultOpen>
               <div className="space-y-1.5">
                 {personas.map((persona) => (
-                  <button
+                  <div
                     key={persona.id}
-                    onClick={() => selectPersona(persona.id)}
-                    className={`group w-full rounded-xl px-3 py-3 text-left transition-all duration-200 ${persona.id === selectedPersonaId
-                        ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] shadow-sm ring-1 ring-[hsl(var(--border))]"
-                        : "hover:bg-[hsl(var(--secondary)/0.5)] hover:pl-4"
+                    className={`group relative w-full rounded-xl px-3 py-3 text-left transition-all duration-200 ${persona.id === selectedPersonaId
+                      ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] shadow-sm ring-1 ring-[hsl(var(--border))]"
+                      : "hover:bg-[hsl(var(--secondary)/0.5)]"
                       }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl group-hover:scale-110 transition-transform duration-200">{persona.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className={`font-medium text-sm ${persona.id === selectedPersonaId ? "" : "text-[hsl(var(--foreground))]"}`}>
-                          {persona.name}
-                        </div>
-                        <div className={`text-xs truncate mt-0.5 ${persona.id === selectedPersonaId ? "opacity-80" : "text-[hsl(var(--muted-foreground))]"}`}>
-                          {persona.description}
+                    <button
+                      onClick={() => selectPersona(persona.id)}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl group-hover:scale-110 transition-transform duration-200">{persona.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-medium text-sm ${persona.id === selectedPersonaId ? "" : "text-[hsl(var(--foreground))]"}`}>
+                              {persona.name}
+                            </span>
+                            {persona.requiresPIIVault && (
+                              <Shield size={12} className="text-green-600 shrink-0" />
+                            )}
+                          </div>
+                          <div className={`text-xs truncate mt-0.5 ${persona.id === selectedPersonaId ? "opacity-80" : "text-[hsl(var(--muted-foreground))]"}`}>
+                            {persona.description}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                    {/* Settings button - appears on hover */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfigPersonaId(persona.id);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[hsl(var(--background)/0.5)] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all"
+                      title="Configure persona"
+                    >
+                      <Settings size={14} />
+                    </button>
+                  </div>
                 ))}
               </div>
               <button
@@ -154,11 +180,24 @@ export function ContextPanel() {
                 New Project
               </button>
             </CollapsibleSection>
+
+            {/* Privacy Shield - Moved from absolute/floating to context panel */}
+            <CollapsibleSection title="Privacy Shield" icon={<Shield className="h-3.5 w-3.5" />} defaultOpen>
+              <PIIProfileCard />
+            </CollapsibleSection>
+
           </>
         ) : (
           <>
             {/* Model Selection - Dropdown Style */}
             <CollapsibleSection title="Model Configuration" icon={<Cpu className="h-3.5 w-3.5" />} defaultOpen>
+              {/* Airplane Mode indicator */}
+              {settings.airplaneMode && (
+                <div className="mb-3 flex items-center gap-2 px-2 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <Plane size={12} className="text-blue-500" />
+                  <span className="text-xs text-blue-600 font-medium">Local Models Only (Airplane Mode)</span>
+                </div>
+              )}
               <div className="relative">
                 <select
                   value={selectedModelId}
@@ -168,7 +207,7 @@ export function ContextPanel() {
                 >
                   {enabledModels.map((model) => (
                     <option key={model.id} value={model.id}>
-                      {model.name}
+                      {model.provider === 'ollama' ? '🖥️ ' : '☁️ '}{model.name}
                     </option>
                   ))}
                 </select>
@@ -261,6 +300,43 @@ export function ContextPanel() {
         )}
       </div>
 
+      {/* Quick Settings Footer with Airplane Mode Toggle */}
+      {activeTab === "general" && (
+        <div className="p-3 border-t border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.2)]">
+          {/* Airplane Mode Toggle */}
+          <button
+            onClick={toggleAirplaneMode}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
+              settings.airplaneMode
+                ? 'bg-blue-500/10 border border-blue-500/30 text-blue-600'
+                : 'bg-[hsl(var(--secondary)/0.3)] border border-transparent hover:border-[hsl(var(--border)/0.5)] text-[hsl(var(--muted-foreground))]'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Plane size={14} className={settings.airplaneMode ? 'text-blue-500' : ''} />
+              <span className="text-xs font-medium">
+                {settings.airplaneMode ? 'Airplane Mode ON' : 'Airplane Mode'}
+              </span>
+            </div>
+            <div className={`w-8 h-4 rounded-full transition-colors ${
+              settings.airplaneMode ? 'bg-blue-500' : 'bg-[hsl(var(--muted))]'
+            }`}>
+              <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform mt-0.5 ${
+                settings.airplaneMode ? 'translate-x-4 ml-0.5' : 'translate-x-0.5'
+              }`} />
+            </div>
+          </button>
+
+          {/* Status text */}
+          <div className="text-[10px] text-[hsl(var(--muted-foreground))] opacity-50 text-center font-medium mt-2">
+            {settings.airplaneMode
+              ? '✈️ All processing stays local • No cloud requests'
+              : 'Local encryption active • Cloud mode'
+            }
+          </div>
+        </div>
+      )}
+
       {/* Dialogs */}
       <CreatePersonaDialog
         isOpen={showPersonaDialog}
@@ -274,6 +350,14 @@ export function ContextPanel() {
         isOpen={showProjectDialog}
         onClose={() => setShowProjectDialog(false)}
       />
+
+      {/* Persona Configuration Page */}
+      {configPersonaId && (
+        <PersonaConfigPage
+          personaId={configPersonaId}
+          onClose={() => setConfigPersonaId(null)}
+        />
+      )}
     </aside>
   );
 }
@@ -285,8 +369,8 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
     <button
       onClick={onClick}
       className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${active
-          ? "bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-sm ring-1 ring-black/5"
-          : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary)/0.5)] hover:text-[hsl(var(--foreground))]"
+        ? "bg-[hsl(var(--background))] text-[hsl(var(--foreground))] shadow-sm ring-1 ring-black/5"
+        : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary)/0.5)] hover:text-[hsl(var(--foreground))]"
         }`}
     >
       {label}

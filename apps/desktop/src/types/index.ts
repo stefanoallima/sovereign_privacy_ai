@@ -1,7 +1,7 @@
 // LLM Model Configuration
 export interface LLMModel {
   id: string;
-  provider: "nebius";
+  provider: "nebius" | "ollama";
   apiModelId: string;
   name: string;
   contextWindow: number;
@@ -38,6 +38,10 @@ export interface AppSettings {
   saveAudioRecordings: boolean;
   encryptLocalData: boolean;
 
+  // Airplane Mode (fully local, no cloud requests)
+  airplaneMode: boolean;
+  airplaneModeModel: string; // Ollama model to use in airplane mode
+
   // UI
   theme: "light" | "dark" | "system";
   showTokenCounts: boolean;
@@ -59,6 +63,13 @@ export interface Persona {
   isBuiltIn: boolean;
   createdAt: Date;
   updatedAt: Date;
+  // Privacy-first LLM backend configuration
+  enable_local_anonymizer?: boolean;
+  preferred_backend?: 'nebius' | 'ollama' | 'hybrid';
+  anonymization_mode?: 'none' | 'optional' | 'required';
+  local_ollama_model?: string;
+  // PII Vault requirement (for personas like Tax Advisor)
+  requiresPIIVault?: boolean;
 }
 
 // Project
@@ -97,7 +108,6 @@ export interface Conversation {
   updatedAt: Date;
 }
 
-// Message
 export interface Message {
   id: string;
   conversationId: string;
@@ -110,6 +120,10 @@ export interface Message {
   outputTokens?: number;
   latencyMs?: number;
   createdAt: Date;
+  // Privacy
+  privacyLevel?: 'local-only' | 'anonymized' | 'public';
+  piiTypesDetected?: string[];
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 // Knowledge Base

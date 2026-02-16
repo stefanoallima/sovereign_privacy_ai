@@ -1,70 +1,66 @@
-# Project Development Environment
-
-## IMPORTANT: Windows Native Development (NO WSL)
-
-This project is developed on **Windows native** - do NOT use WSL, Linux commands, or Unix paths.
-
-## Toolchain Paths (Windows)
-
-### Rust & Cargo
-- **Location**: `C:\Users\tucan\.cargo\bin\`
-- **Rust version**: 1.92.0
-- **Cargo version**: 1.92.0
-- **Executables**:
-  - `C:\Users\tucan\.cargo\bin\rustc.exe`
-  - `C:\Users\tucan\.cargo\bin\cargo.exe`
-
-**IMPORTANT**: Cargo is NOT in the default PATH. Before running any Rust/Cargo commands, add to PATH:
-```powershell
-$env:Path = $env:Path + ";C:\Users\tucan\.cargo\bin"
-```
-
-### Tauri CLI
-- **Version**: 2.9.6
-- **Location**: Project dependency (not global)
-- **How to run**: From `apps/desktop` folder via pnpm:
-```powershell
-cd C:\Users\tucan\Documents\stefano\hackaton\huggingface_gradio\private_personal_assistant\apps\desktop
-pnpm tauri <command>
-```
-
-### Node.js & pnpm
-- **Node.js**: v22.14.0
-- **pnpm**: v10.27.0
+# AILocalMind - Development Guide
 
 ## Build Commands
 
-To build the Tauri desktop app:
-```powershell
-$env:Path = $env:Path + ";C:\Users\tucan\.cargo\bin"
-cd C:\Users\tucan\Documents\stefano\hackaton\huggingface_gradio\private_personal_assistant\apps\desktop
-pnpm tauri build
-```
+```bash
+cd apps/desktop
 
-To run in development mode:
-```powershell
-$env:Path = $env:Path + ";C:\Users\tucan\.cargo\bin"
-cd C:\Users\tucan\Documents\stefano\hackaton\huggingface_gradio\private_personal_assistant\apps\desktop
+# Development
+pnpm install
 pnpm tauri dev
+
+# Production build
+pnpm tauri build
+
+# Run Rust tests
+cd src-tauri && cargo test
 ```
 
----
+## Prerequisites
 
-<!-- OPENSPEC:START -->
-# OpenSpec Instructions
+- Node.js 22+, pnpm 10+
+- Rust 1.75+ (via rustup)
+- Ollama (for local LLM features)
 
-These instructions are for AI assistants working in this project.
+## Architecture
 
-Always open `@/openspec/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
+Privacy-first AI desktop assistant built with Tauri 2 + React 19 + Rust.
 
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
+### Key modules (Rust backend)
 
-Keep this managed block so 'openspec update' can refresh the instructions.
+| Module | Purpose |
+|--------|---------|
+| `ollama.rs` | Ollama HTTP client |
+| `crypto.rs` | ChaCha20-Poly1305 encryption |
+| `anonymization.rs` | PII detection & replacement |
+| `attribute_extraction.rs` | Categorical attribute extraction |
+| `rehydration.rs` | Template filling with real values |
+| `backend_routing.rs` | Per-persona backend selection |
+| `profiles.rs` | User profile management |
+| `tax_knowledge.rs` | Dutch tax domain knowledge |
 
-<!-- OPENSPEC:END -->
+### Privacy pipeline
+
+```
+User Message -> Backend Router -> Attribute Extraction -> Cloud LLM (safe prompt) -> Re-hydration -> Response
+```
+
+PII never leaves the machine. Cloud receives only categorical attributes (income bracket, employment type).
+
+### Backend options per persona
+
+- `nebius` - Direct cloud API (fastest)
+- `ollama` - Local inference (maximum privacy)
+- `hybrid` - Local anonymization + cloud API (balanced)
+
+## Testing
+
+```bash
+cd apps/desktop/src-tauri
+cargo test                              # All tests
+cargo test crypto::tests                # Encryption
+cargo test anonymization::tests         # PII handling
+cargo test attribute_extraction::tests  # Attribute extraction
+cargo test rehydration::tests           # Template filling
+cargo test backend_routing::tests       # Routing logic
+```
