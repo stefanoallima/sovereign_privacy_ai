@@ -31,7 +31,6 @@ export function useSync() {
       if (result.errors.length > 0) {
         console.warn("Sync completed with errors:", result.errors);
       } else {
-        console.log(`Sync complete: pushed ${result.pushed}, pulled ${result.pulled}`);
       }
     } catch (error) {
       console.error("Sync failed:", error);

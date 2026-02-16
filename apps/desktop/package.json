@@ -1,7 +1,15 @@
 {
-  "name": "private-assistant",
+  "name": "ailocalmind",
   "private": true,
   "version": "0.1.0",
+  "description": "Privacy-first AI desktop assistant with local LLM, PII encryption, and hybrid cloud routing",
+  "author": "AILocalMind Contributors",
+  "license": "MIT",
+  "homepage": "https://github.com/your-username/AILocalMind",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/AILocalMind.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -25,6 +33,7 @@
     "@supabase/supabase-js": "^2.89.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.5.0",
     "@tauri-apps/plugin-opener": "^2",
     "dexie": "^4.2.1",
     "dexie-react-hooks": "^4.2.0",

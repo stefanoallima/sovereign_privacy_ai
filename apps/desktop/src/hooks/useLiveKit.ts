@@ -94,11 +94,9 @@ export function useLiveKit(options: UseLiveKitOptions = {}): UseLiveKitReturn {
         // Reset after a short delay when audio stops
         // (In a real implementation, track audio end event)
       },
-      onParticipantJoined: (participant: RemoteParticipant) => {
-        console.log('[useLiveKit] Agent joined:', participant.identity);
+      onParticipantJoined: (_participant: RemoteParticipant) => {
       },
-      onParticipantLeft: (participant: RemoteParticipant) => {
-        console.log('[useLiveKit] Agent left:', participant.identity);
+      onParticipantLeft: (_participant: RemoteParticipant) => {
         setIsAgentSpeaking(false);
       },
       onError: (err: Error) => {

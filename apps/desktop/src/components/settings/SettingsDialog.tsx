@@ -5,13 +5,14 @@ import { AppearanceSettings } from "./AppearanceSettings";
 import { PersonaSettings } from "./PersonaSettings";
 import { KnowledgeBaseSettings } from "./KnowledgeBaseSettings";
 import { SharedContextSettings } from "./SharedContextSettings";
+import { PrivacySettings } from "./PrivacySettings";
 
 interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type TabId = "api" | "models" | "personas" | "knowledge" | "context" | "appearance";
+type TabId = "api" | "models" | "privacy" | "personas" | "knowledge" | "context" | "appearance";
 
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<TabId>("api");
@@ -30,6 +31,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           <nav className="p-2 space-y-1 flex-1 overflow-y-auto">
             <TabButton label="API Configuration" active={activeTab === "api"} onClick={() => setActiveTab("api")} icon={<ApiIcon />} />
             <TabButton label="Models" active={activeTab === "models"} onClick={() => setActiveTab("models")} icon={<ModelIcon />} />
+            <TabButton label="Privacy & Local" active={activeTab === "privacy"} onClick={() => setActiveTab("privacy")} icon={<PrivacyIcon />} />
             <div className="my-2 border-t border-[hsl(var(--border))]" />
             <TabButton label="Personas" active={activeTab === "personas"} onClick={() => setActiveTab("personas")} icon={<PersonaIcon />} />
             <TabButton label="Knowledge Bases" active={activeTab === "knowledge"} onClick={() => setActiveTab("knowledge")} icon={<DatabaseIcon />} />
@@ -55,6 +57,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             <div className="max-w-2xl mx-auto">
               {activeTab === "api" && <ApiSettings />}
               {activeTab === "models" && <ModelSettings />}
+              {activeTab === "privacy" && <PrivacySettings />}
               {activeTab === "personas" && <PersonaSettings />}
               {activeTab === "knowledge" && <KnowledgeBaseSettings />}
               {activeTab === "context" && <SharedContextSettings />}
@@ -109,6 +112,14 @@ function ModelIcon() {
       <path d="M7 7h10" />
       <path d="M7 12h10" />
       <path d="M7 17h10" />
+    </svg>
+  )
+}
+
+function PrivacyIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
     </svg>
   )
 }

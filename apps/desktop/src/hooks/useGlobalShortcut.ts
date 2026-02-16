@@ -17,7 +17,6 @@ export function useGlobalShortcut() {
 
         // Listen for Ctrl+Space press
         const unlistenPressed = await listen("voice-shortcut-pressed", () => {
-          console.log("Voice shortcut pressed");
           if (!isRecording) {
             startRecording();
           }
@@ -25,7 +24,6 @@ export function useGlobalShortcut() {
 
         // Listen for Ctrl+Space release
         const unlistenReleased = await listen("voice-shortcut-released", () => {
-          console.log("Voice shortcut released");
           if (isRecording) {
             stopRecording();
           }

@@ -38,6 +38,7 @@ interface ChatStore {
   addMessage: (conversationId: string, message: Omit<Message, "id" | "createdAt">) => Promise<void>;
   updateStreamingContent: (content: string) => void;
   finalizeStreaming: (conversationId: string, modelId: string, inputTokens: number, outputTokens: number, latencyMs: number, personaId?: string) => Promise<void>;
+  approveMessage: (messageId: string) => Promise<void>;
   setLoading: (loading: boolean) => void;
 
   // Project actions
@@ -89,7 +90,10 @@ function toMessage(local: LocalMessage): Message {
     inputTokens: local.inputTokens,
     outputTokens: local.outputTokens,
     latencyMs: local.latencyMs,
-    createdAt: local.createdAt,
+    createdAt: local.createdAt || new Date(),
+    privacyLevel: local.privacyLevel,
+    piiTypesDetected: local.piiTypesDetected,
+    approvalStatus: local.approvalStatus,
   };
 }
 
@@ -337,6 +341,9 @@ export const useChatStore = create<ChatStore>()(
             outputTokens: message.outputTokens,
             latencyMs: message.latencyMs,
             createdAt: now,
+            privacyLevel: message.privacyLevel,
+            piiTypesDetected: message.piiTypesDetected,
+            approvalStatus: message.approvalStatus,
           },
           userId
         );
@@ -361,6 +368,7 @@ export const useChatStore = create<ChatStore>()(
       updateStreamingContent: (content) => set({ streamingContent: content }),
 
       finalizeStreaming: async (conversationId, modelId, inputTokens, outputTokens, latencyMs, personaId) => {
+        // ... (existing implementation) ...
         const { streamingContent } = get();
         if (!streamingContent) return;
 
@@ -428,6 +436,21 @@ export const useChatStore = create<ChatStore>()(
           streamingContent: "",
           isLoading: false,
         }));
+      },
+
+      approveMessage: async (messageId) => {
+        await db.messages.update(messageId, { approvalStatus: 'approved' });
+
+        // Update State
+        set((state) => {
+          const newMessages = { ...state.messages };
+          for (const convoId in newMessages) {
+            newMessages[convoId] = newMessages[convoId].map(msg =>
+              msg.id === messageId ? { ...msg, approvalStatus: 'approved' } : msg
+            );
+          }
+          return { messages: newMessages };
+        });
       },
 
       setLoading: (loading) => set({ isLoading: loading }),

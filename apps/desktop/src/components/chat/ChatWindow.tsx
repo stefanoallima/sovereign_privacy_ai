@@ -14,6 +14,8 @@ import {
   Check,
   Sparkles,
   Radio,
+  FolderKanban,
+  ChevronRight,
 } from "lucide-react";
 
 type VoiceMode = 'local' | 'livekit';
@@ -41,6 +43,7 @@ export function ChatWindow() {
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
   const [cursorPosition, setCursorPosition] = useState(0);
+  const [mentionedPersonas, setMentionedPersonas] = useState<string[]>([]); // Track mentioned persona IDs
 
   const {
     currentConversationId,
@@ -50,27 +53,92 @@ export function ChatWindow() {
     streamingContent,
     updateConversationTitle,
     createConversation,
+    projects,
   } = useChatStore();
 
   const { settings, updateSettings } = useSettingsStore();
   const { voiceInputEnabled } = useVoiceStore();
   const { personas, getPersonaById } = usePersonasStore();
-  const { sendMessage } = useChat();
+  const { sendMessage, sendMultiPersonaMessage } = useChat();
 
   const messages = getCurrentMessages();
   const conversation = getCurrentConversation();
   const persona = personas.find((p) => p.id === conversation?.personaId);
+  const project = projects.find((p) => p.id === conversation?.projectId);
   const hasApiKey = !!settings.nebiusApiKey;
   const voiceModeEnabled = voiceInputEnabled && hasApiKey;
   const currentModel = AVAILABLE_MODELS.find((m) => m.id === settings.defaultModelId) || AVAILABLE_MODELS[0];
 
-  // Filtered personas for mention menu
+  // Filtered personas for mention menu (includes @here and @all)
+  const specialMentions = [
+    { id: '_here', name: 'here', icon: '📍', description: 'All active personas in this thread', isSpecial: true },
+    { id: '_all', name: 'all', icon: '📢', description: 'All available personas', isSpecial: true },
+  ];
+
   const filteredPersonas = showMentionMenu
-    ? personas.filter(p =>
-      p.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-      p.id.toLowerCase().includes(mentionQuery.toLowerCase())
-    )
+    ? [
+        ...personas.filter(p =>
+          p.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+          p.id.toLowerCase().includes(mentionQuery.toLowerCase())
+        ),
+        ...specialMentions.filter(s =>
+          s.name.toLowerCase().includes(mentionQuery.toLowerCase())
+        )
+      ]
     : [];
+
+  // Helper to get privacy icon for a persona
+  const getPrivacyIcon = (p: any) => {
+    if (p.preferred_backend === 'ollama') return '🔒';
+    if (p.preferred_backend === 'hybrid' || p.enable_local_anonymizer) return '🔐';
+    return '⚡';
+  };
+
+  // Helper to get backend privacy mode for a persona (for MessageBubble)
+  const getBackendMode = (p: any): 'local' | 'hybrid' | 'cloud' | undefined => {
+    if (!p) return undefined;
+    if (p.preferred_backend === 'ollama') return 'local';
+    if (p.preferred_backend === 'hybrid' || p.enable_local_anonymizer) return 'hybrid';
+    return 'cloud';
+  };
+
+  // Parse all @mentions from input text
+  const parseMentionsFromInput = (text: string): string[] => {
+    const mentionRegex = /@(\w+(?:\s+\w+)?)/g;
+    const mentions: string[] = [];
+    let match;
+
+    while ((match = mentionRegex.exec(text)) !== null) {
+      const mentionName = match[1].toLowerCase();
+
+      // Check for special mentions
+      if (mentionName === 'here') {
+        // @here = all personas that have participated in this thread
+        // For now, just use the current persona
+        if (persona) mentions.push(persona.id);
+      } else if (mentionName === 'all') {
+        // @all = all personas
+        personas.forEach(p => mentions.push(p.id));
+      } else {
+        // Find matching persona by name
+        const matchedPersona = personas.find(p =>
+          p.name.toLowerCase() === mentionName ||
+          p.name.toLowerCase().startsWith(mentionName)
+        );
+        if (matchedPersona && !mentions.includes(matchedPersona.id)) {
+          mentions.push(matchedPersona.id);
+        }
+      }
+    }
+
+    return mentions;
+  };
+
+  // Update mentioned personas when input changes
+  useEffect(() => {
+    const parsed = parseMentionsFromInput(input);
+    setMentionedPersonas(parsed);
+  }, [input, personas]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -114,7 +182,6 @@ export function ChatWindow() {
   useEffect(() => {
     if (!isConversationMode && wasConversationModeOnRef.current) {
       // Clean up when conversation mode is disabled (was on, now off)
-      console.log("[ConversationMode] Mode disabled, cleaning up");
       cancelSpeech();
       stopListening();
       isSpeakingRef.current = false;
@@ -136,15 +203,12 @@ export function ChatWindow() {
       clearTimeout(recordingTimeoutRef.current);
     }
 
-    console.log("[ConversationMode] Starting to listen for user input...");
     startListening();
 
     // Auto-stop after timeout
     recordingTimeoutRef.current = window.setTimeout(async () => {
       if (conversationModeRef.current) {
-        console.log("[ConversationMode] Recording timeout, stopping and transcribing...");
         const transcription = await stopListening();
-        console.log("[ConversationMode] Got transcription:", transcription);
         // The transcription will be picked up by the auto-send effect below
       }
     }, RECORDING_DURATION_MS);
@@ -158,7 +222,6 @@ export function ChatWindow() {
     if (isConversationMode && !initialListenStartedRef.current) {
       // Conversation mode just turned ON - start listening for first user input
       initialListenStartedRef.current = true;
-      console.log("[ConversationMode] Mode enabled, starting initial listen...");
       // Small delay to let UI update
       setTimeout(() => {
         startConversationListening();
@@ -182,7 +245,6 @@ export function ChatWindow() {
     if (!isLoading && lastMessage?.role === "assistant" && lastMessage.id !== lastMessageRef.current) {
       // Prevent duplicate speak calls
       if (isSpeakingRef.current) {
-        console.log("[ConversationMode] Already speaking, skipping duplicate");
         return;
       }
 
@@ -190,7 +252,6 @@ export function ChatWindow() {
       isSpeakingRef.current = true;
 
       // 1. Speak the response
-      console.log("[ConversationMode] Speaking assistant message...");
       speak(lastMessage.content, () => {
         isSpeakingRef.current = false;
         // 2. When speech ends, auto-start listening with timeout
@@ -224,8 +285,6 @@ export function ChatWindow() {
       lastTranscription !== lastProcessedTranscriptionRef.current
     ) {
       lastProcessedTranscriptionRef.current = lastTranscription;
-
-      console.log("[ConversationMode] Auto-sending transcription:", lastTranscription);
 
       // Auto-send
       setInput(lastTranscription);
@@ -270,7 +329,7 @@ export function ChatWindow() {
     setShowMentionMenu(false);
   };
 
-  const selectMention = (persona: any) => {
+  const selectMention = (selectedItem: any) => {
     if (!textareaRef.current) return;
 
     const textBeforeCursor = input.substring(0, cursorPosition);
@@ -279,12 +338,20 @@ export function ChatWindow() {
     const prefix = input.substring(0, lastAtRateIndex);
     const suffix = input.substring(cursorPosition);
 
-    const newInput = `${prefix}@${persona.name} ${suffix}`;
+    // Use the name for the mention text
+    const mentionText = selectedItem.isSpecial ? selectedItem.name : selectedItem.name;
+    const newInput = `${prefix}@${mentionText} ${suffix}`;
     setInput(newInput);
     setShowMentionMenu(false);
 
-    // Focus back on textarea
-    textareaRef.current.focus();
+    // Focus back on textarea and set cursor after the mention
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const newCursorPos = lastAtRateIndex + mentionText.length + 2; // +2 for @ and space
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
   };
 
   // Auto-generate title
@@ -330,8 +397,18 @@ export function ChatWindow() {
     if (!input.trim() || !currentConversationId || isLoading) return;
 
     const message = input.trim();
+    const targetPersonas = [...mentionedPersonas]; // Copy before clearing
     setInput("");
-    await sendMessage(message);
+    setMentionedPersonas([]);
+
+    // If multiple personas mentioned, use multi-persona flow
+    if (targetPersonas.length > 1) {
+      await sendMultiPersonaMessage(message, targetPersonas);
+    } else {
+      // Single persona or no mention - use regular flow
+      // Pass the single mentioned persona if available
+      await sendMessage(message, targetPersonas.length === 1 ? targetPersonas : undefined);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -430,6 +507,34 @@ export function ChatWindow() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[hsl(var(--background))] relative">
+      {/* Chat Header - Project Breadcrumb */}
+      <div className="flex items-center gap-2 px-6 py-3 border-b border-[hsl(var(--border)/0.3)] bg-[hsl(var(--card)/0.5)] backdrop-blur-sm">
+        {project ? (
+          <>
+            <FolderKanban className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+            <span className="text-sm font-medium text-[hsl(var(--muted-foreground))]">
+              {project.name}
+            </span>
+            <ChevronRight className="h-3 w-3 text-[hsl(var(--muted-foreground)/0.5)]" />
+          </>
+        ) : (
+          <>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]">
+              Quick Chat
+            </span>
+            <ChevronRight className="h-3 w-3 text-[hsl(var(--muted-foreground)/0.5)]" />
+          </>
+        )}
+        <div className="flex items-center gap-2">
+          {persona && (
+            <span className="text-lg">{persona.icon}</span>
+          )}
+          <span className="text-sm font-semibold text-[hsl(var(--foreground))]">
+            {conversation?.title || "New Chat"}
+          </span>
+        </div>
+      </div>
+
       {/* Messages Area - Centered */}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl w-full min-h-full flex flex-col pt-8 pb-64">
@@ -462,11 +567,16 @@ export function ChatWindow() {
                 return (
                   <div key={message.id} className="animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
                     <MessageBubble
+                      id={message.id}
                       role={message.role}
                       content={message.content}
                       timestamp={message.createdAt}
                       personaName={messagePersona?.name}
                       personaIcon={messagePersona?.icon}
+                      personaBackendMode={getBackendMode(messagePersona)}
+                      privacyLevel={message.privacyLevel}
+                      piiTypesDetected={message.piiTypesDetected}
+                      approvalStatus={message.approvalStatus}
                     />
                   </div>
                 );
@@ -479,6 +589,7 @@ export function ChatWindow() {
                     isStreaming
                     personaName={persona?.name}
                     personaIcon={persona?.icon}
+                    personaBackendMode={getBackendMode(persona)}
                   />
                 </div>
               )}
@@ -513,20 +624,45 @@ export function ChatWindow() {
                 </div>
               </div>
               <VoiceConversation
-                onTranscription={(text, role) => {
+                onTranscription={(_text, _role) => {
                   // When LiveKit transcribes something, we could add it to the chat
-                  console.log(`[LiveKit] ${role}: ${text}`);
                 }}
               />
             </div>
           )}
           {/* Floating Input Box */}
           <div className="relative rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] shadow-xl shadow-black/5 focus-within:shadow-2xl focus-within:shadow-[hsl(var(--primary)/0.05)] focus-within:border-[hsl(var(--ring)/0.5)] transition-all duration-300">
+            {/* Mentioned Personas Bar */}
+            {mentionedPersonas.length > 0 && (
+              <div className="absolute -top-10 left-0 right-0 flex items-center gap-2 px-4">
+                <span className="text-xs text-[hsl(var(--muted-foreground))]">Sending to:</span>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {mentionedPersonas.map(id => {
+                    const p = personas.find(persona => persona.id === id);
+                    if (!p) return null;
+                    return (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] text-xs font-medium"
+                      >
+                        <span>{p.icon}</span>
+                        <span>{p.name}</span>
+                        <span className="opacity-60">{getPrivacyIcon(p)}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Mention Menu */}
             {showMentionMenu && filteredPersonas.length > 0 && (
-              <div className="absolute bottom-full left-0 mb-2 w-64 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-2xl overflow-hidden animate-slide-up z-20">
-                <div className="p-1 max-h-48 overflow-y-auto">
-                  {filteredPersonas.map((p, i) => (
+              <div className="absolute bottom-full left-0 mb-2 w-72 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-2xl overflow-hidden animate-slide-up z-20">
+                <div className="px-3 py-2 border-b border-[hsl(var(--border)/0.5)] bg-[hsl(var(--secondary)/0.3)]">
+                  <span className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Mention a persona</span>
+                </div>
+                <div className="p-1 max-h-64 overflow-y-auto">
+                  {filteredPersonas.map((p: any, i) => (
                     <button
                       key={p.id}
                       onClick={() => selectMention(p)}
@@ -537,10 +673,17 @@ export function ChatWindow() {
                     >
                       <span className="text-lg">{p.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{p.name}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">{p.name}</span>
+                          {!p.isSpecial && (
+                            <span className="text-xs opacity-60">{getPrivacyIcon(p)}</span>
+                          )}
+                        </div>
                         <p className="text-xs opacity-60 truncate">{p.description}</p>
                       </div>
-                      {i === mentionIndex && <span className="text-xs opacity-50">Enter</span>}
+                      {i === mentionIndex && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[hsl(var(--secondary))] opacity-70">↵</span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -604,11 +747,10 @@ export function ChatWindow() {
                     {voiceModeEnabled && (
                       <button
                         onClick={() => setVoiceMode(voiceMode === 'local' ? 'livekit' : 'local')}
-                        className={`flex items-center justify-center h-10 px-2 rounded-lg transition-all text-xs font-medium ${
-                          voiceMode === 'livekit'
+                        className={`flex items-center justify-center h-10 px-2 rounded-lg transition-all text-xs font-medium ${voiceMode === 'livekit'
                             ? "bg-blue-500 text-white shadow-sm"
                             : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
-                        }`}
+                          }`}
                         title={voiceMode === 'livekit' ? "Using LiveKit (streaming)" : "Using Local voice"}
                       >
                         <Radio className="h-4 w-4 mr-1" />
@@ -636,11 +778,10 @@ export function ChatWindow() {
                     {voiceModeEnabled && voiceMode === 'livekit' && (
                       <button
                         onClick={() => setShowLiveKitPanel(!showLiveKitPanel)}
-                        className={`flex items-center justify-center h-10 w-10 rounded-lg transition-all ${
-                          showLiveKitPanel
+                        className={`flex items-center justify-center h-10 w-10 rounded-lg transition-all ${showLiveKitPanel
                             ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm"
                             : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
-                        }`}
+                          }`}
                         title={showLiveKitPanel ? "Hide LiveKit panel" : "Show LiveKit voice panel"}
                       >
                         <svg

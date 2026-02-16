@@ -23,7 +23,6 @@ const isTauri = () => {
   const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
   const hasTauriInternals = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
   const result = hasTauri || hasTauriInternals;
-  console.log("[TTS] isTauri check:", { result, hasTauri, hasTauriInternals });
   return result;
 };
 
