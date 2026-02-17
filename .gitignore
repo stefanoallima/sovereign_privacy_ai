@@ -50,3 +50,9 @@ pnpm-debug.log*
 # Capacitor
 android/
 ios/
+
+# Local Netlify folder
+.netlify
+
+# Internal QA automation
+qa-automation/
