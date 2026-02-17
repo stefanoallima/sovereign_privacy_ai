@@ -1,9 +1,10 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="AILocalMind Banner" width="100%">
+  <img src="assets/banner.svg" alt="Sovereign AI Banner" width="100%">
 </p>
 
 <p align="center">
-  <strong>Your privacy-first AI coach that keeps your data local</strong>
+  <strong>Private AI Council for Privacy Sensitive Minds</strong><br>
+  <em>Run your own Board of Directors. 100% Offline.</em>
 </p>
 
 <p align="center">
@@ -24,20 +25,18 @@
 
 ---
 
-### Why AILocalMind?
+### Why Sovereign AI?
 
-AI assistants are becoming part of daily life -- but at what cost to your privacy?
+Inspired by the "AI Council" workflows of Andrej Karpathy and Andrew Ng -- where a board of specialized AI agents collaborates to solve complex problems. But there's a catch: running that workflow on ChatGPT, Claude, and Gemini means sending your tax records, health info, and legal documents to five different cloud companies.
 
-Major AI platforms are now [serving ads inside their chat interfaces](https://openai.com/index/our-approach-to-advertising-and-expanding-access/), using your conversations to target you with personalized advertising. Your tax questions, health concerns, financial plans, career doubts -- all of it feeds an ad engine. Even when providers promise they "don't sell your data," your conversations still live on their servers, subject to policy changes, data breaches, and government requests.
+**Sovereign AI gives you the same council -- on your own hardware.**
 
-**AILocalMind takes a different approach.** Your data stays on your machine. Period.
-
-- No ads. No profiling. No conversation mining.
-- Your tax records, health data, and financial details never leave your device unless you explicitly allow it.
+- Deploy a **private board of directors**: @tax-navigator, @legal-advisor, @career-coach, @creative -- each with independent privacy rules.
+- Your sensitive data **never leaves your machine** unless you explicitly approve it through the Redaction Dashboard.
 - When cloud AI is needed, only anonymized categorical attributes are sent (e.g., "income bracket: 50k-75k") -- never your actual numbers, names, or documents.
-- Enable **Airplane Mode** and everything runs locally. Zero network requests. Zero trust required.
+- Enable **Airplane Mode** and the entire council runs locally. Zero network requests. Zero trust required.
 
-**You shouldn't have to choose between a powerful AI assistant and your right to privacy.**
+**You shouldn't have to choose between a powerful AI council and your right to privacy.**
 
 <br>
 
@@ -50,10 +49,10 @@ Major AI platforms are now [serving ads inside their chat interfaces](https://op
 
 ### For users (download the app)
 
-1. Download the latest `.exe` installer from [Releases](https://github.com/your-username/AILocalMind/releases)
-2. Install and open AILocalMind
+1. Download the latest `.exe` installer from [Releases](https://github.com/your-username/Sovereign AI/releases)
+2. Install and open Sovereign AI
 3. Set up your Nebius account ([see instructions below](#nebius-account-setup))
-4. Enter your API key and endpoint in AILocalMind Settings
+4. Enter your API key and endpoint in Sovereign AI Settings
 5. Choose a persona and start chatting
 
 > **Want fully offline mode?** Install [Ollama](https://ollama.ai/), run `ollama pull mistral:7b-instruct-q5_K_M` (one-time ~5 GB download), then enable **Airplane Mode** in Settings. No Nebius account needed.
@@ -63,8 +62,8 @@ Major AI platforms are now [serving ads inside their chat interfaces](https://op
 **Prerequisites:** [Node.js](https://nodejs.org/) 22+, [pnpm](https://pnpm.io/) 10+, [Rust](https://rustup.rs/) 1.75+
 
 ```bash
-git clone https://github.com/your-username/AILocalMind.git
-cd AILocalMind/apps/desktop
+git clone https://github.com/your-username/Sovereign AI.git
+cd Sovereign AI/apps/desktop
 
 pnpm install
 cp ../../.env.example ../../.env    # then edit with your API keys
@@ -86,8 +85,8 @@ ChaCha20-Poly1305 (256-bit AEAD) encryption for all sensitive data. Keys stored 
 </td>
 <td width="50%">
 
-### &#128101; Multi-Persona System
-Tax Navigator, Psychologist, Career Coach -- each persona has independent privacy settings and LLM backend configuration.
+### &#128081; Sovereign Council
+Tax Navigator, Legal Advisor, Career Coach -- your private board of directors. Each council member has independent privacy settings and LLM backend configuration.
 
 </td>
 </tr>
@@ -182,7 +181,7 @@ The privacy pipeline ensures your sensitive data never reaches cloud LLMs:
 
 ### Prompt Transparency Review
 
-When using **hybrid** or **attributes-only** personas, AILocalMind pauses before sending anything to the cloud and shows you the exact sanitized prompt in an interactive review panel:
+When using **hybrid** or **attributes-only** personas, Sovereign AI pauses before sending anything to the cloud and shows you the exact sanitized prompt in an interactive review panel:
 
 <p align="center">
   <img src="assets/privacy-review-flow.svg" alt="Privacy pipeline with prompt review step" width="100%">
@@ -217,7 +216,7 @@ The review panel shows:
 
 ## &#129302; AI Models & Providers
 
-AILocalMind supports two modes of operation. You can switch between them at any time from the model selector in the chat input area.
+Sovereign AI supports two modes of operation. You can switch between them at any time from the model selector in the chat input area.
 
 ### Cloud Mode (default) -- Nebius Token Factory
 
@@ -231,7 +230,7 @@ The default mode uses [Nebius Token Factory](https://tokenfactory.nebius.com) as
 - **You retain full ownership** of all input data and generated content
 
 > [!CAUTION]
-> **Zero Data Retention is NOT on by default.** Without it, Nebius stores your prompts and outputs to accelerate inference via speculative decoding. If you are using AILocalMind with sensitive data, **you must enable ZDR** in your Nebius account settings before use. See setup instructions below.
+> **Zero Data Retention is NOT on by default.** Without it, Nebius stores your prompts and outputs to accelerate inference via speculative decoding. If you are using Sovereign AI with sensitive data, **you must enable ZDR** in your Nebius account settings before use. See setup instructions below.
 
 #### Nebius Account Setup
 
@@ -245,8 +244,8 @@ The default mode uses [Nebius Token Factory](https://tokenfactory.nebius.com) as
    - Navigate to the API keys section in your account
    - Create a new API key and copy it
    - See [Authentication docs](https://docs.tokenfactory.nebius.com/api-reference/introduction#authentication) for details
-4. **Configure AILocalMind**
-   - Open AILocalMind Settings
+4. **Configure Sovereign AI**
+   - Open Sovereign AI Settings
    - Paste your API key in the **Nebius API Key** field
    - Set the **API Endpoint** to:
      ```
@@ -277,7 +276,7 @@ For maximum privacy, enable **Airplane Mode** in Settings. This routes all AI re
    ```bash
    ollama pull mistral:7b-instruct-q5_K_M
    ```
-3. Enable **Airplane Mode** in AILocalMind Settings
+3. Enable **Airplane Mode** in Sovereign AI Settings
 
 **Recommended local model:**
 
@@ -404,5 +403,5 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  <sub>Built with &#128156; for people who care about their privacy</sub>
+  <sub>Built with &#128156; for people who refuse to trade privacy for intelligence</sub>
 </p>
