@@ -9,25 +9,21 @@
       <stop offset="50%" stop-color="#5a52e0"/>
       <stop offset="100%" stop-color="#4840c4"/>
     </linearGradient>
-    <linearGradient id="brainGrad" x1="200" y1="160" x2="320" y2="320" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#34d399"/>
-      <stop offset="100%" stop-color="#10b981"/>
-    </linearGradient>
-    <linearGradient id="lockGrad" x1="220" y1="280" x2="292" y2="380" gradientUnits="userSpaceOnUse">
+    <linearGradient id="crownGrad" x1="190" y1="140" x2="322" y2="280" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#fbbf24"/>
       <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="lockGrad" x1="220" y1="300" x2="292" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
     </linearGradient>
     <filter id="glow">
       <feGaussianBlur stdDeviation="8" result="blur"/>
       <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
-    <filter id="innerShadow">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feOffset dx="0" dy="2"/>
-      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
-      <feFlood flood-color="#000" flood-opacity="0.3"/>
-      <feComposite in2="SourceGraphic" operator="in"/>
-      <feComposite in="SourceGraphic"/>
+    <filter id="crownGlow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
   </defs>
 
@@ -37,46 +33,33 @@
   <!-- Outer glow ring -->
   <circle cx="256" cy="256" r="220" fill="none" stroke="#6c63ff" stroke-width="1" opacity="0.2"/>
 
-  <!-- Shield shape -->
+  <!-- Shield shape (filled subtle) -->
   <path d="M256 72 L380 140 L380 280 Q380 380 256 440 Q132 380 132 280 L132 140 Z"
-        fill="url(#shieldGrad)" opacity="0.15" filter="url(#glow)"/>
+        fill="url(#shieldGrad)" opacity="0.12" filter="url(#glow)"/>
+  <!-- Shield outline -->
   <path d="M256 88 L368 148 L368 276 Q368 368 256 424 Q144 368 144 276 L144 148 Z"
         fill="none" stroke="url(#shieldGrad)" stroke-width="3" opacity="0.8"/>
 
-  <!-- Brain / neural network icon -->
-  <!-- Left hemisphere -->
-  <path d="M216 180 Q186 180 186 210 Q176 210 176 230 Q166 235 170 255 Q166 275 180 285 Q180 305 200 310 Q210 320 230 315 Q240 325 256 320"
-        fill="none" stroke="url(#brainGrad)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
-  <!-- Right hemisphere -->
-  <path d="M296 180 Q326 180 326 210 Q336 210 336 230 Q346 235 342 255 Q346 275 332 285 Q332 305 312 310 Q302 320 282 315 Q272 325 256 320"
-        fill="none" stroke="url(#brainGrad)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
-  <!-- Center line -->
-  <line x1="256" y1="175" x2="256" y2="320" stroke="url(#brainGrad)" stroke-width="3" opacity="0.5"/>
+  <!-- Crown icon -->
+  <!-- Crown base band -->
+  <rect x="196" y="248" width="120" height="20" rx="3" fill="url(#crownGrad)" opacity="0.9" filter="url(#crownGlow)"/>
+  <!-- Crown body - 5 points -->
+  <path d="M196 248 L196 200 L224 228 L256 180 L288 228 L316 200 L316 248 Z"
+        fill="url(#crownGrad)" opacity="0.9" filter="url(#crownGlow)"/>
+  <!-- Crown jewels (3 gems at the peaks) -->
+  <circle cx="196" cy="196" r="6" fill="#6c63ff" opacity="0.9"/>
+  <circle cx="256" cy="176" r="7" fill="#6c63ff" opacity="0.9"/>
+  <circle cx="316" cy="196" r="6" fill="#6c63ff" opacity="0.9"/>
+  <!-- Crown inner highlight -->
+  <path d="M204 248 L204 210 L228 232 L256 192 L284 232 L308 210 L308 248 Z"
+        fill="none" stroke="#fef3c7" stroke-width="1" opacity="0.3"/>
 
-  <!-- Neural nodes -->
-  <circle cx="200" cy="210" r="5" fill="#34d399" opacity="0.9"/>
-  <circle cx="312" cy="210" r="5" fill="#34d399" opacity="0.9"/>
-  <circle cx="185" cy="250" r="4" fill="#34d399" opacity="0.7"/>
-  <circle cx="327" cy="250" r="4" fill="#34d399" opacity="0.7"/>
-  <circle cx="210" cy="290" r="4" fill="#34d399" opacity="0.7"/>
-  <circle cx="302" cy="290" r="4" fill="#34d399" opacity="0.7"/>
-  <circle cx="256" cy="200" r="5" fill="#34d399" opacity="0.9"/>
-  <circle cx="256" cy="260" r="5" fill="#34d399" opacity="0.9"/>
-
-  <!-- Neural connections -->
-  <line x1="200" y1="210" x2="256" y2="200" stroke="#34d399" stroke-width="1.5" opacity="0.4"/>
-  <line x1="312" y1="210" x2="256" y2="200" stroke="#34d399" stroke-width="1.5" opacity="0.4"/>
-  <line x1="185" y1="250" x2="256" y2="260" stroke="#34d399" stroke-width="1.5" opacity="0.4"/>
-  <line x1="327" y1="250" x2="256" y2="260" stroke="#34d399" stroke-width="1.5" opacity="0.4"/>
-  <line x1="200" y1="210" x2="210" y2="290" stroke="#34d399" stroke-width="1" opacity="0.3"/>
-  <line x1="312" y1="210" x2="302" y2="290" stroke="#34d399" stroke-width="1" opacity="0.3"/>
-
-  <!-- Lock icon at bottom of shield -->
-  <rect x="237" y="345" width="38" height="30" rx="4" fill="url(#lockGrad)" opacity="0.9"/>
-  <path d="M245 345 L245 335 Q245 322 256 322 Q267 322 267 335 L267 345"
+  <!-- Lock icon below crown -->
+  <rect x="237" y="310" width="38" height="30" rx="4" fill="url(#lockGrad)" opacity="0.9"/>
+  <path d="M245 310 L245 300 Q245 287 256 287 Q267 287 267 300 L267 310"
         fill="none" stroke="url(#lockGrad)" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
-  <circle cx="256" cy="358" r="4" fill="#1a1a2e"/>
-  <line x1="256" y1="361" x2="256" y2="367" stroke="#1a1a2e" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="256" cy="323" r="4" fill="#1a1a2e"/>
+  <line x1="256" y1="326" x2="256" y2="332" stroke="#1a1a2e" stroke-width="2.5" stroke-linecap="round"/>
 
   <!-- Subtle data flow particles -->
   <circle cx="150" cy="190" r="2" fill="#6c63ff" opacity="0.5"/>
