@@ -120,10 +120,16 @@ Ingest PDF and DOCX files with automatic PII detection. Sensitive fields are mas
 </td>
 </tr>
 <tr>
-<td colspan="2">
+<td>
 
 ### &#127758; Dutch Tax Knowledge
 Built-in understanding of Dutch tax concepts: Box 1/2/3, deductions, BSN validation, and more.
+
+</td>
+<td>
+
+### &#128373; Incognito Mode
+Disappearing chats that leave zero trace. Messages exist only in memory and vanish when the conversation ends or the app closes -- like browser incognito, but for AI.
 
 </td>
 </tr>
