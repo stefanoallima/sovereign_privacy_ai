@@ -31,7 +31,7 @@ Inspired by the "AI Council" workflows of Andrej Karpathy and Andrew Ng -- where
 
 **Sovereign AI gives you the same council -- on your own hardware.**
 
-- Deploy a **private board of directors**: @tax-navigator, @legal-advisor, @career-coach, @creative -- each with independent privacy rules.
+- Deploy a **private board of directors**: @tax-navigator, @legal-advisor, @financial-advisor, @career-coach, @health-coach, @personal-branding, @social-media, @real-estate, @cybersecurity, @immigration, @investment, @negotiation, @digital-twin, @creative -- each with independent privacy rules.
 - Your sensitive data **never leaves your machine** unless you explicitly approve it through the Redaction Dashboard.
 - When cloud AI is needed, only anonymized categorical attributes are sent (e.g., "income bracket: 50k-75k") -- never your actual numbers, names, or documents.
 - Enable **Airplane Mode** and the entire council runs locally. Zero network requests. Zero trust required.
@@ -41,7 +41,7 @@ Inspired by the "AI Council" workflows of Andrej Karpathy and Andrew Ng -- where
 <br>
 
 > [!WARNING]
-> **Privacy Notice:** When using **cloud mode**, your messages (after anonymization) are sent to [Nebius Token Factory](https://tokenfactory.nebius.com). **Zero Data Retention (ZDR) is NOT enabled by default** -- you must manually activate it in your Nebius account profile. Without ZDR, Nebius stores your prompts and outputs to power speculative decoding (performance optimization). With ZDR enabled, your data is never stored and never used for model training. See the [Nebius Account Setup](#nebius-account-setup) section below. For maximum privacy, use **Airplane Mode** (fully local, zero network requests).
+> **Privacy Notice:** **Cloud mode** is designed for when you need a more powerful AI model that would be impractical to run locally. You can configure any OpenAI-compatible API endpoint in Settings. We default to [Nebius Token Factory](https://tokenfactory.nebius.com) because it is **EU-based** (data centers in Finland and France) and offers a **Zero Data Retention (ZDR)** option. However, **ZDR is NOT enabled by default** -- you must manually activate it in your Nebius account settings. Without ZDR, Nebius stores your prompts and outputs to power speculative decoding (performance optimization). With ZDR enabled, your data is never stored and never used for model training. See the [Nebius Account Setup](#nebius-account-setup) section below. For maximum privacy, use **Airplane Mode** (fully local, zero network requests).
 
 <br>
 
@@ -85,8 +85,8 @@ ChaCha20-Poly1305 (256-bit AEAD) encryption for all sensitive data. Keys stored 
 </td>
 <td width="50%">
 
-### &#128081; Sovereign Council
-Tax Navigator, Legal Advisor, Career Coach -- your private board of directors. Each council member has independent privacy settings and LLM backend configuration.
+### &#128081; Sovereign Council (14 Agents)
+Tax Navigator, Legal Advisor, Financial Advisor, Career Coach, Health &amp; Wellness Coach, Personal Branding, Social Media Expert, Real Estate Advisor, Cybersecurity Advisor, Immigration Advisor, Investment Strategist, Negotiation Coach, Digital Twin, and Creative -- your private board of directors. Each council member has independent privacy settings and LLM backend configuration.
 
 </td>
 </tr>

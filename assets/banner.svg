@@ -8,23 +8,27 @@
     <linearGradient id="accentLine" x1="0" y1="0" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#6c63ff" stop-opacity="0"/>
       <stop offset="30%" stop-color="#6c63ff"/>
-      <stop offset="70%" stop-color="#34d399"/>
-      <stop offset="100%" stop-color="#34d399" stop-opacity="0"/>
+      <stop offset="70%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="shieldG" x1="80" y1="60" x2="200" y2="340" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#6c63ff"/>
       <stop offset="100%" stop-color="#4840c4"/>
     </linearGradient>
-    <linearGradient id="brainG" x1="100" y1="100" x2="180" y2="260" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#34d399"/>
-      <stop offset="100%" stop-color="#10b981"/>
-    </linearGradient>
-    <linearGradient id="lockG" x1="125" y1="245" x2="155" y2="300" gradientUnits="userSpaceOnUse">
+    <linearGradient id="crownG" x1="100" y1="90" x2="180" y2="220" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#fbbf24"/>
       <stop offset="100%" stop-color="#f59e0b"/>
     </linearGradient>
+    <linearGradient id="lockG" x1="125" y1="245" x2="155" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
     <filter id="glowB">
       <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="crownGlowB">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
       <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
     <radialGradient id="orb1" cx="50%" cy="50%">
@@ -32,8 +36,8 @@
       <stop offset="100%" stop-color="#6c63ff" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="orb2" cx="50%" cy="50%">
-      <stop offset="0%" stop-color="#34d399" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="#34d399" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
@@ -53,7 +57,7 @@
   <!-- Accent line top -->
   <line x1="0" y1="2" x2="1200" y2="2" stroke="url(#accentLine)" stroke-width="3"/>
 
-  <!-- Logo - Shield with brain + lock (positioned left) -->
+  <!-- Logo - Crown + Shield + Lock (positioned left) -->
   <g transform="translate(100, 60) scale(0.7)">
     <!-- Shield outline -->
     <path d="M140 20 L260 70 L260 190 Q260 270 140 320 Q20 270 20 190 L20 70 Z"
@@ -61,45 +65,31 @@
     <path d="M140 32 L250 78 L250 186 Q250 260 140 308 Q30 260 30 186 L30 78 Z"
           fill="none" stroke="url(#shieldG)" stroke-width="2.5" opacity="0.8"/>
 
-    <!-- Brain left -->
-    <path d="M112 100 Q88 100 88 124 Q80 124 80 140 Q72 144 76 160 Q72 176 84 184 Q84 200 100 204 Q108 212 122 208 Q130 216 140 212"
-          fill="none" stroke="url(#brainG)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowB)"/>
-    <!-- Brain right -->
-    <path d="M168 100 Q192 100 192 124 Q200 124 200 140 Q208 144 204 160 Q208 176 196 184 Q196 200 180 204 Q172 212 158 208 Q150 216 140 212"
-          fill="none" stroke="url(#brainG)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowB)"/>
-    <!-- Center -->
-    <line x1="140" y1="96" x2="140" y2="212" stroke="url(#brainG)" stroke-width="2" opacity="0.4"/>
-
-    <!-- Neural nodes -->
-    <circle cx="100" cy="124" r="3.5" fill="#34d399" opacity="0.9"/>
-    <circle cx="180" cy="124" r="3.5" fill="#34d399" opacity="0.9"/>
-    <circle cx="86" cy="156" r="3" fill="#34d399" opacity="0.7"/>
-    <circle cx="194" cy="156" r="3" fill="#34d399" opacity="0.7"/>
-    <circle cx="140" cy="114" r="3.5" fill="#34d399" opacity="0.9"/>
-    <circle cx="140" cy="168" r="3.5" fill="#34d399" opacity="0.9"/>
-
-    <!-- Connections -->
-    <line x1="100" y1="124" x2="140" y2="114" stroke="#34d399" stroke-width="1" opacity="0.35"/>
-    <line x1="180" y1="124" x2="140" y2="114" stroke="#34d399" stroke-width="1" opacity="0.35"/>
-    <line x1="86" y1="156" x2="140" y2="168" stroke="#34d399" stroke-width="1" opacity="0.35"/>
-    <line x1="194" y1="156" x2="140" y2="168" stroke="#34d399" stroke-width="1" opacity="0.35"/>
+    <!-- Crown -->
+    <rect x="94" y="170" width="92" height="16" rx="2" fill="url(#crownG)" opacity="0.9" filter="url(#crownGlowB)"/>
+    <path d="M94 170 L94 130 L117 152 L140 110 L163 152 L186 130 L186 170 Z"
+          fill="url(#crownG)" opacity="0.9" filter="url(#crownGlowB)"/>
+    <!-- Crown jewels -->
+    <circle cx="94" cy="127" r="5" fill="#6c63ff" opacity="0.9"/>
+    <circle cx="140" cy="107" r="5.5" fill="#6c63ff" opacity="0.9"/>
+    <circle cx="186" cy="127" r="5" fill="#6c63ff" opacity="0.9"/>
 
     <!-- Lock -->
-    <rect x="124" y="240" width="32" height="26" rx="3" fill="url(#lockG)" opacity="0.9"/>
-    <path d="M131 240 L131 232 Q131 221 140 221 Q149 221 149 232 L149 240"
+    <rect x="124" y="220" width="32" height="26" rx="3" fill="url(#lockG)" opacity="0.9"/>
+    <path d="M131 220 L131 212 Q131 201 140 201 Q149 201 149 212 L149 220"
           fill="none" stroke="url(#lockG)" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
-    <circle cx="140" cy="251" r="3" fill="#1a1a2e"/>
-    <line x1="140" y1="253" x2="140" y2="258" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="140" cy="231" r="3" fill="#1a1a2e"/>
+    <line x1="140" y1="233" x2="140" y2="238" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round"/>
   </g>
 
   <!-- Title text -->
   <text x="340" y="170" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="72" font-weight="800" letter-spacing="-2">
-    <tspan fill="#e4e4ef">AI</tspan><tspan fill="#6c63ff">Local</tspan><tspan fill="#e4e4ef">Mind</tspan>
+    <tspan fill="#e4e4ef">Sovereign </tspan><tspan fill="#6c63ff">AI</tspan>
   </text>
 
   <!-- Tagline -->
   <text x="342" y="215" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" fill="#8888a0" letter-spacing="0.5">
-    Your privacy-first AI coach that keeps your data local
+    Private AI Council for Privacy Sensitive Minds
   </text>
 
   <!-- Tech badges row -->

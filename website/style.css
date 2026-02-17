@@ -246,17 +246,17 @@ section {
 /* Agent Board */
 .agents-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
 }
 
 .agent-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 24px;
+  padding: 20px;
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: flex-start;
   transition: all 0.25s;
   position: relative;
@@ -652,6 +652,12 @@ footer .footer-links {
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+  .agents-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .nav-links {
     display: none;
