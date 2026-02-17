@@ -20,10 +20,11 @@ import {
   type ProcessedChatRequest,
 } from '@/services/attribute-extraction-service';
 import { makeBackendRoutingDecision, type BackendDecision } from '@/services/backend-routing-service';
+import type { Persona } from '@/types';
 
 export interface PrivacyStatus {
   /** Current privacy mode */
-  mode: 'idle' | 'processing' | 'attributes_only' | 'anonymized' | 'direct' | 'blocked' | 'local';
+  mode: 'idle' | 'processing' | 'attributes_only' | 'anonymized' | 'direct' | 'blocked' | 'local' | 'pending_review';
   /** Icon for display */
   icon: string;
   /** Short label */
@@ -36,6 +37,14 @@ export interface PrivacyStatus {
   hadFallback: boolean;
 }
 
+export interface PendingReview {
+  originalMessage: string;
+  processedPrompt: string;
+  processed: ProcessedChatRequest;
+  targetPersona: any;
+  model: any;
+}
+
 export function usePrivacyChat() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const [privacyStatus, setPrivacyStatus] = useState<PrivacyStatus>({
@@ -45,6 +54,7 @@ export function usePrivacyChat() {
     explanation: 'Waiting for message',
     hadFallback: false,
   });
+  const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
 
   const {
     currentConversationId,
@@ -83,50 +93,12 @@ export function usePrivacyChat() {
   );
 
   /**
-   * Send a message with privacy-first processing
+   * Send a single message to one persona with privacy-first processing
    */
-  const sendMessage = useCallback(
-    async (content: string) => {
-      if (!currentConversationId || !content.trim()) return;
-
-      const conversation = getCurrentConversation();
-      if (!conversation) return;
-
-      let targetPersona = getSelectedPersona();
-      const model = getModelById(conversation.modelId || settings.defaultModelId);
-
-      // Check for @mention to switch persona
-      if (content.trim().startsWith('@')) {
-        const sortedPersonas = [...personas].sort((a, b) => b.name.length - a.name.length);
-        for (const p of sortedPersonas) {
-          if (content.toLowerCase().startsWith(`@${p.name.toLowerCase()}`)) {
-            targetPersona = p;
-            if (conversation.personaId !== p.id) {
-              updateConversationPersona(currentConversationId, p.id);
-            }
-            break;
-          }
-        }
-      }
-
+  const sendSingleMessage = useCallback(
+    async (content: string, targetPersona: any, model: any) => {
       // Check airplane mode first - forces all requests to local Ollama
       const airplaneMode = isAirplaneModeActive();
-
-      if (!airplaneMode && !settings.nebiusApiKey) {
-        console.error('No API key configured and not in airplane mode');
-        return;
-      }
-
-      // Add user message
-      addMessage(currentConversationId, {
-        conversationId: currentConversationId,
-        role: 'user',
-        content: content.trim(),
-        personaId: targetPersona?.id,
-      });
-
-      setLoading(true);
-      updateStreamingContent('');
 
       // Update privacy status to processing
       setPrivacyStatus({
@@ -150,25 +122,144 @@ export function usePrivacyChat() {
         targetPersona?.preferred_backend === 'hybrid';
 
       if (hasPrivacyConfig) {
-        // Use privacy-aware processing
         await sendWithPrivacy(content, targetPersona, model);
       } else {
-        // Use standard processing (faster, for non-privacy personas)
         await sendDirect(content, targetPersona, model);
       }
+    },
+    [isAirplaneModeActive, settings, getModelById, getCurrentConversation, getCurrentMessages, contexts, currentConversationId, updateStreamingContent, finalizeStreaming, setLoading, addMessage]
+  );
+
+  /**
+   * Send a message with privacy-first processing
+   * Accepts optional mentionedPersonaIds for multi-persona routing
+   */
+  const sendMessage = useCallback(
+    async (content: string, mentionedPersonaIds?: string[]) => {
+      if (!currentConversationId || !content.trim()) return;
+
+      const conversation = getCurrentConversation();
+      if (!conversation) return;
+
+      // If multiple personas mentioned, use multi-persona flow
+      if (mentionedPersonaIds && mentionedPersonaIds.length > 1) {
+        return sendMultiPersonaMessage(content, mentionedPersonaIds);
+      }
+
+      // Determine target persona
+      let targetPersona = mentionedPersonaIds?.length === 1
+        ? personas.find(p => p.id === mentionedPersonaIds[0])
+        : getSelectedPersona();
+
+      const model = getModelById(conversation.modelId || settings.defaultModelId);
+
+      // Check for @mention to switch persona
+      if (!targetPersona || (content.trim().startsWith('@') && !mentionedPersonaIds)) {
+        const sortedPersonas = [...personas].sort((a, b) => b.name.length - a.name.length);
+        for (const p of sortedPersonas) {
+          if (content.toLowerCase().startsWith(`@${p.name.toLowerCase()}`)) {
+            targetPersona = p;
+            if (conversation.personaId !== p.id) {
+              updateConversationPersona(currentConversationId, p.id);
+            }
+            break;
+          }
+        }
+      }
+
+      if (!targetPersona) {
+        targetPersona = getSelectedPersona();
+      }
+
+      // Check airplane mode first - forces all requests to local Ollama
+      const airplaneMode = isAirplaneModeActive();
+
+      if (!airplaneMode && !settings.nebiusApiKey) {
+        console.error('No API key configured and not in airplane mode');
+        return;
+      }
+
+      // Add user message
+      addMessage(currentConversationId, {
+        conversationId: currentConversationId,
+        role: 'user',
+        content: content.trim(),
+        personaId: targetPersona?.id,
+      });
+
+      setLoading(true);
+      updateStreamingContent('');
+
+      await sendSingleMessage(content, targetPersona, model);
     },
     [
       currentConversationId,
       getCurrentConversation,
-      getCurrentMessages,
       getSelectedPersona,
       getModelById,
       settings,
       personas,
       addMessage,
+      updateConversationPersona,
       updateStreamingContent,
       setLoading,
-      contexts,
+      isAirplaneModeActive,
+      sendSingleMessage,
+    ]
+  );
+
+  /**
+   * Send message to multiple personas sequentially with privacy processing
+   */
+  const sendMultiPersonaMessage = useCallback(
+    async (content: string, targetPersonaIds: string[]) => {
+      if (!currentConversationId || !content.trim()) return;
+
+      const conversation = getCurrentConversation();
+      if (!conversation) return;
+
+      const targetPersonas = targetPersonaIds
+        .map(id => personas.find(p => p.id === id))
+        .filter((p): p is Persona => p !== undefined);
+
+      if (targetPersonas.length === 0) return;
+
+      const airplaneMode = isAirplaneModeActive();
+      if (!airplaneMode && !settings.nebiusApiKey) {
+        console.error('No API key configured and not in airplane mode');
+        return;
+      }
+
+      // Add user message
+      addMessage(currentConversationId, {
+        conversationId: currentConversationId,
+        role: 'user',
+        content: content.trim(),
+        personaId: targetPersonas[0]?.id,
+      });
+
+      setLoading(true);
+
+      // Send to each persona sequentially through privacy pipeline
+      for (const targetPersona of targetPersonas) {
+        updateStreamingContent('');
+        const model = getModelById(conversation.modelId || settings.defaultModelId);
+        await sendSingleMessage(content, targetPersona, model);
+      }
+
+      setLoading(false);
+    },
+    [
+      currentConversationId,
+      getCurrentConversation,
+      personas,
+      settings,
+      addMessage,
+      setLoading,
+      updateStreamingContent,
+      getModelById,
+      isAirplaneModeActive,
+      sendSingleMessage,
     ]
   );
 
@@ -228,7 +319,7 @@ export function usePrivacyChat() {
       // Check if Ollama is available first
       const isAvailable = await invoke<boolean>('ollama_is_available');
       if (!isAvailable) {
-        throw new Error('Ollama is not running. Please start Ollama with "ollama serve" to use Airplane Mode.');
+        throw new Error('Local model is not available. Please download the privacy engine in Settings to use Airplane Mode.');
       }
 
       // Get the selected model - check if it's an Ollama model
@@ -274,7 +365,7 @@ export function usePrivacyChat() {
       addMessage(currentConversationId!, {
         conversationId: currentConversationId!,
         role: 'assistant',
-        content: `✈️ **Airplane Mode Error**\n\n${error instanceof Error ? error.message : 'Failed to process locally'}\n\nMake sure Ollama is running: \`ollama serve\``,
+        content: `**Airplane Mode Error**\n\n${error instanceof Error ? error.message : 'Failed to process locally'}\n\nMake sure the privacy engine is downloaded in Settings.`,
       });
 
       setPrivacyStatus({
@@ -288,31 +379,21 @@ export function usePrivacyChat() {
   };
 
   /**
-   * Send with privacy-first processing
+   * Execute the cloud send for a processed privacy request.
+   * Used by both sendWithPrivacy (for non-review paths) and approveAndSend (after review).
    */
-  const sendWithPrivacy = async (content: string, targetPersona: any, model: any) => {
+  const executePrivacySend = async (
+    content: string,
+    processed: ProcessedChatRequest,
+    targetPersona: any,
+    model: any,
+    promptOverride?: string,
+  ) => {
     const startTime = Date.now();
+    const promptToSend = promptOverride ?? processed.prompt;
 
     try {
-      // Step 1: Process with privacy routing
-      const processed = await processChatWithPrivacy(content, targetPersona);
-
-      // Update privacy status based on decision
-      updatePrivacyStatusFromProcessed(processed);
-
-      // Step 2: Check if blocked
-      if (!processed.is_safe) {
-        setLoading(false);
-        addMessage(currentConversationId!, {
-          conversationId: currentConversationId!,
-          role: 'assistant',
-          content: `🚫 **Privacy Protection Active**\n\n${processed.info || 'Request blocked due to privacy requirements.'}\n\nThis persona requires privacy features that are currently unavailable. Please ensure Ollama is running or adjust persona settings.`,
-          personaId: targetPersona?.id,
-        });
-        return;
-      }
-
-      // Step 3: Build messages array
+      // Build messages array
       const messages: ChatMessage[] = [];
 
       // System prompt with privacy notice for attributes-only mode
@@ -364,15 +445,14 @@ export function usePrivacyChat() {
         messages.push({ role: msg.role, content: msg.content });
       }
 
-      // Add the processed prompt (may be attributes-only or full text)
-      messages.push({ role: 'user', content: processed.prompt });
+      // Add the prompt to send (may be edited by user during review)
+      messages.push({ role: 'user', content: promptToSend });
 
-      // Step 4: Stream from appropriate backend
+      // Stream from appropriate backend
       if (processed.backend === 'ollama') {
-        // Local processing - non-streaming for now
         const { invoke } = await import('@tauri-apps/api/core');
         const response = await invoke<string>('ollama_generate', {
-          prompt: processed.prompt,
+          prompt: promptToSend,
           model: processed.model || 'mistral:7b-instruct-q5_K_M',
         });
 
@@ -382,13 +462,12 @@ export function usePrivacyChat() {
         finalizeStreaming(
           currentConversationId!,
           model?.id || settings.defaultModelId,
-          Math.ceil(processed.prompt.length / 4),
+          Math.ceil(promptToSend.length / 4),
           Math.ceil(response.length / 4),
           latencyMs,
           targetPersona?.id
         );
       } else {
-        // Cloud processing (Nebius)
         const client = getNebiusClient(settings.nebiusApiKey, settings.nebiusApiEndpoint);
         const stream = client.streamChatCompletion({
           model: processed.model || model?.apiModelId || 'Qwen/Qwen3-32B-fast',
@@ -460,6 +539,113 @@ export function usePrivacyChat() {
       });
     }
   };
+
+  /**
+   * Send with privacy-first processing
+   */
+  const sendWithPrivacy = async (content: string, targetPersona: any, model: any) => {
+    try {
+      // Step 1: Process with privacy routing
+      const processed = await processChatWithPrivacy(content, targetPersona);
+
+      // Update privacy status based on decision
+      updatePrivacyStatusFromProcessed(processed);
+
+      // Step 2: Check if blocked
+      if (!processed.is_safe) {
+        setLoading(false);
+        addMessage(currentConversationId!, {
+          conversationId: currentConversationId!,
+          role: 'assistant',
+          content: `**Privacy Protection Active**\n\n${processed.info || 'Request blocked due to privacy requirements.'}\n\nThis persona requires privacy features that are currently unavailable. Please download the privacy engine in Settings or adjust persona settings.`,
+          personaId: targetPersona?.id,
+        });
+        return;
+      }
+
+      // Step 3: Check if this needs user review before cloud send
+      const needsReview =
+        processed.content_mode === 'attributes_only' || processed.backend === 'hybrid';
+
+      if (needsReview) {
+        // Pause for user review — set pending state
+        setPendingReview({
+          originalMessage: content,
+          processedPrompt: processed.prompt,
+          processed,
+          targetPersona,
+          model,
+        });
+        setPrivacyStatus({
+          mode: 'pending_review',
+          icon: '👁',
+          label: 'Review',
+          explanation: 'Review the prompt before sending to cloud',
+          attributesCount: processed.attributes_count,
+          hadFallback: false,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Step 4: No review needed — send immediately
+      await executePrivacySend(content, processed, targetPersona, model);
+    } catch (error) {
+      console.error('Privacy chat error:', error);
+      setLoading(false);
+      updateStreamingContent('');
+
+      addMessage(currentConversationId!, {
+        conversationId: currentConversationId!,
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`,
+      });
+
+      setPrivacyStatus({
+        mode: 'idle',
+        icon: '❌',
+        label: 'Error',
+        explanation: error instanceof Error ? error.message : 'Unknown error',
+        hadFallback: false,
+      });
+    }
+  };
+
+  /**
+   * Approve a pending review and send to cloud (optionally with edited prompt)
+   */
+  const approveAndSend = useCallback(
+    async (editedPrompt?: string) => {
+      if (!pendingReview) return;
+
+      const { originalMessage, processedPrompt, processed, targetPersona, model } = pendingReview;
+      const promptToSend = editedPrompt ?? processedPrompt;
+
+      setPendingReview(null);
+      setLoading(true);
+      updateStreamingContent('');
+
+      // Restore the privacy status from the processed result
+      updatePrivacyStatusFromProcessed(processed);
+
+      await executePrivacySend(originalMessage, processed, targetPersona, model, promptToSend);
+    },
+    [pendingReview, setLoading, updateStreamingContent]
+  );
+
+  /**
+   * Cancel a pending review — no cloud request is made
+   */
+  const cancelReview = useCallback(() => {
+    setPendingReview(null);
+    setPrivacyStatus({
+      mode: 'idle',
+      icon: '⚡',
+      label: 'Ready',
+      explanation: 'Review cancelled — no data sent to cloud',
+      hadFallback: false,
+    });
+  }, []);
 
   /**
    * Send directly without privacy processing (for non-privacy personas)
@@ -644,9 +830,13 @@ export function usePrivacyChat() {
 
   return {
     sendMessage,
+    sendMultiPersonaMessage,
     cancelStream,
     checkPrivacyStatus,
     previewMessage,
     privacyStatus,
+    pendingReview,
+    approveAndSend,
+    cancelReview,
   };
 }

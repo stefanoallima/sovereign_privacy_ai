@@ -15,7 +15,7 @@
  */
 
 use crate::db::Persona;
-use crate::ollama::OllamaClient;
+use crate::inference::LocalInference;
 use std::error::Error;
 use log::{info, warn, error};
 
@@ -114,7 +114,7 @@ pub struct ProcessingResult {
 }
 
 /// Determine which backend to use for this request based on persona configuration
-pub async fn determine_backend(persona: &Persona, ollama_client: &OllamaClient) -> Result<BackendConfig, Box<dyn Error + Send + Sync>> {
+pub async fn determine_backend(persona: &Persona, inference: &dyn LocalInference) -> Result<BackendConfig, Box<dyn Error + Send + Sync>> {
     let backend_str = persona.preferred_backend.to_lowercase();
     let backend = match backend_str.as_str() {
         "ollama" => BackendType::Ollama,
@@ -130,7 +130,7 @@ pub async fn determine_backend(persona: &Persona, ollama_client: &OllamaClient) 
 
     // Check Ollama availability if needed
     if backend == BackendType::Ollama || (backend == BackendType::Hybrid && enable_anonymization) {
-        let is_available = ollama_client.is_available().await;
+        let is_available = inference.is_available().await;
         if !is_available {
             match backend {
                 BackendType::Ollama => {
@@ -159,7 +159,7 @@ pub async fn determine_backend(persona: &Persona, ollama_client: &OllamaClient) 
 /// - Attribute-only mode recommended for maximum privacy
 pub async fn make_routing_decision(
     persona: &Persona,
-    ollama_client: &OllamaClient,
+    inference: &dyn LocalInference,
     _request_text: &str,
 ) -> Result<BackendDecision, Box<dyn Error + Send + Sync>> {
     let backend_str = persona.preferred_backend.to_lowercase();
@@ -167,7 +167,7 @@ pub async fn make_routing_decision(
     let enable_anonymization = persona.enable_local_anonymizer;
 
     // Check Ollama availability upfront
-    let ollama_available = ollama_client.is_available().await;
+    let local_available = inference.is_available().await;
 
     // Determine content mode based on privacy needs
     // For "required" mode with hybrid backend, use attributes-only for maximum privacy
@@ -207,7 +207,7 @@ pub async fn make_routing_decision(
             }
         }
         "ollama" => {
-            if !ollama_available {
+            if !local_available {
                 // Ollama not available - check if we can fallback
                 match anonymization_mode {
                     AnonymizationMode::Required => {
@@ -253,7 +253,7 @@ pub async fn make_routing_decision(
         }
         "hybrid" | _ => {
             // Hybrid: local anonymization + cloud API
-            if !ollama_available && enable_anonymization {
+            if !local_available && enable_anonymization {
                 // Can't anonymize without Ollama
                 match anonymization_mode {
                     AnonymizationMode::Required => {

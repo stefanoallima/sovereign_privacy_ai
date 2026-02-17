@@ -219,7 +219,7 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
               </p>
               {!ollamaAvailable && config.enable_local_anonymizer && (
                 <div className="mt-2 rounded-lg bg-yellow-50 border border-yellow-200 p-2 text-sm text-yellow-800">
-                  ⚠️ Ollama service is not running. This option requires Ollama to be started.
+                  Local model is not downloaded. Download the privacy engine in Settings to enable this option.
                 </div>
               )}
             </div>
@@ -280,7 +280,7 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
                   </select>
                   {!ollamaAvailable && (
                     <p className="mt-2 text-sm text-yellow-700">
-                      Models are unavailable - Ollama service is not running
+                      Local model not downloaded yet
                     </p>
                   )}
                 </div>

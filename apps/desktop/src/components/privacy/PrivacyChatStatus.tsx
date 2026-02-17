@@ -89,6 +89,13 @@ const MODE_CONFIG: Record<
     bgColor: 'bg-amber-500/10 dark:bg-amber-900/30',
     borderColor: 'border-amber-500/20',
   },
+  pending_review: {
+    icon: <Shield size={14} />,
+    label: 'Review',
+    color: 'text-amber-600 dark:text-amber-400',
+    bgColor: 'bg-amber-500/10 dark:bg-amber-900/30',
+    borderColor: 'border-amber-500/20',
+  },
 };
 
 // ==================== Main Component ====================
@@ -163,7 +170,7 @@ export const PrivacyModeExplanation: React.FC<{ mode: PrivacyStatus['mode'] }> =
   const explanations: Record<PrivacyStatus['mode'], string> = {
     idle: 'Ready to process your message with privacy protection.',
     processing: 'Analyzing your message for sensitive information...',
-    local: 'Your message will be processed entirely on your device using Ollama.',
+    local: 'Your message will be processed entirely on your device using the built-in privacy engine.',
     attributes_only:
       'Only categorical information (income bracket, employment type) is sent to the cloud. Raw values stay local.',
     anonymized:
@@ -171,6 +178,8 @@ export const PrivacyModeExplanation: React.FC<{ mode: PrivacyStatus['mode'] }> =
     blocked: 'This message contains highly sensitive data that should not be processed.',
     direct:
       'Message sent directly to cloud LLM. No sensitive information detected.',
+    pending_review:
+      'Review the sanitized prompt before it is sent to the cloud.',
   };
 
   return (

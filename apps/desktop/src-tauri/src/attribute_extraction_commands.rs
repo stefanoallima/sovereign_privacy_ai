@@ -3,23 +3,24 @@
  * Exposes privacy-first attribute extraction to the frontend
  *
  * These commands allow the frontend to:
- * 1. Extract tax attributes from user text (locally via Ollama)
+ * 1. Extract tax attributes from user text (locally via embedded LLM)
  * 2. Generate privacy-safe prompts for cloud LLM
  * 3. Process chat messages with attribute-only mode
  */
 
 use crate::attribute_extraction::{AttributeExtractor, TaxAttributes, extract_question_only};
-use crate::ollama::OllamaClient;
+use crate::inference::LocalInference;
 use crate::backend_routing::{make_routing_decision, ContentMode, BackendDecision};
 use crate::db::Persona;
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use std::sync::Mutex;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use log::info;
 
-/// State for attribute extraction (uses shared Ollama client)
+/// State for attribute extraction (uses shared inference backend)
 pub struct AttributeExtractionState {
-    pub ollama: OllamaClient,
+    pub inference: Arc<dyn LocalInference>,
     pub extractor: AttributeExtractor,
 }
 
@@ -77,7 +78,7 @@ pub struct ProcessedChatRequest {
     pub attributes_count: Option<usize>,
 }
 
-/// Extract tax attributes from user text using local Ollama
+/// Extract tax attributes from user text using local inference
 /// This is the privacy-first approach: extract categorical data locally
 #[tauri::command]
 pub async fn extract_tax_attributes(
@@ -86,22 +87,22 @@ pub async fn extract_tax_attributes(
 ) -> Result<AttributeExtractionResponse, String> {
     info!("Extracting tax attributes from text (length: {} chars)", text.len());
 
-    let (ollama, extractor) = {
-        let guard = state.lock().map_err(|e| e.to_string())?;
-        (guard.ollama.clone(), AttributeExtractor::new())
+    let (inference, extractor) = {
+        let guard = state.lock().await;
+        (guard.inference.clone(), AttributeExtractor::new())
     };
 
-    // Check if Ollama is available
-    if !ollama.is_available().await {
+    // Check if local inference is available
+    if !inference.is_available().await {
         return Ok(AttributeExtractionResponse {
             success: false,
             attributes: None,
-            error: Some("Ollama service is not available. Cannot extract attributes locally.".to_string()),
+            error: Some("Local inference is not available. Cannot extract attributes locally.".to_string()),
         });
     }
 
     // Extract attributes using local LLM
-    match extractor.extract_attributes(&text, &ollama).await {
+    match extractor.extract_attributes(&text, inference.as_ref()).await {
         Ok(attrs) => {
             let json_attrs = convert_attributes_to_json(&attrs);
             Ok(AttributeExtractionResponse {
@@ -156,13 +157,13 @@ pub async fn process_chat_with_privacy(
 ) -> Result<ProcessedChatRequest, String> {
     info!("Processing chat with privacy-first routing for persona: {}", persona.name);
 
-    let (ollama, extractor) = {
-        let guard = state.lock().map_err(|e| e.to_string())?;
-        (guard.ollama.clone(), AttributeExtractor::new())
+    let (inference, extractor) = {
+        let guard = state.lock().await;
+        (guard.inference.clone(), AttributeExtractor::new())
     };
 
     // Get backend routing decision
-    let decision = make_routing_decision(&persona, &ollama, &text)
+    let decision = make_routing_decision(&persona, inference.as_ref(), &text)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -183,20 +184,20 @@ pub async fn process_chat_with_privacy(
     match decision.content_mode {
         ContentMode::AttributesOnly => {
             // Privacy-first: extract attributes locally, only send attributes to cloud
-            if !ollama.is_available().await {
+            if !inference.is_available().await {
                 return Ok(ProcessedChatRequest {
                     prompt: String::new(),
                     backend: backend_type_to_string(&decision),
                     model: decision.model,
                     is_safe: false,
                     content_mode: "blocked".to_string(),
-                    info: Some("Attributes-only mode requires Ollama but service is unavailable".to_string()),
+                    info: Some("Attributes-only mode requires local inference but it is unavailable".to_string()),
                     attributes_count: None,
                 });
             }
 
             // Extract attributes locally
-            let attributes = extractor.extract_attributes(&text, &ollama)
+            let attributes = extractor.extract_attributes(&text, inference.as_ref())
                 .await
                 .map_err(|e| format!("Attribute extraction failed: {}", e))?;
 

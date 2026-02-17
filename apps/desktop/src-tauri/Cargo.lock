@@ -57,6 +57,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "ailocalmind"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "chacha20poly1305",
+ "chrono",
+ "directories",
+ "encoding_rs",
+ "env_logger",
+ "futures-util",
+ "hound",
+ "llama-cpp-2",
+ "log",
+ "ollama-rs",
+ "pdf",
+ "rand 0.8.5",
+ "regex",
+ "regex-lite",
+ "reqwest",
+ "rodio",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strsim",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-opener",
+ "tauri-plugin-shell",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "uuid",
+ "winapi",
+ "zeroize",
+ "zip",
+]
+
+[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -389,6 +431,8 @@ dependencies = [
  "cexpr",
  "clang-sys",
  "itertools",
+ "log",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
@@ -720,6 +764,15 @@ name = "claxon"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4bfbf56724aa9eca8afa4fcfadeb479e722935bb2a0900c2d37e0cc477af0688"
+
+[[package]]
+name = "cmake"
+version = "0.1.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75443c44cd6b379beb8c5b45d85d0773baf31cce901fe7bb252f4eff3008ef7d"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "colorchoice"
@@ -1424,6 +1477,15 @@ name = "find-msvc-tools"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "645cbb3a84e60b7531617d5ae4e57f7e27308f6445f5abf653209ea76dec8dff"
+
+[[package]]
+name = "find_cuda_helper"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9f9e65c593dd01ac77daad909ea4ad17f0d6d1776193fc8ea766356177abdad"
+dependencies = [
+ "glob",
+]
 
 [[package]]
 name = "flate2"
@@ -2673,6 +2735,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6373607a59f0be73a39b6fe456b8192fcc3585f602af20751600e974dd455e77"
 
 [[package]]
+name = "llama-cpp-2"
+version = "0.1.132"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce13ae10879183e15e093f514d52bf128901fc489a989969512526a7063088cf"
+dependencies = [
+ "enumflags2",
+ "llama-cpp-sys-2",
+ "thiserror 1.0.69",
+ "tracing",
+ "tracing-core",
+]
+
+[[package]]
+name = "llama-cpp-sys-2"
+version = "0.1.132"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fcb116a1a687f928484bcd257f811e6e0665dcb39b53a122725eca12324cf9e"
+dependencies = [
+ "bindgen",
+ "cc",
+ "cmake",
+ "find_cuda_helper",
+ "glob",
+ "walkdir",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3718,42 +3807,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
 
 [[package]]
-name = "private-assistant"
-version = "0.1.0"
+name = "prettyplease"
+version = "0.2.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "479ca8adacdd7ce8f1fb39ce9ecccbfe93a3f1344b3d0d97f20bc0196208f62b"
 dependencies = [
- "base64 0.22.1",
- "chacha20poly1305",
- "chrono",
- "directories",
- "encoding_rs",
- "env_logger",
- "futures-util",
- "hound",
- "log",
- "ollama-rs",
- "pdf",
- "rand 0.8.5",
- "regex",
- "regex-lite",
- "reqwest",
- "rodio",
- "rusqlite",
- "serde",
- "serde_json",
- "strsim",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-opener",
- "tauri-plugin-shell",
- "tempfile",
- "thiserror 2.0.17",
- "tokio",
- "uuid",
- "winapi",
- "zeroize",
- "zip",
+ "proc-macro2",
+ "syn 2.0.113",
 ]
 
 [[package]]
@@ -5715,6 +5775,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
+ "valuable",
 ]
 
 [[package]]
@@ -5922,6 +5983,12 @@ dependencies = [
  "serde_core",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "valuable"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vcpkg"

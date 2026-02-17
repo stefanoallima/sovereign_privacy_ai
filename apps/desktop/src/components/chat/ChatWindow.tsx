@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useChatStore, useVoiceStore, usePersonasStore, useSettingsStore } from "@/stores";
-import { useChat } from "@/hooks/useChat";
+import { usePrivacyChat } from "@/hooks/usePrivacyChat";
 import { useVoice } from "@/hooks/useVoice";
 import { MessageBubble } from "./MessageBubble";
+import { PromptReviewPanel } from "./PromptReviewPanel";
 import { VoiceButton } from "./VoiceButton";
 import { VoiceConversation } from "./VoiceConversation";
 import { getNebiusClient } from "@/services/nebius";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Send,
   Bot,
@@ -16,16 +18,21 @@ import {
   Radio,
   FolderKanban,
   ChevronRight,
+  Plane,
+  Download,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
 type VoiceMode = 'local' | 'livekit';
 
-const AVAILABLE_MODELS = [
-  { id: "Qwen/Qwen3-235B-A22B", name: "Qwen3 235B", description: "Most capable" },
-  { id: "Qwen/Qwen3-30B-A3B", name: "Qwen3 30B", description: "Fast & efficient" },
-  { id: "meta-llama/Llama-3.3-70B-Instruct", name: "Llama 3.3 70B", description: "Meta's best" },
-  { id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3", description: "Reasoning expert" },
-];
+interface ModelStatus {
+  is_downloaded: boolean;
+  is_loaded: boolean;
+  download_progress: number;
+  model_name: string;
+  model_size_bytes: number;
+}
 
 export function ChatWindow() {
   const [input, setInput] = useState("");
@@ -33,6 +40,8 @@ export function ChatWindow() {
   const [isConversationMode, setIsConversationMode] = useState(false);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('local');
   const [showLiveKitPanel, setShowLiveKitPanel] = useState(false);
+  const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
+  const [isDownloadingModel, setIsDownloadingModel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
@@ -56,18 +65,21 @@ export function ChatWindow() {
     projects,
   } = useChatStore();
 
-  const { settings, updateSettings } = useSettingsStore();
+  const { settings, updateSettings, getEnabledModels, getDefaultModel, isAirplaneModeActive } = useSettingsStore();
   const { voiceInputEnabled } = useVoiceStore();
   const { personas, getPersonaById } = usePersonasStore();
-  const { sendMessage, sendMultiPersonaMessage } = useChat();
+  const { sendMessage, sendMultiPersonaMessage, privacyStatus, pendingReview, approveAndSend, cancelReview } = usePrivacyChat();
 
   const messages = getCurrentMessages();
   const conversation = getCurrentConversation();
   const persona = personas.find((p) => p.id === conversation?.personaId);
   const project = projects.find((p) => p.id === conversation?.projectId);
   const hasApiKey = !!settings.nebiusApiKey;
-  const voiceModeEnabled = voiceInputEnabled && hasApiKey;
-  const currentModel = AVAILABLE_MODELS.find((m) => m.id === settings.defaultModelId) || AVAILABLE_MODELS[0];
+  const isAirplane = isAirplaneModeActive();
+  const voiceModeEnabled = voiceInputEnabled && (hasApiKey || isAirplane);
+  const availableModels = getEnabledModels();
+  const defaultModel = getDefaultModel();
+  const currentModel = defaultModel || availableModels[0] || { id: "unknown", name: "No model", provider: "nebius" as const };
 
   // Filtered personas for mention menu (includes @here and @all)
   const specialMentions = [
@@ -140,6 +152,39 @@ export function ChatWindow() {
     setMentionedPersonas(parsed);
   }, [input, personas]);
 
+  // Check privacy engine model status on mount
+  useEffect(() => {
+    invoke<ModelStatus>('get_model_status')
+      .then(setModelStatus)
+      .catch((err) => console.error('Failed to get model status:', err));
+  }, []);
+
+  // Poll during model download
+  useEffect(() => {
+    if (!isDownloadingModel) return;
+    const interval = setInterval(async () => {
+      try {
+        const status = await invoke<ModelStatus>('get_model_status');
+        setModelStatus(status);
+        if (status.is_downloaded) setIsDownloadingModel(false);
+      } catch { /* ignore polling errors */ }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isDownloadingModel]);
+
+  const handleDownloadModel = async () => {
+    setIsDownloadingModel(true);
+    try {
+      await invoke('download_default_model');
+      const status = await invoke<ModelStatus>('get_model_status');
+      setModelStatus(status);
+    } catch (err) {
+      console.error('Model download failed:', err);
+    } finally {
+      setIsDownloadingModel(false);
+    }
+  };
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -208,7 +253,7 @@ export function ChatWindow() {
     // Auto-stop after timeout
     recordingTimeoutRef.current = window.setTimeout(async () => {
       if (conversationModeRef.current) {
-        const transcription = await stopListening();
+        await stopListening();
         // The transcription will be picked up by the auto-send effect below
       }
     }, RECORDING_DURATION_MS);
@@ -442,7 +487,15 @@ export function ChatWindow() {
   };
 
   const handleModelSelect = (modelId: string) => {
-    updateSettings({ defaultModelId: modelId });
+    if (isAirplane) {
+      // In airplane mode, find the Ollama model's apiModelId and set it as airplaneModeModel
+      const ollamaModel = availableModels.find((m) => m.id === modelId);
+      if (ollamaModel) {
+        updateSettings({ airplaneModeModel: ollamaModel.apiModelId });
+      }
+    } else {
+      updateSettings({ defaultModelId: modelId });
+    }
     setShowModelSelector(false);
   };
 
@@ -467,7 +520,7 @@ export function ChatWindow() {
           )}
         </p>
 
-        {!hasApiKey && (
+        {!hasApiKey && !isAirplane && (
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 max-w-md animate-slide-up">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20">
@@ -478,17 +531,69 @@ export function ChatWindow() {
               </p>
             </div>
             <p className="text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">
-              Enter your Nebius API key in Settings to start chatting with your private AI assistant.
+              Enter your Nebius API key in Settings to start chatting, or enable Airplane Mode to use local models.
             </p>
           </div>
         )}
 
-        {hasApiKey && (
+        {/* Privacy Engine Setup Card */}
+        {modelStatus && !modelStatus.is_downloaded && (
+          <div className="rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.8)] backdrop-blur-sm p-6 max-w-md mb-6 animate-slide-up">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(var(--primary)/0.15)]">
+                <Download className="h-5 w-5 text-[hsl(var(--primary))]" />
+              </div>
+              <div>
+                <p className="font-semibold text-[hsl(var(--foreground))]">
+                  Privacy Engine
+                </p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  Built-in local AI for maximum privacy
+                </p>
+              </div>
+            </div>
+            {isDownloadingModel ? (
+              <div className="space-y-2">
+                <div className="w-full h-2 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[hsl(var(--primary))] transition-all duration-500"
+                    style={{ width: `${modelStatus.download_progress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs text-[hsl(var(--muted-foreground))]">
+                  <span className="flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Downloading...
+                  </span>
+                  <span>{modelStatus.download_progress}%</span>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleDownloadModel}
+                className="w-full py-2.5 px-4 rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-medium text-sm hover:opacity-90 transition-opacity"
+              >
+                Download Privacy Engine (~{(modelStatus.model_size_bytes / (1024 * 1024 * 1024)).toFixed(1)} GB)
+              </button>
+            )}
+          </div>
+        )}
+
+        {modelStatus?.is_downloaded && (
+          <div className="flex items-center gap-2 mb-6 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/20 animate-fade-in">
+            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-medium text-green-700 dark:text-green-400">
+              Privacy Engine Ready
+            </span>
+          </div>
+        )}
+
+        {(hasApiKey || isAirplane) && (
           <div className="grid grid-cols-2 gap-4 max-w-lg w-full animate-slide-up">
             {personas.slice(0, 4).map((p, i) => (
               <button
                 key={p.id}
-                onClick={() => void createConversation(p.id, settings.defaultModelId || AVAILABLE_MODELS[0].id)}
+                onClick={() => void createConversation(p.id, currentModel.id)}
                 className="group flex items-start gap-4 p-5 rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.8)] backdrop-blur-sm hover:border-[hsl(var(--primary)/0.5)] hover:bg-[hsl(var(--accent)/0.5)] hover:shadow-lg transition-all text-left"
                 style={{ animationDelay: `${i * 50}ms` }}
               >
@@ -630,8 +735,22 @@ export function ChatWindow() {
               />
             </div>
           )}
+          {/* Prompt Review Panel */}
+          {pendingReview && (
+            <div className="mb-4">
+              <PromptReviewPanel
+                originalMessage={pendingReview.originalMessage}
+                processedPrompt={pendingReview.processedPrompt}
+                contentMode={pendingReview.processed.content_mode}
+                attributesCount={pendingReview.processed.attributes_count}
+                privacyInfo={pendingReview.processed.info}
+                onApprove={(editedPrompt) => void approveAndSend(editedPrompt)}
+                onCancel={cancelReview}
+              />
+            </div>
+          )}
           {/* Floating Input Box */}
-          <div className="relative rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] shadow-xl shadow-black/5 focus-within:shadow-2xl focus-within:shadow-[hsl(var(--primary)/0.05)] focus-within:border-[hsl(var(--ring)/0.5)] transition-all duration-300">
+          <div className={`relative rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] shadow-xl shadow-black/5 focus-within:shadow-2xl focus-within:shadow-[hsl(var(--primary)/0.05)] focus-within:border-[hsl(var(--ring)/0.5)] transition-all duration-300 ${pendingReview ? 'opacity-40 pointer-events-none' : ''}`}>
             {/* Mentioned Personas Bar */}
             {mentionedPersonas.length > 0 && (
               <div className="absolute -top-10 left-0 right-0 flex items-center gap-2 px-4">
@@ -694,34 +813,58 @@ export function ChatWindow() {
             <div className="absolute -top-3 left-4 z-10" ref={modelSelectorRef}>
               <button
                 onClick={() => setShowModelSelector(!showModelSelector)}
-                className="flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--ring)/0.5)] shadow-sm hover:shadow-md transition-all"
+                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm hover:shadow-md transition-all ${
+                  isAirplane
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:border-amber-500/60"
+                    : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--ring)/0.5)]"
+                }`}
               >
-                <Sparkles className="h-3 w-3 text-[hsl(var(--primary))]" />
+                {isAirplane ? (
+                  <Plane className="h-3 w-3" />
+                ) : (
+                  <Sparkles className="h-3 w-3 text-[hsl(var(--primary))]" />
+                )}
                 {currentModel.name}
+                {isAirplane && <span className="text-[10px] opacity-70">LOCAL</span>}
                 <ChevronDown className={`h-3 w-3 transition-transform ${showModelSelector ? "rotate-180" : ""}`} />
               </button>
 
               {showMentionMenu && filteredPersonas.length > 0 ? null : showModelSelector && (
-                <div className="absolute bottom-full left-0 mb-2 w-64 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-2xl overflow-hidden animate-slide-up">
+                <div className="absolute bottom-full left-0 mb-2 w-72 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-2xl overflow-hidden animate-slide-up">
+                  {isAirplane && (
+                    <div className="px-3 py-2 border-b border-[hsl(var(--border)/0.5)] bg-amber-500/5">
+                      <div className="flex items-center gap-2">
+                        <Plane className="h-3 w-3 text-amber-500" />
+                        <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Airplane Mode — Local models only</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="p-2">
-                    {AVAILABLE_MODELS.map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => handleModelSelect(m.id)}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex justify-between items-center transition-all ${m.id === settings.defaultModelId
-                          ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]"
-                          : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))] hover:text-[hsl(var(--foreground))]"
-                          }`}
-                      >
-                        <div>
-                          <span className="font-medium">{m.name}</span>
-                          <span className="block text-xs opacity-70 mt-0.5">{m.description}</span>
-                        </div>
-                        {m.id === settings.defaultModelId && (
-                          <Check className="h-4 w-4 text-[hsl(var(--primary))]" />
-                        )}
-                      </button>
-                    ))}
+                    {availableModels.map((m) => {
+                      const isSelected = isAirplane
+                        ? m.apiModelId === settings.airplaneModeModel
+                        : m.id === settings.defaultModelId;
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => handleModelSelect(m.id)}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex justify-between items-center transition-all ${isSelected
+                            ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]"
+                            : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))] hover:text-[hsl(var(--foreground))]"
+                            }`}
+                        >
+                          <div>
+                            <span className="font-medium">{m.name}</span>
+                            <span className="block text-xs opacity-70 mt-0.5">
+                              {m.provider === 'ollama' ? 'Local' : m.provider} · {m.speedTier} · ctx {(m.contextWindow / 1000).toFixed(0)}k
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <Check className="h-4 w-4 text-[hsl(var(--primary))]" />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -835,6 +978,22 @@ export function ChatWindow() {
                   <span className="text-[10px] text-[hsl(var(--muted-foreground)/0.4)] hidden sm:block">
                     Shift+Enter for new line
                   </span>
+
+                  {/* Privacy Status Indicator */}
+                  {privacyStatus.mode !== 'idle' && (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-all ${
+                      privacyStatus.mode === 'processing' ? 'bg-blue-500/10 text-blue-400 animate-pulse' :
+                      privacyStatus.mode === 'pending_review' ? 'bg-amber-500/10 text-amber-400 animate-pulse' :
+                      privacyStatus.mode === 'local' ? 'bg-green-500/10 text-green-400' :
+                      privacyStatus.mode === 'attributes_only' ? 'bg-green-500/10 text-green-400' :
+                      privacyStatus.mode === 'anonymized' ? 'bg-blue-500/10 text-blue-400' :
+                      privacyStatus.mode === 'blocked' ? 'bg-red-500/10 text-red-400' :
+                      'bg-yellow-500/10 text-yellow-400'
+                    }`} title={privacyStatus.explanation}>
+                      <span>{privacyStatus.icon}</span>
+                      <span>{privacyStatus.label}</span>
+                    </span>
+                  )}
                 </div>
 
                 <button
@@ -852,7 +1011,11 @@ export function ChatWindow() {
           </div>
 
           <p className="mt-4 text-center text-[11px] text-[hsl(var(--muted-foreground)/0.5)]">
-            AI can make mistakes. Please verify important information.
+            {isAirplane ? '✈️ Airplane Mode — all data stays on your machine' :
+             persona?.preferred_backend === 'hybrid' ? '🔐 Hybrid Mode — PII stripped before cloud processing' :
+             persona?.preferred_backend === 'ollama' ? '🔒 Local Mode — all data stays on your machine' :
+             '⚡ Cloud Mode — standard processing via Nebius'}
+            {' · '}AI can make mistakes. Please verify important information.
           </p>
         </div>
       </div>

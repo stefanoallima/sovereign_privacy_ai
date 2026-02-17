@@ -10,7 +10,7 @@
  * 3. Attack surface for PII extraction
  */
 
-use crate::ollama::OllamaClient;
+use crate::inference::LocalInference;
 use serde::{Deserialize, Serialize};
 use log::info;
 use std::error::Error;
@@ -112,14 +112,14 @@ impl AttributeExtractor {
     pub async fn extract_attributes(
         &self,
         text: &str,
-        ollama_client: &OllamaClient,
+        inference: &dyn LocalInference,
     ) -> Result<TaxAttributes, Box<dyn Error + Send + Sync>> {
         info!("Extracting tax attributes from text (length: {} chars)", text.len());
 
         let prompt = self.build_extraction_prompt(text);
 
-        // Use Ollama locally to extract attributes
-        let response = ollama_client.generate_json(&prompt).await?;
+        // Use local inference to extract attributes
+        let response = inference.generate_json(&prompt).await.map_err(|e| -> Box<dyn Error + Send + Sync> { Box::new(e) })?;
 
         // Parse the JSON response into TaxAttributes
         let attributes: TaxAttributes = serde_json::from_str(&response)
