@@ -24,7 +24,8 @@ interface ChatStore {
   createConversation: (
     personaId: string,
     modelId: string,
-    projectId?: string
+    projectId?: string,
+    isIncognito?: boolean
   ) => Promise<string>;
   selectConversation: (id: string | null) => void;
   deleteConversation: (id: string) => Promise<void>;
@@ -176,7 +177,7 @@ export const useChatStore = create<ChatStore>()(
       },
 
       // Conversation actions
-      createConversation: async (personaId, modelId, projectId) => {
+      createConversation: async (personaId, modelId, projectId, isIncognito) => {
         const id = `conv-${Date.now()}`;
         const now = new Date();
         const userId = getUserId();
@@ -186,28 +187,31 @@ export const useChatStore = create<ChatStore>()(
           personaId,
           modelId,
           projectId,
-          title: "New Conversation",
+          title: isIncognito ? "Incognito Chat" : "New Conversation",
           activeContextIds: [],
           totalTokensUsed: 0,
+          isIncognito,
           createdAt: now,
           updatedAt: now,
         };
 
-        // Save to IndexedDB
-        await dbOps.createConversation(
-          {
-            id,
-            projectId,
-            personaId,
-            modelId,
-            title: "New Conversation",
-            activeContextIds: [],
-            totalTokensUsed: 0,
-            createdAt: now,
-            updatedAt: now,
-          },
-          userId
-        );
+        // Skip persistence for incognito conversations
+        if (!isIncognito) {
+          await dbOps.createConversation(
+            {
+              id,
+              projectId,
+              personaId,
+              modelId,
+              title: "New Conversation",
+              activeContextIds: [],
+              totalTokensUsed: 0,
+              createdAt: now,
+              updatedAt: now,
+            },
+            userId
+          );
+        }
 
         set((state) => ({
           conversations: [conversation, ...state.conversations],
@@ -221,8 +225,11 @@ export const useChatStore = create<ChatStore>()(
       selectConversation: (id) => set({ currentConversationId: id }),
 
       deleteConversation: async (id) => {
-        const userId = getUserId();
-        await dbOps.deleteConversation(id, userId);
+        const conv = get().conversations.find(c => c.id === id);
+        if (!conv?.isIncognito) {
+          const userId = getUserId();
+          await dbOps.deleteConversation(id, userId);
+        }
 
         set((state) => {
           const { [id]: _, ...remainingMessages } = state.messages;
@@ -238,8 +245,11 @@ export const useChatStore = create<ChatStore>()(
       },
 
       updateConversationTitle: async (id, title) => {
-        const userId = getUserId();
-        await dbOps.updateConversation(id, { title }, userId);
+        const conv = get().conversations.find(c => c.id === id);
+        if (!conv?.isIncognito) {
+          const userId = getUserId();
+          await dbOps.updateConversation(id, { title }, userId);
+        }
 
         set((state) => ({
           conversations: state.conversations.map((c) =>
@@ -319,7 +329,6 @@ export const useChatStore = create<ChatStore>()(
       addMessage: async (conversationId, message) => {
         const id = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         const now = new Date();
-        const userId = getUserId();
 
         const newMessage: Message = {
           ...message,
@@ -327,29 +336,33 @@ export const useChatStore = create<ChatStore>()(
           createdAt: now,
         };
 
-        // Save to IndexedDB
-        await dbOps.createMessage(
-          {
-            id,
-            conversationId,
-            role: message.role,
-            content: message.content,
-            audioPath: message.audioPath,
-            modelId: message.modelId,
-            personaId: message.personaId,
-            inputTokens: message.inputTokens,
-            outputTokens: message.outputTokens,
-            latencyMs: message.latencyMs,
-            createdAt: now,
-            privacyLevel: message.privacyLevel,
-            piiTypesDetected: message.piiTypesDetected,
-            approvalStatus: message.approvalStatus,
-          },
-          userId
-        );
+        // Skip persistence for incognito conversations
+        const conv = get().conversations.find(c => c.id === conversationId);
+        if (!conv?.isIncognito) {
+          const userId = getUserId();
+          await dbOps.createMessage(
+            {
+              id,
+              conversationId,
+              role: message.role,
+              content: message.content,
+              audioPath: message.audioPath,
+              modelId: message.modelId,
+              personaId: message.personaId,
+              inputTokens: message.inputTokens,
+              outputTokens: message.outputTokens,
+              latencyMs: message.latencyMs,
+              createdAt: now,
+              privacyLevel: message.privacyLevel,
+              piiTypesDetected: message.piiTypesDetected,
+              approvalStatus: message.approvalStatus,
+            },
+            userId
+          );
 
-        // Update conversation timestamp
-        await dbOps.updateConversation(conversationId, {}, userId);
+          // Update conversation timestamp
+          await dbOps.updateConversation(conversationId, {}, userId);
+        }
 
         set((state) => ({
           messages: {
@@ -368,13 +381,11 @@ export const useChatStore = create<ChatStore>()(
       updateStreamingContent: (content) => set({ streamingContent: content }),
 
       finalizeStreaming: async (conversationId, modelId, inputTokens, outputTokens, latencyMs, personaId) => {
-        // ... (existing implementation) ...
         const { streamingContent } = get();
         if (!streamingContent) return;
 
         const id = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         const now = new Date();
-        const userId = getUserId();
 
         const newMessage: Message = {
           id,
@@ -389,31 +400,34 @@ export const useChatStore = create<ChatStore>()(
           createdAt: now,
         };
 
-        // Save to IndexedDB
-        await dbOps.createMessage(
-          {
-            id,
-            conversationId,
-            role: "assistant",
-            content: streamingContent,
-            modelId,
-            personaId,
-            inputTokens,
-            outputTokens,
-            latencyMs,
-            createdAt: now,
-          },
-          userId
-        );
-
-        // Update conversation with new token count
+        // Skip persistence for incognito conversations
         const conv = get().conversations.find(c => c.id === conversationId);
-        if (conv) {
-          await dbOps.updateConversation(
-            conversationId,
-            { totalTokensUsed: conv.totalTokensUsed + inputTokens + outputTokens },
+        if (!conv?.isIncognito) {
+          const userId = getUserId();
+          await dbOps.createMessage(
+            {
+              id,
+              conversationId,
+              role: "assistant",
+              content: streamingContent,
+              modelId,
+              personaId,
+              inputTokens,
+              outputTokens,
+              latencyMs,
+              createdAt: now,
+            },
             userId
           );
+
+          // Update conversation with new token count
+          if (conv) {
+            await dbOps.updateConversation(
+              conversationId,
+              { totalTokensUsed: conv.totalTokensUsed + inputTokens + outputTokens },
+              userId
+            );
+          }
         }
 
         set((state) => ({

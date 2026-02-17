@@ -104,6 +104,7 @@ export interface Conversation {
   title: string;
   activeContextIds: string[];
   totalTokensUsed: number;
+  isIncognito?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

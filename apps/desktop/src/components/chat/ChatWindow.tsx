@@ -22,6 +22,7 @@ import {
   Download,
   CheckCircle2,
   Loader2,
+  EyeOff,
 } from "lucide-react";
 
 type VoiceMode = 'local' | 'livekit';
@@ -604,6 +605,20 @@ export function ChatWindow() {
                 </div>
               </button>
             ))}
+            {/* Incognito Chat Card */}
+            <button
+              onClick={() => void createConversation(personas[0]?.id || "psychologist", currentModel.id, undefined, true)}
+              className="group flex items-start gap-4 p-5 rounded-2xl border border-dashed border-purple-500/30 bg-purple-500/5 backdrop-blur-sm hover:border-purple-500/50 hover:bg-purple-500/10 hover:shadow-lg transition-all text-left col-span-2"
+              style={{ animationDelay: `${4 * 50}ms` }}
+            >
+              <span className="text-3xl group-hover:scale-110 transition-transform flex items-center justify-center">
+                <EyeOff className="h-8 w-8 text-purple-400" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold group-hover:text-purple-400 transition-colors">Incognito Chat</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2 mt-1">Start a private conversation that won't be saved. Messages vanish when you close or leave.</p>
+              </div>
+            </button>
           </div>
         )}
       </div>
@@ -639,6 +654,16 @@ export function ChatWindow() {
           </span>
         </div>
       </div>
+
+      {/* Incognito Banner */}
+      {conversation?.isIncognito && (
+        <div className="flex items-center gap-3 px-6 py-2.5 bg-purple-500/10 border-b border-purple-500/20">
+          <EyeOff className="h-4 w-4 text-purple-400 flex-shrink-0" />
+          <span className="text-sm font-medium text-purple-300">
+            Incognito Mode — This conversation won't be saved
+          </span>
+        </div>
+      )}
 
       {/* Messages Area - Centered */}
       <div className="flex-1 overflow-y-auto">
