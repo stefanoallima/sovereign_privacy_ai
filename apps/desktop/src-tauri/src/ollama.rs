@@ -1,3 +1,5 @@
+use crate::inference::{InferenceError, LocalInference, ModelStatus};
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use reqwest::Client;
@@ -241,6 +243,46 @@ Return ONLY valid JSON, no markdown, no extra text."#,
 
         info!("Model {} pulled successfully", model_name);
         Ok(())
+    }
+}
+
+#[async_trait]
+impl LocalInference for OllamaClient {
+    async fn is_available(&self) -> bool {
+        self.is_available().await
+    }
+
+    async fn generate(&self, prompt: &str, model: &str) -> Result<String, InferenceError> {
+        self.generate_with_model(prompt, model)
+            .await
+            .map_err(|e| InferenceError::InferenceFailed(e.to_string()))
+    }
+
+    async fn generate_json(&self, prompt: &str) -> Result<String, InferenceError> {
+        OllamaClient::generate_json(self, prompt)
+            .await
+            .map_err(|e| InferenceError::InferenceFailed(e.to_string()))
+    }
+
+    async fn ensure_model(&self, model_name: &str) -> Result<(), InferenceError> {
+        self.pull_model(model_name)
+            .await
+            .map_err(|e| InferenceError::DownloadFailed(e.to_string()))
+    }
+
+    fn default_model(&self) -> &str {
+        &self.model
+    }
+
+    async fn get_model_status(&self) -> ModelStatus {
+        let available = self.is_available().await;
+        ModelStatus {
+            is_downloaded: available,
+            is_loaded: available,
+            download_progress: if available { 100 } else { 0 },
+            model_name: self.model.clone(),
+            model_size_bytes: 0,
+        }
     }
 }
 

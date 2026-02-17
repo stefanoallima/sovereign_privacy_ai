@@ -4,8 +4,10 @@ mod tts;
 mod tts_commands;
 mod stt;
 mod stt_commands;
+mod inference;
 mod ollama;
-mod ollama_commands;
+mod inference_commands;
+mod llama_backend;
 mod crypto;
 mod anonymization;
 mod anonymization_commands;
@@ -26,8 +28,10 @@ use tts::PiperTts;
 use tts_commands::TtsState;
 use stt::WhisperStt;
 use stt_commands::SttState;
+use inference::LocalInference;
+use inference_commands::InferenceState;
 use ollama::OllamaClient;
-use ollama_commands::OllamaState;
+use llama_backend::LlamaCppBackend;
 use crypto::EncryptionKeyManager;
 use anonymization::AnonymizationService;
 use anonymization_commands::AnonymizationState;
@@ -35,7 +39,7 @@ use tax_knowledge::TaxKnowledgeBase;
 use backend_routing_commands::BackendRoutingState;
 use attribute_extraction::AttributeExtractor;
 use attribute_extraction_commands::AttributeExtractionState;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -130,8 +134,23 @@ pub fn run() {
     // Initialize STT
     let stt = WhisperStt::new().expect("Failed to initialize STT");
 
-    // Initialize Ollama client
-    let ollama = OllamaClient::new(None, None);
+    // Initialize inference backend
+    // Use AILOCALMIND_USE_OLLAMA=1 env var to fall back to Ollama (for development)
+    let inference: Arc<dyn LocalInference> = if std::env::var("AILOCALMIND_USE_OLLAMA").unwrap_or_default() == "1" {
+        eprintln!("Using Ollama backend (AILOCALMIND_USE_OLLAMA=1)");
+        Arc::new(OllamaClient::new(None, None))
+    } else {
+        match LlamaCppBackend::new() {
+            Ok(backend) => {
+                eprintln!("Using embedded llama.cpp backend");
+                Arc::new(backend)
+            }
+            Err(e) => {
+                eprintln!("Failed to initialize llama.cpp backend: {}, falling back to Ollama", e);
+                Arc::new(OllamaClient::new(None, None))
+            }
+        }
+    };
 
     // Initialize encryption key manager
     let encryption_key = EncryptionKeyManager::new()
@@ -151,16 +170,19 @@ pub fn run() {
     // Initialize tax knowledge base
     let tax_knowledge = TaxKnowledgeBase::new();
 
-    // Initialize backend routing state
+    // Initialize backend routing state (shares inference backend)
     let backend_routing = BackendRoutingState {
-        ollama: ollama.clone(),
+        inference: inference.clone(),
     };
 
-    // Initialize attribute extraction state
+    // Initialize attribute extraction state (shares inference backend)
     let attribute_extraction = AttributeExtractionState {
-        ollama: ollama.clone(),
+        inference: inference.clone(),
         extractor: AttributeExtractor::new(),
     };
+
+    // Wrap inference in state for Tauri commands
+    let inference_state = InferenceState(Arc::new(tokio::sync::Mutex::new(inference)));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -169,12 +191,12 @@ pub fn run() {
         .manage(DbState(Mutex::new(conn)))
         .manage(TtsState(Mutex::new(tts)))
         .manage(SttState(Mutex::new(stt)))
-        .manage(OllamaState(Mutex::new(ollama)))
+        .manage(inference_state)
         .manage(Mutex::new(encryption_key))
         .manage(AnonymizationState(Mutex::new(anonymization)))
         .manage(Mutex::new(tax_knowledge))
-        .manage(Mutex::new(backend_routing))
-        .manage(Mutex::new(attribute_extraction))
+        .manage(tokio::sync::Mutex::new(backend_routing))
+        .manage(tokio::sync::Mutex::new(attribute_extraction))
         .invoke_handler(tauri::generate_handler![
             // Settings
             commands::get_setting,
@@ -215,12 +237,14 @@ pub fn run() {
             stt_commands::stt_is_transcribing,
             stt_commands::stt_set_config,
             stt_commands::stt_download_model,
-            // Ollama
-            ollama_commands::ollama_is_available,
-            ollama_commands::extract_pii_from_document,
-            ollama_commands::ollama_generate,
-            ollama_commands::ollama_pull_model,
-            ollama_commands::ollama_initialize,
+            // Inference (backward-compatible command names + new commands)
+            inference_commands::ollama_is_available,
+            inference_commands::extract_pii_from_document,
+            inference_commands::ollama_generate,
+            inference_commands::ollama_pull_model,
+            inference_commands::ollama_initialize,
+            inference_commands::get_model_status,
+            inference_commands::download_default_model,
             // Anonymization
             anonymization_commands::anonymize_text,
             anonymization_commands::validate_anonymization,

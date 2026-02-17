@@ -27,7 +27,7 @@ interface MessageBubbleProps {
 function getBackendPrivacyIcon(mode?: BackendPrivacyMode): { icon: string; label: string; color: string } {
   switch (mode) {
     case 'local':
-      return { icon: '🔒', label: 'Local (Ollama)', color: 'text-green-600' };
+      return { icon: '🔒', label: 'Local (Built-in)', color: 'text-green-600' };
     case 'hybrid':
       return { icon: '🔐', label: 'Hybrid (Anonymized)', color: 'text-blue-600' };
     case 'cloud':

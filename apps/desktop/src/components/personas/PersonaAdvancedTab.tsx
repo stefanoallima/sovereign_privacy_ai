@@ -1,7 +1,7 @@
 /**
  * Persona Advanced Tab
  *
- * Advanced settings including backend routing, Ollama model selection,
+ * Advanced settings including backend routing, local model selection,
  * and detailed configuration options.
  */
 
@@ -13,7 +13,6 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
-  ExternalLink,
 } from 'lucide-react';
 import type { Persona } from '@/types';
 import {
@@ -71,7 +70,7 @@ export const PersonaAdvancedTab: React.FC<PersonaAdvancedTabProps> = ({
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-2">
             <Server size={16} className="text-[hsl(var(--primary))]" />
-            Local AI Service (Ollama)
+            Local AI Service (Built-in)
           </h3>
           <button
             onClick={checkOllama}
@@ -96,7 +95,7 @@ export const PersonaAdvancedTab: React.FC<PersonaAdvancedTabProps> = ({
             <>
               <RefreshCw size={18} className="animate-spin text-[hsl(var(--muted-foreground))]" />
               <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                Checking Ollama status...
+                Checking local model status...
               </span>
             </>
           ) : ollamaStatus === 'available' ? (
@@ -104,7 +103,7 @@ export const PersonaAdvancedTab: React.FC<PersonaAdvancedTabProps> = ({
               <CheckCircle2 size={18} className="text-green-600" />
               <div className="flex-1">
                 <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                  Ollama is running
+                  Local model ready
                 </span>
                 <span className="text-xs text-green-600/70 ml-2">
                   {ollamaModels.length} models available
@@ -116,23 +115,19 @@ export const PersonaAdvancedTab: React.FC<PersonaAdvancedTabProps> = ({
               <AlertCircle size={18} className="text-amber-600" />
               <div className="flex-1">
                 <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                  Ollama is not running
+                  Local model not available
                 </span>
                 {requiresOllama && (
                   <p className="text-xs text-amber-600/80 mt-1">
-                    Required for selected privacy mode. Start Ollama to use local processing.
+                    Required for selected privacy mode. Download the privacy engine in Settings.
                   </p>
                 )}
               </div>
-              <a
-                href="https://ollama.ai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-amber-500/10 text-amber-700 rounded-lg hover:bg-amber-500/20 transition-colors"
+              <span
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-amber-500/10 text-amber-700 rounded-lg"
               >
-                Install
-                <ExternalLink size={12} />
-              </a>
+                Download in Settings
+              </span>
             </>
           )}
         </div>
@@ -149,7 +144,7 @@ export const PersonaAdvancedTab: React.FC<PersonaAdvancedTabProps> = ({
 
           <div>
             <label className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1.5">
-              Select Ollama Model for Local Processing
+              Local Model
             </label>
             <select
               value={persona.local_ollama_model || ''}
@@ -226,7 +221,7 @@ export const PersonaAdvancedTab: React.FC<PersonaAdvancedTabProps> = ({
               </span>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
                 Extract and anonymize PII locally before sending to cloud services.
-                Requires Ollama to be running.
+                Requires the local privacy engine.
               </p>
             </div>
           </label>

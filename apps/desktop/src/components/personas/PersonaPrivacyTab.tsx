@@ -45,9 +45,9 @@ const PRIVACY_MODES = [
   },
   {
     id: 'ollama',
-    label: 'Local (Ollama)',
+    label: 'Local (Built-in)',
     icon: <Lock size={16} />,
-    description: 'Fully local processing - maximum privacy, requires GPU',
+    description: 'Fully local processing - maximum privacy, built-in engine',
     privacy: 'Maximum',
     color: 'green',
   },

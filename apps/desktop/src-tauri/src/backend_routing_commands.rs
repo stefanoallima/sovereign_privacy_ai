@@ -4,15 +4,15 @@
  */
 
 use crate::db::Persona;
-use crate::ollama::OllamaClient;
+use crate::inference::LocalInference;
 use crate::backend_routing::make_routing_decision;
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use std::sync::Mutex;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-#[derive(Clone)]
 pub struct BackendRoutingState {
-    pub ollama: OllamaClient,
+    pub inference: Arc<dyn LocalInference>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -21,10 +21,9 @@ pub struct BackendDecisionResponse {
     pub anonymize: bool,
     pub model: Option<String>,
     pub reason: String,
-    // New privacy-first fields
     pub content_mode: String, // 'full_text' or 'attributes_only'
-    pub fallback_event: Option<String>, // Description of what fallback occurred
-    pub is_safe: bool, // Whether it's safe to proceed
+    pub fallback_event: Option<String>,
+    pub is_safe: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -40,26 +39,24 @@ pub async fn make_backend_routing_decision(
     persona: Persona,
     state: State<'_, Mutex<BackendRoutingState>>,
 ) -> Result<BackendDecisionResponse, String> {
-    let ollama_client = {
-        let state_guard = state.lock().map_err(|e| e.to_string())?;
-        state_guard.ollama.clone()
+    let inference = {
+        let state_guard = state.lock().await;
+        state_guard.inference.clone()
     };
 
-    let decision = make_routing_decision(&persona, &ollama_client, "")
+    let decision = make_routing_decision(&persona, inference.as_ref(), "")
         .await
         .map_err(|e| e.to_string())?;
 
-    // Convert content_mode to string
     let content_mode_str = match decision.content_mode {
         crate::backend_routing::ContentMode::FullText => "full_text".to_string(),
         crate::backend_routing::ContentMode::AttributesOnly => "attributes_only".to_string(),
     };
 
-    // Convert fallback_event to optional string
     let fallback_event_str = match &decision.fallback {
         crate::backend_routing::FallbackEvent::None => None,
         crate::backend_routing::FallbackEvent::OllamaUnavailable => {
-            Some("Ollama service unavailable, fell back to cloud".to_string())
+            Some("Local inference unavailable, fell back to cloud".to_string())
         }
         crate::backend_routing::FallbackEvent::AnonymizationFailed => {
             Some("Anonymization failed, fell back to alternative".to_string())
@@ -96,7 +93,6 @@ pub async fn validate_persona_backend_config(
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
 
-    // Validate backend value
     if !matches!(preferred_backend.as_str(), "nebius" | "ollama" | "hybrid") {
         errors.push(format!(
             "Invalid backend '{}'. Must be one of: nebius, ollama, hybrid",
@@ -104,7 +100,6 @@ pub async fn validate_persona_backend_config(
         ));
     }
 
-    // Validate anonymization_mode value
     if !matches!(anonymization_mode.as_str(), "none" | "optional" | "required") {
         errors.push(format!(
             "Invalid anonymization_mode '{}'. Must be one of: none, optional, required",
@@ -112,7 +107,6 @@ pub async fn validate_persona_backend_config(
         ));
     }
 
-    // Validate configuration consistency
     if anonymization_mode == "required" && !enable_local_anonymizer {
         errors.push(
             "Cannot set anonymization_mode to 'required' when enable_local_anonymizer is false".to_string()
@@ -125,34 +119,33 @@ pub async fn validate_persona_backend_config(
         );
     }
 
-    // Check Ollama availability if needed
+    // Check local inference availability if needed
     if preferred_backend == "ollama" || (preferred_backend == "hybrid" && enable_local_anonymizer) {
-        let ollama_client = {
-            let state_guard = state.lock().map_err(|e| e.to_string())?;
-            state_guard.ollama.clone()
+        let inference = {
+            let state_guard = state.lock().await;
+            state_guard.inference.clone()
         };
-        if !ollama_client.is_available().await {
+        if !inference.is_available().await {
             if preferred_backend == "ollama" {
                 errors.push(
-                    "Ollama service is required for local backend but is not running".to_string()
+                    "Local model is not downloaded. Please download the privacy engine first.".to_string()
                 );
             } else {
                 warnings.push(
-                    "Ollama service is not running. Hybrid mode will fall back to Nebius".to_string()
+                    "Local model is not available. Hybrid mode will fall back to Nebius.".to_string()
                 );
             }
         }
     }
 
-    // Check Ollama model availability if specified
     if let Some(model) = local_ollama_model {
-        let ollama_client = {
-            let state_guard = state.lock().map_err(|e| e.to_string())?;
-            state_guard.ollama.clone()
+        let inference = {
+            let state_guard = state.lock().await;
+            state_guard.inference.clone()
         };
-        if !ollama_client.is_available().await {
+        if !inference.is_available().await {
             warnings.push(format!(
-                "Cannot verify Ollama model '{}' - service is not running",
+                "Cannot verify model '{}' - local inference is not available",
                 model
             ));
         }
@@ -166,29 +159,26 @@ pub async fn validate_persona_backend_config(
     })
 }
 
-/// Check if Ollama service is available
+/// Check if local inference is available
 #[tauri::command]
 pub async fn check_ollama_availability(
     state: State<'_, Mutex<BackendRoutingState>>,
 ) -> Result<bool, String> {
-    let ollama_client = {
-        let state_guard = state.lock().map_err(|e| e.to_string())?;
-        state_guard.ollama.clone()
+    let inference = {
+        let state_guard = state.lock().await;
+        state_guard.inference.clone()
     };
-    Ok(ollama_client.is_available().await)
+    Ok(inference.is_available().await)
 }
 
-/// Get available Ollama models
+/// Get available local models
 #[tauri::command]
-pub fn get_available_ollama_models(
+pub async fn get_available_ollama_models(
     state: State<'_, Mutex<BackendRoutingState>>,
 ) -> Result<Vec<String>, String> {
-    // This would require implementing a method in OllamaClient to list available models
-    // For now, return a default list of common models
-    Ok(vec![
-        "mistral:7b-instruct-q5_K_M".to_string(),
-        "mistral:7b".to_string(),
-        "llama2:7b".to_string(),
-        "neural-chat:7b".to_string(),
-    ])
+    let inference = {
+        let state_guard = state.lock().await;
+        state_guard.inference.clone()
+    };
+    Ok(vec![inference.default_model().to_string()])
 }

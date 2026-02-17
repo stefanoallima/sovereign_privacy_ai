@@ -44,7 +44,12 @@ regex = "1"
 base64 = "0.22"
 hound = "3.5"
 
-# Ollama integration
+# Local LLM inference (embedded llama.cpp)
+llama-cpp-2 = { version = "0.1", features = ["sampler"] }
+async-trait = "0.1"
+sha2 = "0.10"
+
+# Ollama integration (fallback, kept for dev use via AILOCALMIND_USE_OLLAMA=1)
 ollama-rs = "0.2"
 
 # Encryption (ChaCha20-Poly1305)
