@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>Private AI Council for Privacy Sensitive Minds</strong><br>
-  <em>Run your own Board of Directors. 100% Offline.</em>
+  <em>Run your own Multidisciplinary AI Council. 100% Offline.</em>
 </p>
 
 <p align="center">
