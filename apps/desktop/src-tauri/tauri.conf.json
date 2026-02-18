@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AI Private Personal Assistant",
+  "productName": "Sovereign AI",
   "version": "0.1.0",
   "identifier": "com.privateassistant.app",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "AI Private Personal Assistant",
+        "title": "Sovereign AI",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
