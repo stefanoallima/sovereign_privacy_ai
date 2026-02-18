@@ -8,7 +8,7 @@
   <meta property="og:title" content="Sovereign AI - Private AI Council for Privacy Sensitive Minds">
   <meta property="og:description" content="Run your own Multidisciplinary AI Council. 100% Offline. Deploy a team of expert agents that collaborate on your hardware.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://ailocalmind.netlify.app">
+  <meta property="og:url" content="https://sovereign-ai-app.netlify.app">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -545,8 +545,12 @@
       ctaText.textContent = label;
 
       // Fetch latest release to get real asset URLs (no hardcoded versions)
-      fetch(apiUrl).then(function (r) { return r.json(); }).then(function (rel) {
+      fetch(apiUrl).then(function (r) {
+        if (!r.ok) throw new Error('API ' + r.status);
+        return r.json();
+      }).then(function (rel) {
         var assets = rel.assets || [];
+        if (assets.length === 0) throw new Error('No assets');
         var win = assets.find(function (a) { return a.name.endsWith('.exe'); });
         var macArm = assets.find(function (a) { return a.name.includes('aarch64') && a.name.endsWith('.dmg'); });
         var macIntel = assets.find(function (a) { return a.name.includes('x64') && a.name.endsWith('.dmg'); });
