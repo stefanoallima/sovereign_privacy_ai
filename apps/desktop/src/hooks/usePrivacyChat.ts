@@ -319,7 +319,7 @@ export function usePrivacyChat() {
       // Check if Ollama is available first
       const isAvailable = await invoke<boolean>('ollama_is_available');
       if (!isAvailable) {
-        throw new Error('Local model is not available. Please download the privacy engine in Settings to use Airplane Mode.');
+        throw new Error('The local AI model (Qwen3-8B, ~5 GB) has not been downloaded yet.\n\nTo use Airplane Mode:\n1. Go to **Settings** (gear icon)\n2. Find the **Privacy Engine** section\n3. Click **Download Privacy Engine**\n4. Wait for the download to complete (~5 GB)\n\nOnce downloaded, Airplane Mode will work fully offline.');
       }
 
       // Get the selected model - check if it's an Ollama model
@@ -365,7 +365,7 @@ export function usePrivacyChat() {
       addMessage(currentConversationId!, {
         conversationId: currentConversationId!,
         role: 'assistant',
-        content: `**Airplane Mode Error**\n\n${error instanceof Error ? error.message : 'Failed to process locally'}\n\nMake sure the privacy engine is downloaded in Settings.`,
+        content: `**Airplane Mode Error**\n\n${error instanceof Error ? error.message : 'Failed to process locally. Go to Settings and download the Privacy Engine.'}`,
       });
 
       setPrivacyStatus({

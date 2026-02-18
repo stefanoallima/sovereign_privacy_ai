@@ -34,12 +34,15 @@
       <h1>Run Your Own <br><span class="gradient">Multidisciplinary AI Council</span></h1>
       <p>Inspired by the &ldquo;AI Council&rdquo; workflows of Andrej Karpathy. Deploy a team of expert agents that collaborate on your hardware &mdash; with a local Privacy Guard that redacts your secrets before they ever reach the cloud.</p>
       <div class="hero-buttons">
-        <a href="https://github.com/stefanoallima/private_personal_assistant/releases" class="btn btn-primary">
-          Download for Windows
+        <a id="download-btn" href="https://github.com/stefanoallima/private_personal_assistant/releases/latest" class="btn btn-primary">
+          <span id="download-icon">&#11015;</span>
+          <span id="download-text">Download</span>
         </a>
         <a href="https://github.com/stefanoallima/private_personal_assistant" class="btn btn-secondary">
           View on GitHub
         </a>
+      </div>
+      <div id="download-alt" style="margin-top: 12px; font-size: 0.82rem; color: var(--text-muted);">
       </div>
       <div class="hero-trust">
         <div class="trust-item">
@@ -497,8 +500,9 @@
       <h2 class="section-title">Ready to convene your council?</h2>
       <p class="section-desc section-desc-center">Sovereign AI is free, open source, and built for people who refuse to trade privacy for intelligence.</p>
       <div class="hero-buttons">
-        <a href="https://github.com/stefanoallima/private_personal_assistant/releases" class="btn btn-primary">
-          Download for Windows
+        <a id="cta-download-btn" href="https://github.com/stefanoallima/private_personal_assistant/releases/latest" class="btn btn-primary">
+          <span>&#11015;</span>
+          <span id="cta-download-text">Download</span>
         </a>
         <a href="https://github.com/stefanoallima/private_personal_assistant" class="btn btn-secondary">
           Star on GitHub
@@ -519,5 +523,60 @@
     </div>
   </footer>
 
+  <script>
+    (function () {
+      var owner = 'stefanoallima';
+      var repoName = 'private_personal_assistant';
+      var apiUrl = 'https://api.github.com/repos/' + owner + '/' + repoName + '/releases/latest';
+      var fallback = 'https://github.com/' + owner + '/' + repoName + '/releases/latest';
+      var ua = navigator.userAgent.toLowerCase();
+
+      var btn = document.getElementById('download-btn');
+      var text = document.getElementById('download-text');
+      var altEl = document.getElementById('download-alt');
+      var ctaBtn = document.getElementById('cta-download-btn');
+      var ctaText = document.getElementById('cta-download-text');
+
+      // Detect OS for label
+      var isWin = ua.indexOf('win') !== -1;
+      var isMac = ua.indexOf('mac') !== -1;
+      var label = isWin ? 'Download for Windows' : isMac ? 'Download for macOS' : 'Download';
+      text.textContent = label;
+      ctaText.textContent = label;
+
+      // Fetch latest release to get real asset URLs (no hardcoded versions)
+      fetch(apiUrl).then(function (r) { return r.json(); }).then(function (rel) {
+        var assets = rel.assets || [];
+        var win = assets.find(function (a) { return a.name.endsWith('.exe'); });
+        var macArm = assets.find(function (a) { return a.name.includes('aarch64') && a.name.endsWith('.dmg'); });
+        var macIntel = assets.find(function (a) { return a.name.includes('x64') && a.name.endsWith('.dmg'); });
+
+        if (isWin && win) {
+          btn.href = win.browser_download_url;
+          ctaBtn.href = win.browser_download_url;
+          altEl.innerHTML = 'Also available for '
+            + (macArm ? '<a href="' + macArm.browser_download_url + '">macOS (Apple Silicon)</a>' : '')
+            + (macArm && macIntel ? ' and ' : '')
+            + (macIntel ? '<a href="' + macIntel.browser_download_url + '">macOS (Intel)</a>' : '');
+        } else if (isMac && macArm) {
+          btn.href = macArm.browser_download_url;
+          ctaBtn.href = macArm.browser_download_url;
+          altEl.innerHTML = 'Also available for '
+            + (macIntel ? '<a href="' + macIntel.browser_download_url + '">macOS (Intel)</a>' : '')
+            + (macIntel && win ? ' and ' : '')
+            + (win ? '<a href="' + win.browser_download_url + '">Windows</a>' : '');
+        } else {
+          altEl.innerHTML = 'Available for '
+            + (win ? '<a href="' + win.browser_download_url + '">Windows</a>' : '')
+            + (win && macArm ? ' and ' : '')
+            + (macArm ? '<a href="' + macArm.browser_download_url + '">macOS</a>' : '');
+        }
+      }).catch(function () {
+        // API failed — keep fallback link to releases page
+        btn.href = fallback;
+        ctaBtn.href = fallback;
+      });
+    })();
+  </script>
 </body>
 </html>
