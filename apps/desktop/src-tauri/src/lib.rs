@@ -22,6 +22,8 @@ mod attribute_extraction;
 mod attribute_extraction_commands;
 mod rehydration;
 mod rehydration_commands;
+mod gliner;
+mod gliner_commands;
 
 use commands::DbState;
 use tts::PiperTts;
@@ -39,6 +41,8 @@ use tax_knowledge::TaxKnowledgeBase;
 use backend_routing_commands::BackendRoutingState;
 use attribute_extraction::AttributeExtractor;
 use attribute_extraction_commands::AttributeExtractionState;
+use gliner::GlinerBackend;
+use gliner_commands::GlinerState;
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -170,6 +174,14 @@ pub fn run() {
     // Initialize tax knowledge base
     let tax_knowledge = TaxKnowledgeBase::new();
 
+    // Initialize GLiNER backend for PII detection
+    let gliner_backend = GlinerBackend::new()
+        .unwrap_or_else(|e| {
+            eprintln!("Failed to initialize GLiNER backend: {}", e);
+            panic!("Critical: GLiNER backend failed");
+        });
+    let gliner_state = GlinerState(Arc::new(tokio::sync::Mutex::new(gliner_backend)));
+
     // Initialize backend routing state (shares inference backend)
     let backend_routing = BackendRoutingState {
         inference: inference.clone(),
@@ -197,6 +209,7 @@ pub fn run() {
         .manage(Mutex::new(tax_knowledge))
         .manage(tokio::sync::Mutex::new(backend_routing))
         .manage(tokio::sync::Mutex::new(attribute_extraction))
+        .manage(gliner_state)
         .invoke_handler(tauri::generate_handler![
             // Settings
             commands::get_setting,
@@ -272,6 +285,13 @@ pub fn run() {
             rehydration_commands::rehydrate_template_command,
             rehydration_commands::build_template_prompt_command,
             rehydration_commands::get_placeholder_types,
+            // GLiNER PII Detection
+            gliner_commands::list_gliner_models,
+            gliner_commands::download_gliner_model,
+            gliner_commands::get_gliner_download_progress,
+            gliner_commands::delete_gliner_model,
+            gliner_commands::get_gliner_models_dir,
+            gliner_commands::detect_pii_with_gliner,
         ])
         .setup(|app| {
             // Set up system tray

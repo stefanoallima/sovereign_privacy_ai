@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSettingsStore } from "@/stores";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 
 interface ModelStatus {
   is_downloaded: boolean;
@@ -10,11 +11,30 @@ interface ModelStatus {
   model_size_bytes: number;
 }
 
+interface GlinerModelInfo {
+  id: string;
+  name: string;
+  description: string;
+  languages: string;
+  size_bytes: number;
+  repo: string;
+  files: { remote_path: string; local_name: string; size_bytes: number }[];
+  is_downloaded: boolean;
+  local_path: string | null;
+  source_url: string;
+}
+
 export function PrivacySettings() {
   const { settings, toggleAirplaneMode } = useSettingsStore();
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [statusChecking, setStatusChecking] = useState(true);
+
+  // GLiNER state
+  const [glinerModels, setGlinerModels] = useState<GlinerModelInfo[]>([]);
+  const [glinerDownloadingId, setGlinerDownloadingId] = useState<string | null>(null);
+  const [glinerProgress, setGlinerProgress] = useState(0);
+  const [glinerModelsDir, setGlinerModelsDir] = useState<string>("");
 
   const checkModelStatus = useCallback(async () => {
     setStatusChecking(true);
@@ -28,12 +48,24 @@ export function PrivacySettings() {
     }
   }, []);
 
-  // Check model status on mount and when airplane mode changes
+  const loadGlinerModels = useCallback(async () => {
+    try {
+      const models = await invoke<GlinerModelInfo[]>('list_gliner_models');
+      setGlinerModels(models);
+      const dir = await invoke<string>('get_gliner_models_dir');
+      setGlinerModelsDir(dir);
+    } catch (error) {
+      console.error('Failed to load GLiNER models:', error);
+    }
+  }, []);
+
+  // Check model status on mount
   useEffect(() => {
     checkModelStatus();
-  }, [settings.airplaneMode, checkModelStatus]);
+    loadGlinerModels();
+  }, [settings.airplaneMode, checkModelStatus, loadGlinerModels]);
 
-  // Poll during download
+  // Poll during Privacy Engine download
   useEffect(() => {
     if (!isDownloading) return;
     const interval = setInterval(async () => {
@@ -50,6 +82,25 @@ export function PrivacySettings() {
     return () => clearInterval(interval);
   }, [isDownloading]);
 
+  // Poll during GLiNER download
+  useEffect(() => {
+    if (!glinerDownloadingId) return;
+    const interval = setInterval(async () => {
+      try {
+        const progress = await invoke<number>('get_gliner_download_progress');
+        setGlinerProgress(progress);
+        if (progress >= 100) {
+          setGlinerDownloadingId(null);
+          setGlinerProgress(0);
+          await loadGlinerModels();
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [glinerDownloadingId, loadGlinerModels]);
+
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
@@ -62,10 +113,54 @@ export function PrivacySettings() {
     }
   };
 
+  const handleGlinerDownload = async (modelId: string) => {
+    setGlinerDownloadingId(modelId);
+    setGlinerProgress(0);
+    try {
+      await invoke('download_gliner_model', { modelId });
+      await loadGlinerModels();
+    } catch (error) {
+      console.error('GLiNER download failed:', error);
+    } finally {
+      setGlinerDownloadingId(null);
+      setGlinerProgress(0);
+    }
+  };
+
+  const handleGlinerDelete = async (modelId: string) => {
+    try {
+      await invoke('delete_gliner_model', { modelId });
+      await loadGlinerModels();
+    } catch (error) {
+      console.error('GLiNER delete failed:', error);
+    }
+  };
+
+  const openFolder = async (path: string) => {
+    try {
+      await openPath(path);
+    } catch (error) {
+      console.error('Failed to open folder:', error);
+    }
+  };
+
+  const openLink = async (url: string) => {
+    try {
+      await openUrl(url);
+    } catch (error) {
+      console.error('Failed to open URL:', error);
+    }
+  };
+
   const isModelReady = modelStatus?.is_downloaded ?? false;
   const formatSize = (bytes: number) => {
-    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+    if (bytes >= 1_000_000_000) {
+      return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+    }
+    return (bytes / (1024 * 1024)).toFixed(0) + ' MB';
   };
+
+  const hasAnyGlinerModel = glinerModels.some(m => m.is_downloaded);
 
   return (
     <div className="space-y-6">
@@ -160,8 +255,152 @@ export function PrivacySettings() {
             <div className="text-xs text-[hsl(var(--muted-foreground))] space-y-1">
               <p>Model: <span className="font-mono">{modelStatus.model_name}</span></p>
               <p>Size: {formatSize(modelStatus.model_size_bytes)}</p>
+              <p>
+                Source:{' '}
+                <a
+                  href="https://huggingface.co/Qwen/Qwen3-8B-GGUF"
+                  onClick={(e) => { e.preventDefault(); openLink('https://huggingface.co/Qwen/Qwen3-8B-GGUF'); }}
+                  className="text-[hsl(var(--primary))] hover:underline cursor-pointer"
+                >
+                  huggingface.co/Qwen/Qwen3-8B-GGUF
+                </a>
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => openFolder(glinerModelsDir.replace(/gliner-models.*/, 'llm-models'))}
+                  className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1"
+                >
+                  <FolderIcon /> Open Folder
+                </button>
+              </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Privacy Guard (GLiNER PII Anonymization) Section */}
+      <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
+        <div className={`p-4 ${hasAnyGlinerModel ? 'bg-purple-500/10' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${hasAnyGlinerModel ? 'bg-purple-500/20 text-purple-600' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
+                <ShieldIcon />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  Privacy Guard (PII Anonymization)
+                  {hasAnyGlinerModel && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500 text-white">
+                      ACTIVE
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  Detects and redacts personal data before cloud sends
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-[hsl(var(--border)/0.5)]">
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mb-2">
+            Models are downloaded from HuggingFace and stored locally at:
+          </p>
+          <div className="flex items-center gap-2 mb-4">
+            <code className="text-xs font-mono bg-[hsl(var(--muted)/0.5)] px-2 py-1 rounded truncate flex-1">
+              {glinerModelsDir || '...'}
+            </code>
+            <button
+              onClick={() => openFolder(glinerModelsDir)}
+              className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1 shrink-0"
+            >
+              <FolderIcon /> Open Folder
+            </button>
+          </div>
+
+          {/* Model Cards */}
+          <div className="space-y-2">
+            {glinerModels.map((model) => (
+              <div
+                key={model.id}
+                className={`rounded-lg border p-3 ${
+                  model.is_downloaded
+                    ? 'border-purple-300 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-900/10'
+                    : 'border-[hsl(var(--border))]'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{model.name}</span>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                        {formatSize(model.size_bytes)}
+                      </span>
+                      {model.is_downloaded && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-green-500 text-white">
+                          READY
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                      {model.languages} &middot; {model.description}
+                    </p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                      Source:{' '}
+                      <a
+                        href={model.source_url}
+                        onClick={(e) => { e.preventDefault(); openLink(model.source_url); }}
+                        className="text-[hsl(var(--primary))] hover:underline cursor-pointer"
+                      >
+                        {model.source_url.replace('https://', '')}
+                      </a>
+                    </p>
+                    {model.is_downloaded && model.local_path && (
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5 font-mono truncate">
+                        Stored: {model.local_path}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="shrink-0">
+                    {!model.is_downloaded && glinerDownloadingId !== model.id && (
+                      <button
+                        onClick={() => handleGlinerDownload(model.id)}
+                        disabled={glinerDownloadingId !== null}
+                        className="px-3 py-1.5 rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        Download
+                      </button>
+                    )}
+                    {model.is_downloaded && (
+                      <button
+                        onClick={() => handleGlinerDelete(model.id)}
+                        className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 text-xs font-medium hover:bg-red-500/20 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Download Progress */}
+                {glinerDownloadingId === model.id && (
+                  <div className="mt-2 space-y-1">
+                    <div className="w-full h-1.5 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-purple-500 transition-all duration-500"
+                        style={{ width: `${glinerProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] text-center">
+                      Downloading... {glinerProgress}%
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -336,6 +575,23 @@ function ShieldIcon() {
       className="text-[hsl(var(--primary))]"
     >
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+    </svg>
+  );
+}
+
+function FolderIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     </svg>
   );
 }

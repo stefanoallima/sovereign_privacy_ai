@@ -20,7 +20,62 @@ import {
   type ProcessedChatRequest,
 } from '@/services/attribute-extraction-service';
 import { makeBackendRoutingDecision, type BackendDecision } from '@/services/backend-routing-service';
+import { invoke } from '@tauri-apps/api/core';
 import type { Persona } from '@/types';
+
+interface DetectedEntity {
+  text: string;
+  label: string;
+  confidence: number;
+  start: number;
+  end: number;
+}
+
+/**
+ * Apply GLiNER PII detection to sanitize text before cloud sends.
+ * Returns the sanitized text and a mapping of placeholders to original values.
+ */
+async function applyGlinerPiiRedaction(
+  text: string,
+): Promise<{ sanitized: string; mappings: Map<string, string>; entityCount: number }> {
+  try {
+    const entities = await invoke<DetectedEntity[]>('detect_pii_with_gliner', { text });
+    if (!entities || entities.length === 0) {
+      return { sanitized: text, mappings: new Map(), entityCount: 0 };
+    }
+
+    // Sort by position descending so replacements don't shift indices
+    const sorted = [...entities].sort((a, b) => b.start - a.start);
+    let sanitized = text;
+    const mappings = new Map<string, string>();
+
+    for (const entity of sorted) {
+      const placeholder = `[PII_${entity.label.toUpperCase().replace(/\s+/g, '_')}]`;
+      const original = sanitized.substring(entity.start, entity.end);
+      // Only replace if text matches what GLiNER detected (sanity check)
+      if (original.toLowerCase().includes(entity.text.toLowerCase().substring(0, 3))) {
+        sanitized = sanitized.substring(0, entity.start) + placeholder + sanitized.substring(entity.end);
+        mappings.set(placeholder, original);
+      }
+    }
+
+    return { sanitized, mappings, entityCount: entities.length };
+  } catch (error) {
+    console.warn('GLiNER PII detection unavailable, proceeding without:', error);
+    return { sanitized: text, mappings: new Map(), entityCount: 0 };
+  }
+}
+
+/**
+ * Rehydrate a response by replacing PII placeholders back with original values.
+ */
+function rehydrateResponse(text: string, mappings: Map<string, string>): string {
+  let result = text;
+  for (const [placeholder, original] of mappings) {
+    result = result.split(placeholder).join(original);
+  }
+  return result;
+}
 
 export interface PrivacyStatus {
   /** Current privacy mode */
@@ -388,6 +443,7 @@ export function usePrivacyChat() {
     targetPersona: any,
     model: any,
     promptOverride?: string,
+    glinerMappings?: Map<string, string>,
   ) => {
     const startTime = Date.now();
     const promptToSend = promptOverride ?? processed.prompt;
@@ -479,7 +535,16 @@ export function usePrivacyChat() {
         let fullContent = '';
         for await (const chunk of stream) {
           fullContent += chunk;
-          updateStreamingContent(fullContent);
+          // Rehydrate streamed content if GLiNER mappings exist
+          const displayed = glinerMappings && glinerMappings.size > 0
+            ? rehydrateResponse(fullContent, glinerMappings)
+            : fullContent;
+          updateStreamingContent(displayed);
+        }
+
+        // Rehydrate final content
+        if (glinerMappings && glinerMappings.size > 0) {
+          fullContent = rehydrateResponse(fullContent, glinerMappings);
         }
 
         const latencyMs = Date.now() - startTime;
@@ -545,8 +610,19 @@ export function usePrivacyChat() {
    */
   const sendWithPrivacy = async (content: string, targetPersona: any, model: any) => {
     try {
+      // Step 0: Apply GLiNER PII detection to redact personal data before any cloud sends
+      const { sanitized: glinerSanitized, mappings: glinerMappings, entityCount: glinerEntityCount } =
+        await applyGlinerPiiRedaction(content);
+
+      if (glinerEntityCount > 0) {
+        console.log(`GLiNER detected ${glinerEntityCount} PII entities, text redacted before privacy processing`);
+      }
+
+      // Use the GLiNER-sanitized content for the rest of the pipeline
+      const contentForProcessing = glinerEntityCount > 0 ? glinerSanitized : content;
+
       // Step 1: Process with privacy routing
-      const processed = await processChatWithPrivacy(content, targetPersona);
+      const processed = await processChatWithPrivacy(contentForProcessing, targetPersona);
 
       // Update privacy status based on decision
       updatePrivacyStatusFromProcessed(processed);
@@ -589,7 +665,7 @@ export function usePrivacyChat() {
       }
 
       // Step 4: No review needed — send immediately
-      await executePrivacySend(content, processed, targetPersona, model);
+      await executePrivacySend(content, processed, targetPersona, model, undefined, glinerMappings);
     } catch (error) {
       console.error('Privacy chat error:', error);
       setLoading(false);
