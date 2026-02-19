@@ -64,6 +64,10 @@ encoding_rs = "0.8"
 # Entity resolution & fuzzy matching
 strsim = "0.11"
 
+# GLiNER NER for PII detection (CPU-only, ONNX Runtime comes transitively)
+gline-rs = { version = "1", default-features = false }
+orp = "0.9"
+
 # Windows Credential Manager
 winapi = { version = "0.3", features = ["wincred", "winerror"] }
 
