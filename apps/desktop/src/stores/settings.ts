@@ -2,67 +2,56 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AppSettings, LLMModel } from "@/types";
 
-// Default local Ollama models
+// Embedded local models (llama.cpp backend — no Ollama required)
+// These are the models shown in the chat model selector.
+// The actual download/management is in PrivacySettings via Rust commands.
 const DEFAULT_OLLAMA_MODELS: LLMModel[] = [
   {
-    id: "ollama-mistral-7b",
+    id: "local-qwen3-0.6b",
     provider: "ollama",
-    apiModelId: "mistral:7b-instruct-q5_K_M",
-    name: "Mistral 7B (Local)",
-    contextWindow: 8000,
-    speedTier: "medium",
+    apiModelId: "qwen3-0.6b",
+    name: "Qwen3 0.6B (Ultra-Light)",
+    contextWindow: 4096,
+    speedTier: "fast",
     intelligenceTier: "good",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+  },
+  {
+    id: "local-qwen3-1.7b",
+    provider: "ollama",
+    apiModelId: "qwen3-1.7b",
+    name: "Qwen3 1.7B (Light)",
+    contextWindow: 4096,
+    speedTier: "fast",
+    intelligenceTier: "high",
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     isEnabled: true,
     isDefault: true,
   },
   {
-    id: "ollama-llama3.2-3b",
+    id: "local-qwen3-4b",
     provider: "ollama",
-    apiModelId: "llama3.2:3b",
-    name: "Llama 3.2 3B (Local)",
-    contextWindow: 8000,
-    speedTier: "very-fast",
-    intelligenceTier: "good",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    isEnabled: true,
-    isDefault: false,
-  },
-  {
-    id: "ollama-llama3.1-8b",
-    provider: "ollama",
-    apiModelId: "llama3.1:8b",
-    name: "Llama 3.1 8B (Local)",
-    contextWindow: 8000,
-    speedTier: "fast",
-    intelligenceTier: "high",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    isEnabled: true,
-    isDefault: false,
-  },
-  {
-    id: "ollama-qwen2.5-7b",
-    provider: "ollama",
-    apiModelId: "qwen2.5:7b",
-    name: "Qwen 2.5 7B (Quantized)",
-    contextWindow: 32000,
-    speedTier: "fast",
-    intelligenceTier: "high",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    isEnabled: true,
-    isDefault: false,
-  },
-  {
-    id: "ollama-deepseek-r1-7b",
-    provider: "ollama",
-    apiModelId: "deepseek-r1:7b",
-    name: "DeepSeek R1 7B (Local)",
-    contextWindow: 16000,
+    apiModelId: "qwen3-4b",
+    name: "Qwen3 4B (Medium)",
+    contextWindow: 4096,
     speedTier: "medium",
+    intelligenceTier: "high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+  },
+  {
+    id: "local-qwen3-8b",
+    provider: "ollama",
+    apiModelId: "qwen3-8b",
+    name: "Qwen3 8B (Full)",
+    contextWindow: 4096,
+    speedTier: "slow",
     intelligenceTier: "very-high",
     inputCostPer1M: 0,
     outputCostPer1M: 0,
@@ -71,7 +60,7 @@ const DEFAULT_OLLAMA_MODELS: LLMModel[] = [
   },
 ];
 
-// Default models available on Nebius
+// Curated cloud models available on Nebius AI Studio
 const DEFAULT_MODELS: LLMModel[] = [
   {
     id: "qwen3-32b-fast",
@@ -87,19 +76,6 @@ const DEFAULT_MODELS: LLMModel[] = [
     isDefault: true,
   },
   {
-    id: "qwen3-14b",
-    provider: "nebius",
-    apiModelId: "Qwen/Qwen3-14B",
-    name: "Qwen3 14B",
-    contextWindow: 128000,
-    speedTier: "very-fast",
-    intelligenceTier: "good",
-    inputCostPer1M: 0.1,
-    outputCostPer1M: 0.1,
-    isEnabled: true,
-    isDefault: false,
-  },
-  {
     id: "deepseek-v3",
     provider: "nebius",
     apiModelId: "deepseek-ai/DeepSeek-V3",
@@ -113,10 +89,10 @@ const DEFAULT_MODELS: LLMModel[] = [
     isDefault: false,
   },
   {
-    id: "llama-3.1-70b",
+    id: "qwen3-235b",
     provider: "nebius",
-    apiModelId: "meta-llama/Llama-3.1-70B-Instruct",
-    name: "Llama 3.1 70B",
+    apiModelId: "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    name: "Qwen3 235B MoE",
     contextWindow: 128000,
     speedTier: "medium",
     intelligenceTier: "very-high",
@@ -126,28 +102,15 @@ const DEFAULT_MODELS: LLMModel[] = [
     isDefault: false,
   },
   {
-    id: "llama-3.1-8b",
+    id: "llama-3.3-70b-fast",
     provider: "nebius",
-    apiModelId: "meta-llama/Llama-3.1-8B-Instruct",
-    name: "Llama 3.1 8B",
+    apiModelId: "meta-llama/Llama-3.3-70B-Instruct-fast",
+    name: "Llama 3.3 70B Fast",
     contextWindow: 128000,
-    speedTier: "very-fast",
-    intelligenceTier: "good",
-    inputCostPer1M: 0.05,
-    outputCostPer1M: 0.05,
-    isEnabled: true,
-    isDefault: false,
-  },
-  {
-    id: "mistral-nemo",
-    provider: "nebius",
-    apiModelId: "mistralai/Mistral-Nemo-Instruct-2407",
-    name: "Mistral Nemo",
-    contextWindow: 128000,
-    speedTier: "very-fast",
-    intelligenceTier: "good",
-    inputCostPer1M: 0.08,
-    outputCostPer1M: 0.08,
+    speedTier: "fast",
+    intelligenceTier: "very-high",
+    inputCostPer1M: 0.35,
+    outputCostPer1M: 0.35,
     isEnabled: true,
     isDefault: false,
   },
@@ -165,8 +128,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   pushToTalkKey: "Ctrl+Space",
   saveAudioRecordings: false,
   encryptLocalData: true,
+  // Privacy Mode
+  privacyMode: "cloud",
+  localModeModel: "qwen3-1.7b",
+  hybridModeModel: "qwen3-32b-fast",
+  cloudModeModel: "qwen3-32b-fast",
+  // Backward compat (derived from privacyMode)
   airplaneMode: false,
-  airplaneModeModel: "mistral:7b-instruct-q5_K_M",
+  airplaneModeModel: "qwen3-1.7b",
   theme: "system",
   showTokenCounts: true,
   showModelSelector: true,
@@ -184,6 +153,7 @@ interface SettingsStore {
   toggleModel: (modelId: string) => void;
   toggleAirplaneMode: () => void;
   setAirplaneModeModel: (model: string) => void;
+  setPrivacyMode: (mode: 'local' | 'hybrid' | 'cloud') => void;
   updateModelPricing: (
     modelId: string,
     inputCost: number,
@@ -198,6 +168,7 @@ interface SettingsStore {
   getDefaultModel: () => LLMModel | undefined;
   getModelById: (id: string) => LLMModel | undefined;
   isAirplaneModeActive: () => boolean;
+  getActivePrivacyMode: (persona?: any) => 'local' | 'hybrid' | 'cloud' | 'custom';
   getAllModels: () => LLMModel[];
   getLocalModels: () => LLMModel[];
   getCloudModels: () => LLMModel[];
@@ -263,6 +234,16 @@ export const useSettingsStore = create<SettingsStore>()(
           },
         })),
 
+      setPrivacyMode: (mode) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            privacyMode: mode,
+            // Backward compat: airplaneMode = local
+            airplaneMode: mode === 'local',
+          },
+        })),
+
       updateModelPricing: (modelId, inputCost, outputCost) =>
         set((state) => ({
           models: state.models.map((m) =>
@@ -305,25 +286,34 @@ export const useSettingsStore = create<SettingsStore>()(
           ollamaModels: DEFAULT_OLLAMA_MODELS,
         }),
 
-      // Returns models appropriate for current mode (airplane = local only, otherwise cloud)
+      // Returns enabled models based on privacy mode
       getEnabledModels: () => {
         const { settings, models, ollamaModels } = get();
-        if (settings.airplaneMode) {
-          return ollamaModels.filter((m) => m.isEnabled);
+        const enabledLocal = ollamaModels.filter((m) => m.isEnabled);
+        if (settings.privacyMode === 'local') {
+          return enabledLocal;
         }
-        return models.filter((m) => m.isEnabled);
+        return [...models.filter((m) => m.isEnabled), ...enabledLocal];
       },
 
       getDefaultModel: () => {
         const { settings, models, ollamaModels } = get();
-        if (settings.airplaneMode) {
-          // Return first enabled ollama model or the one matching airplaneModeModel
+        if (settings.privacyMode === 'local') {
+          // Return matching local model by localModeModel apiModelId
           const matchingModel = ollamaModels.find(
-            (m) => m.apiModelId === settings.airplaneModeModel
+            (m) => m.apiModelId === settings.localModeModel
           );
           return matchingModel || ollamaModels.find((m) => m.isEnabled);
         }
-        return models.find((m) => m.id === settings.defaultModelId);
+        if (settings.privacyMode === 'hybrid') {
+          return models.find((m) => m.id === settings.hybridModeModel)
+            || ollamaModels.find((m) => m.id === settings.hybridModeModel)
+            || models.find((m) => m.id === settings.defaultModelId);
+        }
+        // cloud mode
+        return models.find((m) => m.id === settings.cloudModeModel)
+          || ollamaModels.find((m) => m.id === settings.cloudModeModel)
+          || models.find((m) => m.id === settings.defaultModelId);
       },
 
       getModelById: (id) => {
@@ -331,7 +321,16 @@ export const useSettingsStore = create<SettingsStore>()(
         return models.find((m) => m.id === id) || ollamaModels.find((m) => m.id === id);
       },
 
-      isAirplaneModeActive: () => get().settings.airplaneMode,
+      isAirplaneModeActive: () => get().settings.privacyMode === 'local',
+
+      getActivePrivacyMode: (persona?: any) => {
+        const { settings } = get();
+        // If persona has custom backend override, return 'custom'
+        if (persona?.preferred_backend && persona.preferred_backend !== 'nebius') {
+          return 'custom';
+        }
+        return settings.privacyMode;
+      },
 
       getAllModels: () => [...get().models, ...get().ollamaModels],
 
@@ -341,6 +340,28 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
+      version: 5, // v5: privacy mode replaces airplane mode
+      migrate: (persisted: unknown, _version: number) => {
+        // On version change, preserve user settings but reset model lists to new defaults
+        const p = persisted as Partial<{ settings: Record<string, any> }>;
+        const old = p?.settings ?? {} as Record<string, any>;
+        // Migrate airplaneMode → privacyMode
+        const privacyMode = old.airplaneMode ? 'local' as const : (old.privacyMode ?? 'cloud' as const);
+        return {
+          settings: {
+            ...DEFAULT_SETTINGS,
+            ...old,
+            privacyMode,
+            localModeModel: old.localModeModel ?? old.airplaneModeModel ?? 'qwen3-1.7b',
+            hybridModeModel: old.hybridModeModel ?? 'qwen3-32b-fast',
+            cloudModeModel: old.cloudModeModel ?? old.defaultModelId ?? 'qwen3-32b-fast',
+            airplaneMode: privacyMode === 'local',
+            airplaneModeModel: old.airplaneModeModel ?? 'qwen3-1.7b',
+          },
+          models: DEFAULT_MODELS,
+          ollamaModels: DEFAULT_OLLAMA_MODELS,
+        };
+      },
       partialize: (state) => ({
         settings: state.settings,
         models: state.models,

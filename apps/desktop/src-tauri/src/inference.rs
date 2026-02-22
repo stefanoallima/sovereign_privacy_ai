@@ -55,4 +55,11 @@ pub trait LocalInference: Send + Sync {
 
     /// Get current model status (download progress, loaded state, etc.)
     async fn get_model_status(&self) -> ModelStatus;
+
+    /// Pre-load the model into memory without running inference.
+    /// Called eagerly on startup so the first user message doesn't incur the load delay.
+    /// Default implementation is a no-op (safe for Ollama backend).
+    async fn preload(&self) -> Result<(), InferenceError> {
+        Ok(())
+    }
 }

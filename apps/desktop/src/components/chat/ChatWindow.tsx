@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useChatStore, useVoiceStore, usePersonasStore, useSettingsStore } from "@/stores";
+import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { usePrivacyChat } from "@/hooks/usePrivacyChat";
 import { useVoice } from "@/hooks/useVoice";
 import { MessageBubble } from "./MessageBubble";
@@ -12,17 +13,18 @@ import {
   Send,
   Bot,
   AlertTriangle,
-  ChevronDown,
-  Check,
   Sparkles,
   Radio,
   FolderKanban,
   ChevronRight,
-  Plane,
   Download,
   CheckCircle2,
   Loader2,
   EyeOff,
+  Lock,
+  ShieldCheck,
+  Zap,
+  Settings2,
 } from "lucide-react";
 
 type VoiceMode = 'local' | 'livekit';
@@ -37,7 +39,6 @@ interface ModelStatus {
 
 export function ChatWindow() {
   const [input, setInput] = useState("");
-  const [showModelSelector, setShowModelSelector] = useState(false);
   const [isConversationMode, setIsConversationMode] = useState(false);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('local');
   const [showLiveKitPanel, setShowLiveKitPanel] = useState(false);
@@ -45,7 +46,6 @@ export function ChatWindow() {
   const [isDownloadingModel, setIsDownloadingModel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const modelSelectorRef = useRef<HTMLDivElement>(null);
   const generatingTitleRef = useRef(false);
 
   // Mention state
@@ -66,39 +66,40 @@ export function ChatWindow() {
     projects,
   } = useChatStore();
 
-  const { settings, updateSettings, getEnabledModels, getDefaultModel, isAirplaneModeActive } = useSettingsStore();
+  const { settings, getEnabledModels, getDefaultModel, isAirplaneModeActive, setPrivacyMode, getActivePrivacyMode } = useSettingsStore();
   const { voiceInputEnabled } = useVoiceStore();
   const { personas, getPersonaById } = usePersonasStore();
   const { sendMessage, sendMultiPersonaMessage, privacyStatus, pendingReview, approveAndSend, cancelReview } = usePrivacyChat();
+  const activeUserProfile = useUserContextStore(selectActiveProfile);
+  const customTermsCount = activeUserProfile?.customRedactTerms?.length || 0;
 
   const messages = getCurrentMessages();
   const conversation = getCurrentConversation();
-  const persona = personas.find((p) => p.id === conversation?.personaId);
-  const project = projects.find((p) => p.id === conversation?.projectId);
+  const conversationPersonaId = conversation?.personaId;
+  const conversationProjectId = conversation?.projectId;
+  const persona = useMemo(() => personas.find((p) => p.id === conversationPersonaId), [personas, conversationPersonaId]);
+  const project = useMemo(() => projects.find((p) => p.id === conversationProjectId), [projects, conversationProjectId]);
   const hasApiKey = !!settings.nebiusApiKey;
   const isAirplane = isAirplaneModeActive();
   const voiceModeEnabled = voiceInputEnabled && (hasApiKey || isAirplane);
-  const availableModels = getEnabledModels();
-  const defaultModel = getDefaultModel();
-  const currentModel = defaultModel || availableModels[0] || { id: "unknown", name: "No model", provider: "nebius" as const };
+  const availableModels = useMemo(() => getEnabledModels(), [settings.enabledModelIds, settings.privacyMode]);
+  const defaultModel = useMemo(() => getDefaultModel(), [settings.defaultModelId, settings.privacyMode, settings.localModeModel, settings.hybridModeModel, settings.cloudModeModel]);
+  const currentModel = useMemo(() => defaultModel || availableModels[0] || { id: "unknown", name: "No model", provider: "nebius" as const }, [defaultModel, availableModels]);
+  const activePrivacyMode = useMemo(() => getActivePrivacyMode(persona), [settings.privacyMode, persona]);
 
   // Filtered personas for mention menu (includes @here and @all)
-  const specialMentions = [
-    { id: '_here', name: 'here', icon: '📍', description: 'All active personas in this thread', isSpecial: true },
-    { id: '_all', name: 'all', icon: '📢', description: 'All available personas', isSpecial: true },
-  ];
-
-  const filteredPersonas = showMentionMenu
-    ? [
-        ...personas.filter(p =>
-          p.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-          p.id.toLowerCase().includes(mentionQuery.toLowerCase())
-        ),
-        ...specialMentions.filter(s =>
-          s.name.toLowerCase().includes(mentionQuery.toLowerCase())
-        )
-      ]
-    : [];
+  const filteredPersonas = useMemo(() => {
+    if (!showMentionMenu) return [];
+    const specialMentions = [
+      { id: '_here', name: 'here', icon: '📍', description: 'All active personas in this thread', isSpecial: true },
+      { id: '_all', name: 'all', icon: '📢', description: 'All available personas', isSpecial: true },
+    ];
+    const q = mentionQuery.toLowerCase();
+    return [
+      ...personas.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)),
+      ...specialMentions.filter(s => s.name.toLowerCase().includes(q)),
+    ];
+  }, [showMentionMenu, mentionQuery, personas]);
 
   // Helper to get privacy icon for a persona
   const getPrivacyIcon = (p: any) => {
@@ -147,10 +148,17 @@ export function ChatWindow() {
     return mentions;
   };
 
-  // Update mentioned personas when input changes
+  // Update mentioned personas when input changes (debounced to avoid lag)
   useEffect(() => {
-    const parsed = parseMentionsFromInput(input);
-    setMentionedPersonas(parsed);
+    if (!input.includes('@')) {
+      if (mentionedPersonas.length > 0) setMentionedPersonas([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      const parsed = parseMentionsFromInput(input);
+      setMentionedPersonas(parsed);
+    }, 300);
+    return () => clearTimeout(timer);
   }, [input, personas]);
 
   // Check privacy engine model status on mount
@@ -199,16 +207,7 @@ export function ChatWindow() {
     }
   }, [input]);
 
-  // Close model selector on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (modelSelectorRef.current && !modelSelectorRef.current.contains(e.target as Node)) {
-        setShowModelSelector(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // (model selector removed — replaced by privacy mode pills)
 
   // Hands-Free Conversation Mode Logic
   const { speak, startListening, stopListening, cancelSpeech } = useVoice();
@@ -343,26 +342,26 @@ export function ChatWindow() {
   }, [isConversationMode, voiceState, lastTranscription, sendMessage, setTranscription]);
 
   // Handle input change to detect mentions
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setInput(newValue);
 
-    // Simple mention detection
-    // Find the last "@" before cursor
+    // Simple mention detection — only do work if @ is present
     const cursorPos = e.target.selectionStart;
-    setCursorPosition(cursorPos);
+    if (!newValue.includes('@')) {
+      setShowMentionMenu(false);
+      return;
+    }
 
+    setCursorPosition(cursorPos);
     const textBeforeCursor = newValue.substring(0, cursorPos);
     const lastAtRateIndex = textBeforeCursor.lastIndexOf("@");
 
     if (lastAtRateIndex !== -1) {
-      // Check if it's the start of line or preceded by space
       const isStartOrSpace = lastAtRateIndex === 0 || textBeforeCursor[lastAtRateIndex - 1] === ' ';
 
       if (isStartOrSpace) {
-        // Check filtering query (text after @)
         const query = textBeforeCursor.substring(lastAtRateIndex + 1);
-        // Only trigger if no spaces in query yet (simple name matching)
         if (!query.includes(" ")) {
           setMentionQuery(query);
           setShowMentionMenu(true);
@@ -373,7 +372,7 @@ export function ChatWindow() {
     }
 
     setShowMentionMenu(false);
-  };
+  }, []);
 
   const selectMention = (selectedItem: any) => {
     if (!textareaRef.current) return;
@@ -440,6 +439,7 @@ export function ChatWindow() {
   }, [messages.length, isLoading, currentConversationId, settings.nebiusApiKey]);
 
   const handleSend = async () => {
+    console.log('[handleSend] input:', input?.substring(0, 30), 'conversationId:', currentConversationId, 'isLoading:', isLoading);
     if (!input.trim() || !currentConversationId || isLoading) return;
 
     const message = input.trim();
@@ -487,17 +487,9 @@ export function ChatWindow() {
     }
   };
 
-  const handleModelSelect = (modelId: string) => {
-    if (isAirplane) {
-      // In airplane mode, find the Ollama model's apiModelId and set it as airplaneModeModel
-      const ollamaModel = availableModels.find((m) => m.id === modelId);
-      if (ollamaModel) {
-        updateSettings({ airplaneModeModel: ollamaModel.apiModelId });
-      }
-    } else {
-      updateSettings({ defaultModelId: modelId });
-    }
-    setShowModelSelector(false);
+  // Privacy mode pill handler
+  const handlePrivacyModeSelect = (mode: 'local' | 'hybrid' | 'cloud') => {
+    setPrivacyMode(mode);
   };
 
   // Welcome screen when no conversation selected
@@ -688,14 +680,14 @@ export function ChatWindow() {
           ) : (
             // Messages
             <div className="space-y-6 px-4">
-              {messages.map((message, idx) => {
+              {messages.map((message) => {
                 // Determine persona for this message
                 const messagePersona = message.personaId
                   ? getPersonaById(message.personaId)
                   : persona;
 
                 return (
-                  <div key={message.id} className="animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
+                  <div key={message.id}>
                     <MessageBubble
                       id={message.id}
                       role={message.role}
@@ -834,70 +826,62 @@ export function ChatWindow() {
               </div>
             )}
 
-            {/* Model Selector Pill */}
-            <div className="absolute -top-3 left-4 z-10" ref={modelSelectorRef}>
-              <button
-                onClick={() => setShowModelSelector(!showModelSelector)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm hover:shadow-md transition-all ${
-                  isAirplane
-                    ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:border-amber-500/60"
-                    : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--ring)/0.5)]"
-                }`}
-              >
-                {isAirplane ? (
-                  <Plane className="h-3 w-3" />
-                ) : (
-                  <Sparkles className="h-3 w-3 text-[hsl(var(--primary))]" />
-                )}
-                {currentModel.name}
-                {isAirplane && <span className="text-[10px] opacity-70">LOCAL</span>}
-                <ChevronDown className={`h-3 w-3 transition-transform ${showModelSelector ? "rotate-180" : ""}`} />
-              </button>
-
-              {showMentionMenu && filteredPersonas.length > 0 ? null : showModelSelector && (
-                <div className="absolute bottom-full left-0 mb-2 w-72 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-2xl overflow-hidden animate-slide-up">
-                  {isAirplane && (
-                    <div className="px-3 py-2 border-b border-[hsl(var(--border)/0.5)] bg-amber-500/5">
-                      <div className="flex items-center gap-2">
-                        <Plane className="h-3 w-3 text-amber-500" />
-                        <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Airplane Mode — Local models only</span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="p-2">
-                    {availableModels.map((m) => {
-                      const isSelected = isAirplane
-                        ? m.apiModelId === settings.airplaneModeModel
-                        : m.id === settings.defaultModelId;
-                      return (
-                        <button
-                          key={m.id}
-                          onClick={() => handleModelSelect(m.id)}
-                          className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex justify-between items-center transition-all ${isSelected
-                            ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]"
-                            : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))] hover:text-[hsl(var(--foreground))]"
-                            }`}
-                        >
-                          <div>
-                            <span className="font-medium">{m.name}</span>
-                            <span className="block text-xs opacity-70 mt-0.5">
-                              {m.provider === 'ollama' ? 'Local' : m.provider} · {m.speedTier} · ctx {(m.contextWindow / 1000).toFixed(0)}k
-                            </span>
-                          </div>
-                          {isSelected && (
-                            <Check className="h-4 w-4 text-[hsl(var(--primary))]" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+            {/* Privacy Mode Pills */}
+            <div className="absolute -top-3 left-4 z-10 flex items-center gap-1" data-tour="model-selector">
+              {([
+                {
+                  mode: 'local' as const, icon: Lock, label: 'Local',
+                  activeCls: 'border-green-500/50 bg-green-500/15 text-green-600 dark:text-green-400',
+                  modelLabel: (() => { const m = useSettingsStore.getState().ollamaModels.find(m => m.apiModelId === settings.localModeModel); return m?.name?.replace(/^Qwen3\s*/, '') || settings.localModeModel; })(),
+                },
+                {
+                  mode: 'hybrid' as const, icon: ShieldCheck, label: 'Hybrid',
+                  activeCls: 'border-blue-500/50 bg-blue-500/15 text-blue-600 dark:text-blue-400',
+                  modelLabel: (() => { const m = useSettingsStore.getState().models.find(m => m.id === settings.hybridModeModel); return m?.name?.replace(/^Qwen3\s*/, '') || settings.hybridModeModel; })(),
+                },
+                {
+                  mode: 'cloud' as const, icon: Zap, label: 'Cloud',
+                  activeCls: 'border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-400',
+                  modelLabel: (() => { const m = useSettingsStore.getState().models.find(m => m.id === settings.cloudModeModel); return m?.name?.replace(/^Qwen3\s*/, '') || settings.cloudModeModel; })(),
+                },
+              ]).map(({ mode, icon: Icon, label, activeCls, modelLabel }) => {
+                const isActive = activePrivacyMode === mode;
+                const isDimmed = activePrivacyMode === 'custom';
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => handlePrivacyModeSelect(mode)}
+                    className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium shadow-sm transition-all ${
+                      isActive
+                        ? activeCls
+                        : isDimmed
+                          ? 'border-[hsl(var(--border)/0.3)] bg-[hsl(var(--card)/0.5)] text-[hsl(var(--muted-foreground)/0.5)] hover:text-[hsl(var(--muted-foreground))]'
+                          : 'border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--ring)/0.5)]'
+                    }`}
+                    title={
+                      mode === 'local' ? 'All processing on your device — maximum privacy' :
+                      mode === 'hybrid' ? 'PII redacted locally, then sent to cloud LLM' :
+                      'Direct to cloud API — fastest'
+                    }
+                  >
+                    <Icon className="h-3 w-3" />
+                    <span className="leading-none">{label}</span>
+                    <span className="text-[9px] opacity-60 leading-none">{modelLabel}</span>
+                  </button>
+                );
+              })}
+              {activePrivacyMode === 'custom' && (
+                <span className="flex items-center gap-1.5 rounded-full border border-purple-500/50 bg-purple-500/15 text-purple-600 dark:text-purple-400 px-2.5 py-1 text-[11px] font-medium shadow-sm">
+                  <Settings2 className="h-3 w-3" />
+                  <span className="leading-none">Custom</span>
+                </span>
               )}
             </div>
 
             <div className="flex flex-col">
               <textarea
                 ref={textareaRef}
+                data-tour="chat-input"
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
@@ -1000,11 +984,27 @@ export function ChatWindow() {
                     )}
                   </div>
 
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground)/0.4)] hidden sm:block">
-                    Shift+Enter for new line
-                  </span>
+                  {/* Redaction badge + hint (always visible when idle) */}
+                  {privacyStatus.mode === 'idle' && (
+                    <div className="hidden sm:flex items-center gap-1.5 flex-wrap" data-tour="privacy-badge">
+                      {/* Custom redaction terms badge */}
+                      {customTermsCount > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-pink-500/10 text-pink-500"
+                          title={`${customTermsCount} custom redaction term${customTermsCount !== 1 ? 's' : ''} will be applied before cloud sends`}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+                          </svg>
+                          <span>{customTermsCount}</span>
+                        </span>
+                      )}
 
-                  {/* Privacy Status Indicator */}
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground)/0.3)]">Shift+Enter new line</span>
+                    </div>
+                  )}
+
+                  {/* Privacy Status Indicator (during processing) */}
                   {privacyStatus.mode !== 'idle' && (
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-all ${
                       privacyStatus.mode === 'processing' ? 'bg-blue-500/10 text-blue-400 animate-pulse' :
@@ -1036,10 +1036,13 @@ export function ChatWindow() {
           </div>
 
           <p className="mt-4 text-center text-[11px] text-[hsl(var(--muted-foreground)/0.5)]">
-            {isAirplane ? '✈️ Airplane Mode — all data stays on your machine' :
-             persona?.preferred_backend === 'hybrid' ? '🔐 Hybrid Mode — PII stripped before cloud processing' :
-             persona?.preferred_backend === 'ollama' ? '🔒 Local Mode — all data stays on your machine' :
-             '⚡ Cloud Mode — standard processing via Nebius'}
+            {activePrivacyMode === 'local' ? '🔒 Local — all data stays on your machine' :
+             activePrivacyMode === 'hybrid' ? '🛡️ Hybrid — PII redacted locally, then cloud LLM' :
+             activePrivacyMode === 'custom' ? '⚙️ Custom — persona-specific routing' :
+             '⚡ Cloud — direct to Nebius'}
+            {customTermsCount > 0 && (
+              <span className="text-pink-500"> · {customTermsCount} custom redaction{customTermsCount !== 1 ? 's' : ''} active</span>
+            )}
             {' · '}AI can make mistakes. Please verify important information.
           </p>
         </div>

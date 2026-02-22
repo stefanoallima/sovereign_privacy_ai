@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Lock,
   FileText,
+  Upload,
 } from 'lucide-react';
 import {
   useUserContextStore,
@@ -38,6 +39,7 @@ import {
   type PIIField,
   type PIICategory,
   type UserProfile,
+  type CustomRedactTerm,
 } from '@/stores/userContext';
 
 // ==================== Types ====================
@@ -284,6 +286,198 @@ const CategorySection: React.FC<{
   );
 };
 
+// ==================== Custom Redact Section ====================
+
+const CustomRedactSection: React.FC<{
+  terms: CustomRedactTerm[];
+  onAdd: (label: string, value: string) => void;
+  onRemove: (index: number) => void;
+  onImport: (csv: string) => number;
+  onClear: () => void;
+}> = ({ terms, onAdd, onRemove, onImport, onClear }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [quickInput, setQuickInput] = useState('');
+  const [importCount, setImportCount] = useState<number | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const handleImport = () => {
+    if (!bulkText.trim()) return;
+    const count = onImport(bulkText);
+    setImportCount(count);
+    setBulkText('');
+    setTimeout(() => setImportCount(null), 3000);
+  };
+
+  const handleQuickAdd = () => {
+    const commaIdx = quickInput.indexOf(',');
+    if (commaIdx === -1) return;
+    const label = quickInput.substring(0, commaIdx).trim();
+    const value = quickInput.substring(commaIdx + 1).trim();
+    if (label && value) {
+      onAdd(label, value);
+      setQuickInput('');
+    }
+  };
+
+  return (
+    <div className="border border-[hsl(var(--border)/0.5)] rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-[hsl(var(--secondary)/0.2)] hover:bg-[hsl(var(--secondary)/0.3)] transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-xl ${CATEGORY_COLORS.custom}`}>
+            {CATEGORY_ICONS.custom}
+          </div>
+          <div className="text-left">
+            <span className="font-semibold text-sm text-[hsl(var(--foreground))]">
+              {CATEGORY_LABELS.custom}
+            </span>
+            <span className="ml-2 text-xs text-[hsl(var(--muted-foreground))]">
+              {terms.length} term{terms.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+        {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+      </button>
+
+      {isExpanded && (
+        <div className="p-4 space-y-4">
+          {/* Format guide — always visible */}
+          <div className="rounded-lg bg-[hsl(var(--secondary)/0.3)] p-2.5">
+            <p className="text-[11px] font-mono text-[hsl(var(--muted-foreground))] leading-relaxed">
+              Format: <strong>label,string_to_redact</strong><br />
+              Company Name,Acme Corp<br />
+              Partner BSN,123456789
+            </p>
+            <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 opacity-70">
+              Same-length replacements are auto-generated for each term.
+            </p>
+          </div>
+
+          {/* Quick add */}
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={quickInput}
+              onChange={(e) => setQuickInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
+              placeholder="label,string_to_redact"
+              className="flex-1 px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+            />
+            <button
+              onClick={handleQuickAdd}
+              disabled={!quickInput.includes(',')}
+              className="px-3 py-2 text-sm font-medium bg-[hsl(var(--primary))] text-white rounded-lg hover:bg-[hsl(var(--primary)/0.9)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+
+          {/* Bulk paste */}
+          <div className="space-y-2">
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono resize-y"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleImport}
+                disabled={!bulkText.trim()}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] rounded-lg hover:bg-[hsl(var(--primary)/0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Upload size={12} />
+                Import
+              </button>
+              {importCount !== null && (
+                <span className="text-xs text-green-600 font-medium">
+                  {importCount} term{importCount !== 1 ? 's' : ''} imported
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Current terms table */}
+          {terms.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
+                  Active Terms
+                </span>
+                <button
+                  onClick={onClear}
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10 rounded-lg"
+                >
+                  <Trash2 size={10} />
+                  Clear All
+                </button>
+              </div>
+              <div className="rounded-lg border border-[hsl(var(--border)/0.5)] overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-[hsl(var(--secondary)/0.4)] text-[hsl(var(--muted-foreground))]">
+                      <th className="text-left px-2 py-1.5 font-semibold uppercase tracking-wider">Label</th>
+                      <th className="text-left px-2 py-1.5 font-semibold uppercase tracking-wider">Original</th>
+                      <th className="text-left px-2 py-1.5 font-semibold uppercase tracking-wider">Replacement</th>
+                      <th className="w-7 px-1 py-1.5"></th>
+                    </tr>
+                  </thead>
+                </table>
+                <div className="max-h-48 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <tbody className="divide-y divide-[hsl(var(--border)/0.3)]">
+                      {terms.map((term, index) => (
+                        <tr
+                          key={index}
+                          className="hover:bg-[hsl(var(--secondary)/0.3)] transition-colors group"
+                          onMouseEnter={() => setHoveredIndex(index)}
+                          onMouseLeave={() => setHoveredIndex(null)}
+                        >
+                          <td className="px-2 py-1.5 font-medium text-[hsl(var(--foreground))]">
+                            {term.label}
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <code className="font-mono text-[hsl(var(--foreground))] bg-[hsl(var(--secondary)/0.5)] px-1 py-0.5 rounded">
+                              {hoveredIndex === index ? term.value : term.value.length > 2 ? term.value.substring(0, 2) + '***' : '***'}
+                            </code>
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <code className="font-mono text-pink-600 dark:text-pink-400 bg-pink-500/10 px-1 py-0.5 rounded">
+                              {term.replacement || '???'}
+                            </code>
+                          </td>
+                          <td className="px-1 py-1.5">
+                            <button
+                              onClick={() => onRemove(index)}
+                              className="p-1 rounded hover:bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Remove"
+                            >
+                              <X size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {terms.length === 0 && (
+            <p className="text-xs text-[hsl(var(--muted-foreground))] text-center py-2 opacity-60">
+              No custom redaction terms yet.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ==================== Profile Selector ====================
 
 const ProfileSelector: React.FC<{
@@ -390,6 +584,10 @@ export const PIIProfileEditor: React.FC<PIIProfileEditorProps> = ({
     setPIIValue,
     clearAllPII,
     getFilledFields,
+    addCustomRedactTerm,
+    removeCustomRedactTerm,
+    importCustomRedactTerms,
+    clearCustomRedactTerms,
   } = useUserContextStore();
 
   const [visibleFields, setVisibleFields] = useState<Set<string>>(new Set());
@@ -533,6 +731,19 @@ export const PIIProfileEditor: React.FC<PIIProfileEditorProps> = ({
       {/* Field Categories */}
       <div className={`p-5 space-y-4 ${compact ? 'max-h-96' : 'max-h-[60vh]'} overflow-y-auto`}>
         {(Object.keys(fieldsByCategory) as PIICategory[]).map((category) => {
+          if (category === 'custom') {
+            return (
+              <CustomRedactSection
+                key="custom"
+                terms={activeProfile?.customRedactTerms || []}
+                onAdd={addCustomRedactTerm}
+                onRemove={removeCustomRedactTerm}
+                onImport={importCustomRedactTerms}
+                onClear={clearCustomRedactTerms}
+              />
+            );
+          }
+
           const fields = fieldsByCategory[category];
           if (fields.length === 0) return null;
 

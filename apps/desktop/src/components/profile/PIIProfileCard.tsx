@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Shield, User, Smartphone, CreditCard, Hash, MapPin, FilePlus, Plus, X, Check } from 'lucide-react';
 import { PIIValue } from '@/types/profiles';
 import { useProfileStore } from '@/stores/profiles';
+import { useUserContextStore, selectActiveProfile } from '@/stores/userContext';
 
 // Available PII categories for manual entry
 const PII_CATEGORIES = [
@@ -18,6 +19,8 @@ const PII_CATEGORIES = [
 export const PIIProfileCard: React.FC = () => {
     const { people, piiValues, fetchProfiles, fetchPII, setUploadModalOpen, updatePII } = useProfileStore();
     const primaryPerson = people.find(p => p.relationship === 'primary');
+    const activeUserProfile = useUserContextStore(selectActiveProfile);
+    const customTerms = activeUserProfile?.customRedactTerms || [];
 
     useEffect(() => {
         fetchProfiles();
@@ -97,7 +100,12 @@ export const PIIProfileCard: React.FC = () => {
                 <div className="space-y-2">
                     <div className="flex items-center justify-between px-0.5">
                         <p className="text-[9px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-widest opacity-60">Secured Data</p>
-                        <span className="text-[9px] font-bold text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded-md">{pii.length} Saved</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-bold text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded-md">{pii.length} PII</span>
+                            {customTerms.length > 0 && (
+                                <span className="text-[9px] font-bold text-pink-600 bg-pink-500/10 px-1.5 py-0.5 rounded-md">{customTerms.length} Redaction{customTerms.length !== 1 ? 's' : ''}</span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Manual Entry Form */}
@@ -197,6 +205,39 @@ export const PIIProfileCard: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* Custom Redaction Terms */}
+            {customTerms.length > 0 && (
+                <div className="px-4 pb-3">
+                    <div className="flex items-center justify-between px-0.5 mb-2">
+                        <p className="text-[9px] font-bold text-pink-600 uppercase tracking-widest opacity-80">Custom Redactions</p>
+                    </div>
+                    <div className="rounded-lg border border-[hsl(var(--border)/0.5)] overflow-hidden">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="bg-[hsl(var(--secondary)/0.4)]">
+                                    <th className="text-left px-2 py-1 text-[8px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Label</th>
+                                    <th className="text-left px-2 py-1 text-[8px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Redacted As</th>
+                                </tr>
+                            </thead>
+                        </table>
+                        <div className="max-h-32 overflow-y-auto">
+                            <table className="w-full">
+                                <tbody className="divide-y divide-[hsl(var(--border)/0.2)]">
+                                    {customTerms.map((term, i) => (
+                                        <tr key={i} className="hover:bg-[hsl(var(--secondary)/0.3)] transition-colors">
+                                            <td className="px-2 py-1.5 text-[10px] font-medium text-[hsl(var(--foreground))]">{term.label}</td>
+                                            <td className="px-2 py-1.5">
+                                                <code className="text-[9px] font-mono text-pink-600 dark:text-pink-400 bg-pink-500/10 px-1 py-0.5 rounded">{term.replacement}</code>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Context Indicator */}
             <div className="px-4 py-2 bg-[hsl(var(--secondary)/0.2)] flex items-center justify-center border-t border-[hsl(var(--border)/0.2)]">

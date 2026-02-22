@@ -10,6 +10,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useChatStore, useSettingsStore, usePersonasStore } from '@/stores';
+import { useUserContextStore, selectActiveProfile } from '@/stores/userContext';
 import { getNebiusClient, type ChatMessage } from '@/services/nebius';
 import { getMem0Client, formatMemoriesAsContext } from '@/services/mem0';
 import {
@@ -77,6 +78,28 @@ function rehydrateResponse(text: string, mappings: Map<string, string>): string 
   return result;
 }
 
+/**
+ * Apply custom redaction terms: replace each term's value with its same-length
+ * replacement string. This preserves text structure (character count, line breaks)
+ * while making the content safe for cloud. The replacement strings are unique
+ * and can be mapped back to originals for rehydration.
+ */
+function applyCustomRedaction(
+  text: string,
+  terms: Array<{ label: string; value: string; replacement: string }>,
+): { sanitized: string; mappings: Map<string, string> } {
+  const mappings = new Map<string, string>();
+  let sanitized = text;
+  for (const term of terms) {
+    if (!term.value || !term.replacement) continue;
+    if (sanitized.includes(term.value)) {
+      sanitized = sanitized.split(term.value).join(term.replacement);
+      mappings.set(term.replacement, term.value);
+    }
+  }
+  return { sanitized, mappings };
+}
+
 export interface PrivacyStatus {
   /** Current privacy mode */
   mode: 'idle' | 'processing' | 'attributes_only' | 'anonymized' | 'direct' | 'blocked' | 'local' | 'pending_review';
@@ -98,6 +121,7 @@ export interface PendingReview {
   processed: ProcessedChatRequest;
   targetPersona: any;
   model: any;
+  glinerMappings?: Map<string, string>;
 }
 
 export function usePrivacyChat() {
@@ -125,6 +149,7 @@ export function usePrivacyChat() {
 
   const { settings, getModelById, isAirplaneModeActive } = useSettingsStore();
   const { getSelectedPersona, personas } = usePersonasStore();
+  const activeUserProfile = useUserContextStore(selectActiveProfile);
 
   /**
    * Check privacy status for a persona before sending
@@ -148,41 +173,57 @@ export function usePrivacyChat() {
   );
 
   /**
-   * Send a single message to one persona with privacy-first processing
+   * Send a single message to one persona with privacy-first processing.
+   * Routing priority:
+   *   1. If model is local (provider === 'ollama') → always local inference
+   *   2. If persona has custom backend override → use persona config
+   *   3. Otherwise use global privacyMode from settings
    */
   const sendSingleMessage = useCallback(
     async (content: string, targetPersona: any, model: any) => {
-      // Check airplane mode first - forces all requests to local Ollama
-      const airplaneMode = isAirplaneModeActive();
+      const privacyMode = settings.privacyMode;
 
       // Update privacy status to processing
       setPrivacyStatus({
         mode: 'processing',
         icon: '⏳',
         label: 'Processing',
-        explanation: airplaneMode ? 'Processing locally (Airplane Mode)...' : 'Analyzing privacy requirements...',
+        explanation: privacyMode === 'local' ? 'Processing locally...' : 'Analyzing privacy requirements...',
         hadFallback: false,
       });
 
-      // AIRPLANE MODE: Force all requests to local Ollama
-      if (airplaneMode) {
+      // LOCAL MODEL: always route to local inference regardless of mode
+      if (model?.provider === 'ollama') {
         await sendLocalOnly(content, targetPersona, model);
         return;
       }
 
-      // Check if persona has privacy-first configuration
-      const hasPrivacyConfig =
-        targetPersona?.enable_local_anonymizer ||
-        targetPersona?.preferred_backend === 'ollama' ||
-        targetPersona?.preferred_backend === 'hybrid';
+      // Check if persona has a custom backend override (non-default)
+      const hasCustomOverride = targetPersona?.preferred_backend &&
+        targetPersona.preferred_backend !== 'nebius';
 
-      if (hasPrivacyConfig) {
+      // Determine effective mode: persona custom > global privacy mode
+      let effectiveMode: string;
+      if (hasCustomOverride) {
+        effectiveMode = targetPersona.preferred_backend; // 'ollama' | 'hybrid'
+      } else {
+        effectiveMode = privacyMode; // 'local' | 'hybrid' | 'cloud'
+      }
+
+      if (effectiveMode === 'local' || effectiveMode === 'ollama') {
+        await sendLocalOnly(content, targetPersona, model);
+      } else if (effectiveMode === 'hybrid') {
         await sendWithPrivacy(content, targetPersona, model);
       } else {
-        await sendDirect(content, targetPersona, model);
+        // Cloud mode — still check if persona has anonymizer enabled
+        if (targetPersona?.enable_local_anonymizer) {
+          await sendWithPrivacy(content, targetPersona, model);
+        } else {
+          await sendDirect(content, targetPersona, model);
+        }
       }
     },
-    [isAirplaneModeActive, settings, getModelById, getCurrentConversation, getCurrentMessages, contexts, currentConversationId, updateStreamingContent, finalizeStreaming, setLoading, addMessage]
+    [settings.privacyMode, settings, getModelById, getCurrentConversation, getCurrentMessages, contexts, currentConversationId, updateStreamingContent, finalizeStreaming, setLoading, addMessage]
   );
 
   /**
@@ -206,7 +247,9 @@ export function usePrivacyChat() {
         ? personas.find(p => p.id === mentionedPersonaIds[0])
         : getSelectedPersona();
 
-      const model = getModelById(conversation.modelId || settings.defaultModelId);
+      // Always use user's current default model (conversations store stale modelId from creation)
+      const defaultModel = getModelById(settings.defaultModelId);
+      const model = defaultModel || getModelById(conversation.modelId || settings.defaultModelId);
 
       // Check for @mention to switch persona
       if (!targetPersona || (content.trim().startsWith('@') && !mentionedPersonaIds)) {
@@ -226,10 +269,12 @@ export function usePrivacyChat() {
         targetPersona = getSelectedPersona();
       }
 
-      // Check airplane mode first - forces all requests to local Ollama
+      // Check airplane mode and model provider
       const airplaneMode = isAirplaneModeActive();
+      const isLocalModel = model?.provider === 'ollama';
 
-      if (!airplaneMode && !settings.nebiusApiKey) {
+      // Only require API key when using cloud models and not in airplane mode
+      if (!airplaneMode && !isLocalModel && !settings.nebiusApiKey) {
         console.error('No API key configured and not in airplane mode');
         return;
       }
@@ -321,8 +366,9 @@ export function usePrivacyChat() {
   /**
    * Send locally only (Airplane Mode) - no cloud requests
    */
-  const sendLocalOnly = async (content: string, targetPersona: any, _model: any) => {
+  const sendLocalOnly = async (content: string, targetPersona: any, passedModel: any) => {
     const startTime = Date.now();
+    const t0 = performance.now();
 
     // Update privacy status for airplane mode
     setPrivacyStatus({
@@ -334,75 +380,121 @@ export function usePrivacyChat() {
     });
 
     try {
-      // Build the prompt with system message and context
-      let fullPrompt = '';
+      // Build a COMPACT ChatML prompt for local inference.
+      // Every token costs CPU time, so we minimize prompt size:
+      // - Short system prompt (1-2 sentences, not paragraphs)
+      // - Only last 4 messages of history (not 6+)
+      // - ChatML tags that Qwen3 models understand natively
 
-      // Add system prompt from persona
-      if (targetPersona?.systemPrompt) {
-        fullPrompt += `System: ${targetPersona.systemPrompt}\n\n`;
+      // Short system instruction based on persona
+      const personaName = targetPersona?.name?.toLowerCase() || '';
+      let sysMsg = 'You are a helpful assistant. Be concise.';
+      if (personaName.includes('tax')) sysMsg = 'You are a tax advisor. Give concise, accurate answers.';
+      else if (personaName.includes('legal')) sysMsg = 'You are a legal advisor. Give concise, accurate answers.';
+      else if (personaName.includes('health')) sysMsg = 'You are a health advisor. Give concise, accurate answers.';
+      else if (personaName.includes('finance')) sysMsg = 'You are a financial advisor. Give concise, accurate answers.';
+      else if (targetPersona?.systemPrompt) {
+        // Use first sentence of the persona's system prompt to keep it short
+        const firstSentence = targetPersona.systemPrompt.split(/[.!?\n]/)[0];
+        if (firstSentence && firstSentence.length < 200) sysMsg = firstSentence.trim() + '.';
       }
 
-      // Add active contexts
-      const conversation = getCurrentConversation();
-      const activeContexts = contexts.filter((ctx) =>
-        conversation?.activeContextIds.includes(ctx.id)
-      );
-      if (activeContexts.length > 0) {
-        const contextContent = activeContexts
-          .map((ctx) => `## ${ctx.name}\n${ctx.content}`)
-          .join('\n\n');
-        fullPrompt += `Context:\n${contextContent}\n\n`;
-      }
+      let fullPrompt = `<|im_start|>system\n${sysMsg}<|im_end|>\n`;
 
-      // Add conversation history (last few messages for context)
+      // Add recent conversation history, keeping total prompt under ~1500 chars
+      // to stay well within the 1.7B model's context window
       const history = getCurrentMessages();
-      const recentHistory = history.slice(-6); // Last 3 exchanges
-      if (recentHistory.length > 0) {
-        fullPrompt += 'Conversation:\n';
-        for (const msg of recentHistory) {
-          fullPrompt += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n`;
-        }
-        fullPrompt += '\n';
+      const recentHistory = history.slice(-4);
+      let historyChars = 0;
+      const maxHistoryChars = 1000;
+      for (const msg of recentHistory) {
+        const role = msg.role === 'user' ? 'user' : 'assistant';
+        // Skip error messages from previous failures
+        if (msg.content.startsWith('**Airplane Mode Error**')) continue;
+        const truncated = msg.content.length > 300 ? msg.content.slice(0, 300) + '…' : msg.content;
+        if (historyChars + truncated.length > maxHistoryChars) break;
+        fullPrompt += `<|im_start|>${role}\n${truncated}<|im_end|>\n`;
+        historyChars += truncated.length;
       }
 
-      // Add the current user message
-      fullPrompt += `User: ${content.trim()}\n\nAssistant:`;
+      fullPrompt += `<|im_start|>user\n${content.trim()}<|im_end|>\n`;
+      fullPrompt += `<|im_start|>assistant\n`;
 
-      // Send to local Ollama
+      // Send to local llama.cpp backend
       const { invoke } = await import('@tauri-apps/api/core');
 
-      // Check if Ollama is available first
+      console.log(`[sendLocalOnly] checking availability… t=${(performance.now()-t0).toFixed(0)}ms`);
       const isAvailable = await invoke<boolean>('ollama_is_available');
       if (!isAvailable) {
-        throw new Error('The local AI model (Qwen3-8B, ~5 GB) has not been downloaded yet.\n\nTo use Airplane Mode:\n1. Go to **Settings** (gear icon)\n2. Find the **Privacy Engine** section\n3. Click **Download Privacy Engine**\n4. Wait for the download to complete (~5 GB)\n\nOnce downloaded, Airplane Mode will work fully offline.');
+        throw new Error('No local AI model has been downloaded yet.\n\nTo use Airplane Mode:\n1. Go to Settings (gear icon)\n2. Find the Privacy Engine section\n3. Download a model\n\nOnce downloaded, Airplane Mode will work fully offline.');
       }
 
-      // Get the selected model - check if it's an Ollama model
-      const selectedModel = conversation?.modelId
-        ? getModelById(conversation.modelId)
-        : null;
-
-      // Use the selected Ollama model or fall back to default
-      const ollamaModel = selectedModel?.provider === 'ollama'
-        ? selectedModel.apiModelId
+      // Use the model passed from sendMessage (already resolved to user's current default)
+      const localModelId = passedModel?.provider === 'ollama'
+        ? passedModel.apiModelId
         : settings.airplaneModeModel;
 
-      const response = await invoke<string>('ollama_generate', {
-        prompt: fullPrompt,
-        model: ollamaModel,
+      // Switch the active model in the Rust backend (no-op if already active)
+      console.log(`[sendLocalOnly] setting active model: ${localModelId} t=${(performance.now()-t0).toFixed(0)}ms`);
+      await invoke('set_active_local_model', { modelId: localModelId }).catch((e: unknown) => {
+        console.warn('[sendLocalOnly] set_active_local_model failed (will use default):', e);
       });
 
-      const latencyMs = Date.now() - startTime;
-      updateStreamingContent(response);
+      console.log(`[sendLocalOnly] invoking inference, prompt_len=${fullPrompt.length} model=${localModelId} t=${(performance.now()-t0).toFixed(0)}ms`);
+      // Retry up to 2 times with increasing delay — handles cold-start race
+      // where set_active_local_model returns before the model is fully loaded
+      let response: string | undefined;
+      let lastErr: unknown;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          response = await invoke<string>('ollama_generate', {
+            prompt: fullPrompt,
+            model: localModelId,
+          });
+          break; // success
+        } catch (err) {
+          lastErr = err;
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.warn(`[sendLocalOnly] attempt ${attempt}/3 failed: ${errMsg}`);
+          if (attempt < 3) {
+            const delay = attempt * 2000; // 2s, then 4s
+            console.log(`[sendLocalOnly] retrying in ${delay}ms…`);
+            await new Promise((r) => setTimeout(r, delay));
+          }
+        }
+      }
+      if (response === undefined) {
+        throw lastErr;
+      }
+      // Strip Qwen3 thinking tags from the response
+      let cleaned = response;
+      // Remove <think>...</think> blocks (model's internal reasoning)
+      cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      // Remove orphaned </think> tag at start (if model started thinking before response)
+      if (cleaned.startsWith('</think>')) {
+        cleaned = cleaned.slice('</think>'.length).trim();
+      }
+      // Fallback: if stripping removed everything, use original
+      if (!cleaned) cleaned = response.replace(/<\/?think>/g, '').trim() || '(No response generated)';
 
-      finalizeStreaming(
-        currentConversationId!,
-        'local-ollama',
-        Math.ceil(fullPrompt.length / 4),
-        Math.ceil(response.length / 4),
-        latencyMs,
-        targetPersona?.id
-      );
+      console.log(`[sendLocalOnly] response received, len=${response.length} cleaned=${cleaned.length} total=${(performance.now()-t0).toFixed(0)}ms`);
+
+      const latencyMs = Date.now() - startTime;
+      updateStreamingContent(cleaned);
+
+      try {
+        await finalizeStreaming(
+          currentConversationId!,
+          'local-ollama',
+          Math.ceil(fullPrompt.length / 4),
+          Math.ceil(cleaned.length / 4),
+          latencyMs,
+          targetPersona?.id
+        );
+      } catch (dbErr) {
+        console.warn('[sendLocalOnly] finalizeStreaming failed (non-fatal):', dbErr);
+        // Non-fatal: the response was already shown via updateStreamingContent
+      }
 
       // Reset privacy status
       setPrivacyStatus({
@@ -412,15 +504,18 @@ export function usePrivacyChat() {
         explanation: 'Message processed locally',
         hadFallback: false,
       });
+
+      setLoading(false);
     } catch (error) {
-      console.error('Airplane mode chat error:', error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error('Airplane mode chat error:', errMsg, error);
       setLoading(false);
       updateStreamingContent('');
 
       addMessage(currentConversationId!, {
         conversationId: currentConversationId!,
         role: 'assistant',
-        content: `**Airplane Mode Error**\n\n${error instanceof Error ? error.message : 'Failed to process locally. Go to Settings and download the Privacy Engine.'}`,
+        content: `**Airplane Mode Error**\n\n${errMsg || 'Failed to process locally. Go to Settings and download the Privacy Engine.'}`,
       });
 
       setPrivacyStatus({
@@ -618,8 +713,23 @@ export function usePrivacyChat() {
         console.log(`GLiNER detected ${glinerEntityCount} PII entities, text redacted before privacy processing`);
       }
 
-      // Use the GLiNER-sanitized content for the rest of the pipeline
-      const contentForProcessing = glinerEntityCount > 0 ? glinerSanitized : content;
+      // Apply custom redaction terms from user profile
+      const customTerms = activeUserProfile?.customRedactTerms || [];
+      let textAfterGliner = glinerEntityCount > 0 ? glinerSanitized : content;
+      if (customTerms.length > 0) {
+        const { sanitized: customSanitized, mappings: customMappings } = applyCustomRedaction(textAfterGliner, customTerms);
+        textAfterGliner = customSanitized;
+        // Merge custom mappings into GLiNER mappings for rehydration
+        for (const [placeholder, original] of customMappings) {
+          glinerMappings.set(placeholder, original);
+        }
+        if (customMappings.size > 0) {
+          console.log(`Custom redaction applied ${customMappings.size} term(s)`);
+        }
+      }
+
+      // Use the sanitized content for the rest of the pipeline
+      const contentForProcessing = textAfterGliner;
 
       // Step 1: Process with privacy routing
       const processed = await processChatWithPrivacy(contentForProcessing, targetPersona);
@@ -651,6 +761,7 @@ export function usePrivacyChat() {
           processed,
           targetPersona,
           model,
+          glinerMappings: glinerMappings.size > 0 ? glinerMappings : undefined,
         });
         setPrivacyStatus({
           mode: 'pending_review',
@@ -694,7 +805,7 @@ export function usePrivacyChat() {
     async (editedPrompt?: string) => {
       if (!pendingReview) return;
 
-      const { originalMessage, processedPrompt, processed, targetPersona, model } = pendingReview;
+      const { originalMessage, processedPrompt, processed, targetPersona, model, glinerMappings } = pendingReview;
       const promptToSend = editedPrompt ?? processedPrompt;
 
       setPendingReview(null);
@@ -704,7 +815,7 @@ export function usePrivacyChat() {
       // Restore the privacy status from the processed result
       updatePrivacyStatusFromProcessed(processed);
 
-      await executePrivacySend(originalMessage, processed, targetPersona, model, promptToSend);
+      await executePrivacySend(originalMessage, processed, targetPersona, model, promptToSend, glinerMappings);
     },
     [pendingReview, setLoading, updateStreamingContent]
   );
@@ -736,6 +847,19 @@ export function usePrivacyChat() {
     });
 
     const startTime = Date.now();
+
+    // Apply custom redaction terms even in direct mode
+    const customTerms = activeUserProfile?.customRedactTerms || [];
+    let contentToSend = content;
+    let directMappings = new Map<string, string>();
+    if (customTerms.length > 0) {
+      const { sanitized, mappings } = applyCustomRedaction(content, customTerms);
+      contentToSend = sanitized;
+      directMappings = mappings;
+      if (mappings.size > 0) {
+        console.log(`Custom redaction (direct mode) applied ${mappings.size} term(s)`);
+      }
+    }
 
     try {
       const messages: ChatMessage[] = [];
@@ -780,7 +904,7 @@ export function usePrivacyChat() {
       for (const msg of history) {
         messages.push({ role: msg.role, content: msg.content });
       }
-      messages.push({ role: 'user', content: content.trim() });
+      messages.push({ role: 'user', content: contentToSend.trim() });
 
       const client = getNebiusClient(settings.nebiusApiKey, settings.nebiusApiEndpoint);
       const stream = client.streamChatCompletion({
@@ -793,7 +917,15 @@ export function usePrivacyChat() {
       let fullContent = '';
       for await (const chunk of stream) {
         fullContent += chunk;
-        updateStreamingContent(fullContent);
+        const displayed = directMappings.size > 0
+          ? rehydrateResponse(fullContent, directMappings)
+          : fullContent;
+        updateStreamingContent(displayed);
+      }
+
+      // Rehydrate final content
+      if (directMappings.size > 0) {
+        fullContent = rehydrateResponse(fullContent, directMappings);
       }
 
       const latencyMs = Date.now() - startTime;

@@ -270,14 +270,14 @@ pub async fn make_routing_decision(
                         }
                     }
                     AnonymizationMode::Optional => {
-                        // Warn and fallback - use attributes-only for safety
-                        warn!("Hybrid backend: Ollama unavailable for anonymization, using attributes-only fallback");
+                        // Warn and fallback - send full text to cloud (frontend GLiNER handles PII redaction)
+                        warn!("Hybrid backend: Ollama unavailable for anonymization, falling back to cloud with frontend PII redaction");
                         BackendDecision {
-                            backend: BackendType::Nebius,
+                            backend: BackendType::Hybrid,
                             anonymize: false,
                             model: persona.preferred_model_id.clone().into(),
-                            reason: "Fallback to cloud with attributes-only (Ollama unavailable)".to_string(),
-                            content_mode: ContentMode::AttributesOnly,
+                            reason: "Fallback to cloud with frontend PII redaction (Ollama unavailable)".to_string(),
+                            content_mode: ContentMode::FullText,
                             fallback: FallbackEvent::OllamaUnavailable,
                             is_safe: true,
                         }

@@ -14,6 +14,11 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 // Tax Audit is now a persona - TaxAuditLayout removed
 import { DocumentUploadWidget } from "@/components/pii/DocumentUploadWidget";
 import { useProfileStore } from "@/stores/profiles";
+import { useWizardStore } from "@/stores/wizard";
+import { SetupWizard } from "@/components/wizard/SetupWizard";
+import { SupportChat } from "@/components/support/SupportChat";
+import { useAppTour } from "@/hooks/useAppTour";
+import "@/styles/tour.css";
 
 function LoadingScreen() {
   return (
@@ -30,9 +35,12 @@ function MainApp() {
   const { settings } = useSettingsStore();
   const { isInitialized: chatInitialized, initialize: initChat, currentConversationId } = useChatStore();
   const { isUploadModalOpen, setUploadModalOpen, people } = useProfileStore();
+  const { wizardCompleted, showWizard } = useWizardStore();
+  const { startTour, tourCompleted } = useAppTour();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
 
   const isMobile = useIsMobile();
 
@@ -76,16 +84,29 @@ function MainApp() {
     return () => mediaQuery.removeEventListener("change", handler);
   }, [settings.theme]);
 
-  // Open settings automatically if no API key is set
+  // Trigger app tour after wizard completion (first time only)
   useEffect(() => {
-    if (!settings.nebiusApiKey && chatInitialized) {
+    if (wizardCompleted && !showWizard && !tourCompleted && chatInitialized) {
+      const timer = setTimeout(() => startTour(), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [wizardCompleted, showWizard, tourCompleted, chatInitialized, startTour]);
+
+  // Open settings automatically if no API key is set (only if wizard already completed)
+  useEffect(() => {
+    if (!settings.nebiusApiKey && chatInitialized && wizardCompleted && !settings.airplaneMode) {
       setIsSettingsOpen(true);
     }
-  }, [settings.nebiusApiKey, chatInitialized]);
+  }, [settings.nebiusApiKey, chatInitialized, wizardCompleted, settings.airplaneMode]);
 
   // Show loading while chat store initializes
   if (!chatInitialized) {
     return <LoadingScreen />;
+  }
+
+  // Show setup wizard on first launch or when explicitly opened
+  if (!wizardCompleted || showWizard) {
+    return <SetupWizard />;
   }
 
   // Mobile Layout
@@ -115,6 +136,10 @@ function MainApp() {
               setIsSidebarOpen(false);
               setIsSettingsOpen(true);
             }}
+            onSupportClick={() => {
+              setIsSidebarOpen(false);
+              setIsSupportOpen(true);
+            }}
           />
         </Drawer>
 
@@ -131,6 +156,12 @@ function MainApp() {
         <SettingsDialog
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
+        />
+
+        {/* Support Chat */}
+        <SupportChat
+          isOpen={isSupportOpen}
+          onClose={() => setIsSupportOpen(false)}
         />
 
         {/* Document Ingestion Overlay */}
@@ -171,6 +202,7 @@ function MainApp() {
       {/* Sidebar - Conversations and Projects */}
       <Sidebar
         onSettingsClick={() => setIsSettingsOpen(true)}
+        onSupportClick={() => setIsSupportOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -185,6 +217,12 @@ function MainApp() {
       <SettingsDialog
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* Support Chat */}
+      <SupportChat
+        isOpen={isSupportOpen}
+        onClose={() => setIsSupportOpen(false)}
       />
 
       {/* Document Ingestion Overlay */}

@@ -38,9 +38,15 @@ export interface AppSettings {
   saveAudioRecordings: boolean;
   encryptLocalData: boolean;
 
-  // Airplane Mode (fully local, no cloud requests)
+  // Privacy Mode (replaces airplaneMode + per-persona backend)
+  privacyMode: 'local' | 'hybrid' | 'cloud';
+  localModeModel: string;    // apiModelId of local model for Local mode
+  hybridModeModel: string;   // model id for Hybrid mode
+  cloudModeModel: string;    // model id for Cloud mode
+
+  // Backward compat — derived from privacyMode
   airplaneMode: boolean;
-  airplaneModeModel: string; // Ollama model to use in airplane mode
+  airplaneModeModel: string;
 
   // UI
   theme: "light" | "dark" | "system";

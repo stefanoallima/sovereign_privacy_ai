@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useChatStore, usePersonasStore } from "@/stores";
+import { useWizardStore } from "@/stores/wizard";
 import {
   MessageSquare,
   Plus,
@@ -10,13 +11,18 @@ import {
   Trash2,
   Bot,
   EyeOff,
+  Wand2,
+  Compass,
+  LifeBuoy,
 } from "lucide-react";
+import { useAppTour } from "@/hooks/useAppTour";
 
 interface SidebarProps {
   onSettingsClick: () => void;
+  onSupportClick: () => void;
 }
 
-export function Sidebar({ onSettingsClick }: SidebarProps) {
+export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -33,6 +39,8 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
   } = useChatStore();
 
   const { selectedPersonaId } = usePersonasStore();
+  const { resetWizard } = useWizardStore();
+  const { startTour } = useAppTour();
 
   const toggleSection = (sectionId: string) => {
     setCollapsedSections((prev) => {
@@ -99,6 +107,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
         <div className="flex items-center gap-1">
           <button
             onClick={handleNewIncognitoChat}
+            data-tour="new-incognito"
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--secondary))] hover:bg-purple-500/20 text-[hsl(var(--muted-foreground))] hover:text-purple-400 transition-all active:scale-95"
             title="New incognito chat"
           >
@@ -106,6 +115,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
           </button>
           <button
             onClick={handleNewChat}
+            data-tour="new-chat"
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--secondary))] hover:bg-[hsl(var(--accent))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--accent-foreground))] transition-all active:scale-95"
             title="New chat"
           >
@@ -129,7 +139,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
       </div>
 
       {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-6">
+      <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-6" data-tour="conversations">
         {/* Incognito Chats Section */}
         {incognitoChats.length > 0 && (
           <div>
@@ -255,7 +265,29 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
       {/* Footer */}
       <div className="p-3 border-t border-[hsl(var(--border)/0.5)] space-y-1">
         <button
+          onClick={() => startTour()}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--primary)/0.1)] hover:text-[hsl(var(--primary))] transition-all group"
+        >
+          <Compass className="h-4 w-4 group-hover:rotate-45 transition-transform duration-300" />
+          <span className="font-medium">App Tour</span>
+        </button>
+        <button
+          onClick={() => resetWizard()}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--primary)/0.1)] hover:text-[hsl(var(--primary))] transition-all group"
+        >
+          <Wand2 className="h-4 w-4 group-hover:rotate-12 transition-transform duration-300" />
+          <span className="font-medium">Settings Assistant</span>
+        </button>
+        <button
+          onClick={onSupportClick}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-orange-500/10 hover:text-orange-500 transition-all group"
+        >
+          <LifeBuoy className="h-4 w-4 group-hover:rotate-45 transition-transform duration-300" />
+          <span className="font-medium">Support</span>
+        </button>
+        <button
           onClick={onSettingsClick}
+          data-tour="settings-btn"
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))] hover:text-[hsl(var(--foreground))] transition-all group"
         >
           <Settings className="h-4 w-4 group-hover:rotate-45 transition-transform duration-300" />

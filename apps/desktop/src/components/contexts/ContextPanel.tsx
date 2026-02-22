@@ -21,7 +21,6 @@ import {
   LayoutGrid,
   Settings,
   Shield,
-  Plane,
 } from "lucide-react";
 import { PIIProfileCard } from "@/components/profile/PIIProfileCard";
 
@@ -35,7 +34,7 @@ export function ContextPanel() {
   const [configPersonaId, setConfigPersonaId] = useState<string | null>(null);
 
   const { personas, selectedPersonaId, selectPersona } = usePersonasStore();
-  const { models, getEnabledModels, settings, toggleAirplaneMode } = useSettingsStore();
+  const { models, getEnabledModels, settings } = useSettingsStore();
   const {
     contexts,
     projects,
@@ -97,7 +96,7 @@ export function ContextPanel() {
         {activeTab === "general" ? (
           <>
             {/* Persona Selection - Collapsible */}
-            <CollapsibleSection title="Persona" icon={<Users className="h-3.5 w-3.5" />} defaultOpen>
+            <CollapsibleSection title="Persona" icon={<Users className="h-3.5 w-3.5" />} defaultOpen dataTour="persona-selector">
               <div className="space-y-1.5">
                 {personas.map((persona) => (
                   <div
@@ -182,7 +181,7 @@ export function ContextPanel() {
             </CollapsibleSection>
 
             {/* Privacy Shield - Moved from absolute/floating to context panel */}
-            <CollapsibleSection title="Privacy Shield" icon={<Shield className="h-3.5 w-3.5" />} defaultOpen>
+            <CollapsibleSection title="Privacy Shield" icon={<Shield className="h-3.5 w-3.5" />} defaultOpen dataTour="privacy-shield">
               <PIIProfileCard />
             </CollapsibleSection>
 
@@ -191,11 +190,11 @@ export function ContextPanel() {
           <>
             {/* Model Selection - Dropdown Style */}
             <CollapsibleSection title="Model Configuration" icon={<Cpu className="h-3.5 w-3.5" />} defaultOpen>
-              {/* Airplane Mode indicator */}
-              {settings.airplaneMode && (
-                <div className="mb-3 flex items-center gap-2 px-2 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                  <Plane size={12} className="text-blue-500" />
-                  <span className="text-xs text-blue-600 font-medium">Local Models Only (Airplane Mode)</span>
+              {/* Local mode indicator */}
+              {settings.privacyMode === 'local' && (
+                <div className="mb-3 flex items-center gap-2 px-2 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <Shield size={12} className="text-green-500" />
+                  <span className="text-xs text-green-600 font-medium">Local Mode — On-device models only</span>
                 </div>
               )}
               <div className="relative">
@@ -300,42 +299,7 @@ export function ContextPanel() {
         )}
       </div>
 
-      {/* Quick Settings Footer with Airplane Mode Toggle */}
-      {activeTab === "general" && (
-        <div className="p-3 border-t border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.2)]">
-          {/* Airplane Mode Toggle */}
-          <button
-            onClick={toggleAirplaneMode}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
-              settings.airplaneMode
-                ? 'bg-blue-500/10 border border-blue-500/30 text-blue-600'
-                : 'bg-[hsl(var(--secondary)/0.3)] border border-transparent hover:border-[hsl(var(--border)/0.5)] text-[hsl(var(--muted-foreground))]'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Plane size={14} className={settings.airplaneMode ? 'text-blue-500' : ''} />
-              <span className="text-xs font-medium">
-                {settings.airplaneMode ? 'Airplane Mode ON' : 'Airplane Mode'}
-              </span>
-            </div>
-            <div className={`w-8 h-4 rounded-full transition-colors ${
-              settings.airplaneMode ? 'bg-blue-500' : 'bg-[hsl(var(--muted))]'
-            }`}>
-              <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform mt-0.5 ${
-                settings.airplaneMode ? 'translate-x-4 ml-0.5' : 'translate-x-0.5'
-              }`} />
-            </div>
-          </button>
-
-          {/* Status text */}
-          <div className="text-[10px] text-[hsl(var(--muted-foreground))] opacity-50 text-center font-medium mt-2">
-            {settings.airplaneMode
-              ? '✈️ All processing stays local • No cloud requests'
-              : 'Local encryption active • Cloud mode'
-            }
-          </div>
-        </div>
-      )}
+      {/* Privacy mode is now controlled via pills in the chat input */}
 
       {/* Dialogs */}
       <CreatePersonaDialog
@@ -383,16 +347,18 @@ function CollapsibleSection({
   icon,
   children,
   defaultOpen = false,
+  dataTour,
 }: {
   title: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  dataTour?: string;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.4)] rounded-2xl overflow-hidden transition-all duration-200">
+    <div className="border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.4)] rounded-2xl overflow-hidden transition-all duration-200" data-tour={dataTour}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-3.5 hover:bg-[hsl(var(--secondary)/0.3)] transition-colors"

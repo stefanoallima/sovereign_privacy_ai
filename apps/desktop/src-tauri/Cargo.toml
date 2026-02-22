@@ -33,7 +33,7 @@ thiserror = "2"
 
 # TTS dependencies
 rodio = { version = "0.19", features = ["symphonia-all"] }
-reqwest = { version = "0.12", features = ["blocking", "stream"] }
+reqwest = { version = "0.12", features = ["blocking", "stream", "json"] }
 zip = "2"
 tempfile = "3"
 futures-util = "0.3"
@@ -64,9 +64,12 @@ encoding_rs = "0.8"
 # Entity resolution & fuzzy matching
 strsim = "0.11"
 
-# GLiNER NER for PII detection (CPU-only, ONNX Runtime comes transitively)
+# GLiNER NER for PII detection (CPU-only, load-dynamic avoids CRT mismatch with llama-cpp-2)
 gline-rs = { version = "1", default-features = false }
 orp = "0.9"
+# Force ort to load onnxruntime.dll at runtime (load-dynamic) instead of statically linking
+# the prebuilt ONNX Runtime, which prevents LNK2038 RuntimeLibrary mismatch with esaxx-rs/llama-cpp-2.
+ort = { version = "=2.0.0-rc.9", features = ["load-dynamic"] }
 
 # Windows Credential Manager
 winapi = { version = "0.3", features = ["wincred", "winerror"] }
@@ -74,4 +77,9 @@ winapi = { version = "0.3", features = ["wincred", "winerror"] }
 # Additional utilities
 log = "0.4"
 env_logger = "0.11"
+
+[patch.crates-io]
+# esaxx-rs hardcodes .static_crt(true) in its build script, causing LNK2005/LNK1169
+# when mixed with llama-cpp-sys-2 (/MD dynamic CRT). This patch changes it to /MD.
+esaxx-rs = { path = "patches/esaxx-rs" }
 
