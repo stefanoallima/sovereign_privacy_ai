@@ -1,14 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSettingsStore } from "@/stores";
+import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 
-interface ModelStatus {
+interface LocalModelInfo {
+  id: string;
+  name: string;
+  filename: string;
+  url: string;
+  size_bytes: number;
+  ctx_size: number;
+  description: string;
+  speed_tier: string;
+  intelligence_tier: string;
   is_downloaded: boolean;
-  is_loaded: boolean;
-  download_progress: number;
-  model_name: string;
-  model_size_bytes: number;
+  local_path: string | null;
 }
 
 interface GlinerModelInfo {
@@ -24,11 +31,71 @@ interface GlinerModelInfo {
   source_url: string;
 }
 
+const SPEED_LABEL: Record<string, string> = {
+  "very-fast": "Very fast",
+  fast: "Fast",
+  medium: "Medium",
+  slow: "Slow",
+};
+
+const INTEL_LABEL: Record<string, string> = {
+  "very-high": "Top quality",
+  high: "High quality",
+  good: "Good quality",
+};
+
 export function PrivacySettings() {
-  const { settings, toggleAirplaneMode } = useSettingsStore();
-  const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [statusChecking, setStatusChecking] = useState(true);
+  const { settings, updateSettings, setPrivacyMode, models, ollamaModels } = useSettingsStore();
+  const activeProfile = useUserContextStore(selectActiveProfile);
+  const {
+    addCustomRedactTerm,
+    removeCustomRedactTerm,
+    importCustomRedactTerms,
+    clearCustomRedactTerms,
+    createProfile,
+  } = useUserContextStore();
+
+  // Custom redaction UI state
+  const [bulkText, setBulkText] = useState("");
+  const [quickInput, setQuickInput] = useState("");
+  const [importCount, setImportCount] = useState<number | null>(null);
+  const [hoveredTermIdx, setHoveredTermIdx] = useState<number | null>(null);
+
+  // Auto-create a default profile if none exists
+  useEffect(() => {
+    const profiles = useUserContextStore.getState().profiles;
+    if (profiles.length === 0) {
+      createProfile("My Profile", "Default privacy profile");
+    }
+  }, [createProfile]);
+
+  const customTerms = activeProfile?.customRedactTerms || [];
+
+  const handleBulkImport = () => {
+    if (!bulkText.trim()) return;
+    const count = importCustomRedactTerms(bulkText);
+    setImportCount(count);
+    setBulkText("");
+    setTimeout(() => setImportCount(null), 3000);
+  };
+
+  const handleQuickAdd = () => {
+    const commaIdx = quickInput.indexOf(",");
+    if (commaIdx === -1) return;
+    const label = quickInput.substring(0, commaIdx).trim();
+    const value = quickInput.substring(commaIdx + 1).trim();
+    if (label && value) {
+      addCustomRedactTerm(label, value);
+      setQuickInput("");
+    }
+  };
+
+  // Local models state
+  const [localModels, setLocalModels] = useState<LocalModelInfo[]>([]);
+  const [activeModelId, setActiveModelId] = useState<string>("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [modelsDir, setModelsDir] = useState("");
 
   // GLiNER state
   const [glinerModels, setGlinerModels] = useState<GlinerModelInfo[]>([]);
@@ -36,15 +103,16 @@ export function PrivacySettings() {
   const [glinerProgress, setGlinerProgress] = useState(0);
   const [glinerModelsDir, setGlinerModelsDir] = useState<string>("");
 
-  const checkModelStatus = useCallback(async () => {
-    setStatusChecking(true);
+  const loadLocalModels = useCallback(async () => {
     try {
-      const status = await invoke<ModelStatus>('get_model_status');
-      setModelStatus(status);
+      const models = await invoke<LocalModelInfo[]>('list_local_models');
+      setLocalModels(models);
+      const active = await invoke<string>('get_active_local_model');
+      setActiveModelId(active);
+      const dir = await invoke<string>('get_local_models_dir');
+      setModelsDir(dir);
     } catch (error) {
-      console.error('Failed to get model status:', error);
-    } finally {
-      setStatusChecking(false);
+      console.error('Failed to load local models:', error);
     }
   }, []);
 
@@ -59,28 +127,27 @@ export function PrivacySettings() {
     }
   }, []);
 
-  // Check model status on mount
   useEffect(() => {
-    checkModelStatus();
+    loadLocalModels();
     loadGlinerModels();
-  }, [settings.airplaneMode, checkModelStatus, loadGlinerModels]);
+  }, [settings.airplaneMode, loadLocalModels, loadGlinerModels]);
 
-  // Poll during Privacy Engine download
+  // Poll during local model download
   useEffect(() => {
-    if (!isDownloading) return;
+    if (!downloadingId) return;
     const interval = setInterval(async () => {
       try {
-        const status = await invoke<ModelStatus>('get_model_status');
-        setModelStatus(status);
-        if (status.is_downloaded) {
-          setIsDownloading(false);
+        const progress = await invoke<number>('get_local_download_progress');
+        setDownloadProgress(progress);
+        if (progress >= 100) {
+          setDownloadingId(null);
+          setDownloadProgress(0);
+          await loadLocalModels();
         }
-      } catch {
-        // ignore polling errors
-      }
+      } catch { /* ignore */ }
     }, 1000);
     return () => clearInterval(interval);
-  }, [isDownloading]);
+  }, [downloadingId, loadLocalModels]);
 
   // Poll during GLiNER download
   useEffect(() => {
@@ -94,22 +161,42 @@ export function PrivacySettings() {
           setGlinerProgress(0);
           await loadGlinerModels();
         }
-      } catch {
-        // ignore polling errors
-      }
+      } catch { /* ignore */ }
     }, 1000);
     return () => clearInterval(interval);
   }, [glinerDownloadingId, loadGlinerModels]);
 
-  const handleDownload = async () => {
-    setIsDownloading(true);
+  const handleDownloadLocal = async (modelId: string) => {
+    setDownloadingId(modelId);
+    setDownloadProgress(0);
     try {
-      await invoke('download_default_model');
-      await checkModelStatus();
+      await invoke('download_local_model', { modelId });
+      await loadLocalModels();
     } catch (error) {
       console.error('Download failed:', error);
     } finally {
-      setIsDownloading(false);
+      setDownloadingId(null);
+      setDownloadProgress(0);
+    }
+  };
+
+  const handleDeleteLocal = async (modelId: string) => {
+    try {
+      await invoke('delete_local_model', { modelId });
+      await loadLocalModels();
+    } catch (error) {
+      console.error('Delete failed:', error);
+    }
+  };
+
+  const handleSelectLocal = async (modelId: string) => {
+    try {
+      await invoke('set_active_local_model', { modelId });
+      setActiveModelId(modelId);
+      // Also update the settings store so the model selector knows
+      updateSettings({ airplaneModeModel: modelId });
+    } catch (error) {
+      console.error('Failed to set active model:', error);
     }
   };
 
@@ -137,144 +224,171 @@ export function PrivacySettings() {
   };
 
   const openFolder = async (path: string) => {
-    try {
-      await openPath(path);
-    } catch (error) {
-      console.error('Failed to open folder:', error);
-    }
+    try { await openPath(path); } catch (error) { console.error('Failed to open folder:', error); }
   };
 
   const openLink = async (url: string) => {
-    try {
-      await openUrl(url);
-    } catch (error) {
-      console.error('Failed to open URL:', error);
-    }
+    try { await openUrl(url); } catch (error) { console.error('Failed to open URL:', error); }
   };
 
-  const isModelReady = modelStatus?.is_downloaded ?? false;
   const formatSize = (bytes: number) => {
-    if (bytes >= 1_000_000_000) {
-      return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
-    }
+    if (bytes >= 1_000_000_000) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
     return (bytes / (1024 * 1024)).toFixed(0) + ' MB';
   };
 
+  const hasAnyLocalModel = localModels.some(m => m.is_downloaded);
   const hasAnyGlinerModel = glinerModels.some(m => m.is_downloaded);
 
   return (
     <div className="space-y-6">
-      {/* Privacy Engine Section */}
+      {/* Privacy Engine — Multi-model Section */}
       <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
-        <div className={`p-4 ${isModelReady ? 'bg-green-500/10' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
+        <div className={`p-4 ${hasAnyLocalModel ? 'bg-green-500/10' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${isModelReady ? 'bg-green-500/20 text-green-600' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
+              <div className={`p-2 rounded-lg ${hasAnyLocalModel ? 'bg-green-500/20 text-green-600' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
                 <EngineIcon />
               </div>
               <div>
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   Privacy Engine
-                  {isModelReady && (
+                  {hasAnyLocalModel && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-green-500 text-white">
                       READY
                     </span>
                   )}
                 </h3>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                  Built-in local AI for privacy-first processing
+                  Choose a local AI model for offline privacy-first processing
                 </p>
               </div>
             </div>
+            {modelsDir && (
+              <button
+                onClick={() => openFolder(modelsDir)}
+                className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1 shrink-0"
+              >
+                <FolderIcon /> Open Folder
+              </button>
+            )}
           </div>
         </div>
 
         <div className="p-4 border-t border-[hsl(var(--border)/0.5)]">
-          {/* Model Status */}
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
-              Model Status:
-            </span>
-            {statusChecking && (
-              <span className="text-xs text-yellow-600 flex items-center gap-1">
-                <span className="animate-spin">&#x23F3;</span> Checking...
-              </span>
-            )}
-            {!statusChecking && isModelReady && (
-              <span className="text-xs text-green-600 flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                Downloaded
-                {modelStatus?.is_loaded && ' & Loaded'}
-              </span>
-            )}
-            {!statusChecking && !isModelReady && !isDownloading && (
-              <span className="text-xs text-amber-600 flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-amber-500" />
-                Not downloaded
-              </span>
-            )}
-            {isDownloading && (
-              <span className="text-xs text-blue-600 flex items-center gap-1">
-                <span className="animate-spin">&#x23F3;</span>
-                Downloading... {modelStatus?.download_progress ?? 0}%
-              </span>
-            )}
-            <button
-              onClick={checkModelStatus}
-              className="text-xs text-[hsl(var(--primary))] hover:underline ml-2"
-            >
-              Refresh
-            </button>
-          </div>
-
-          {/* Download Button / Progress */}
-          {!isModelReady && !isDownloading && (
-            <button
-              onClick={handleDownload}
-              className="w-full py-3 px-4 rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-medium text-sm hover:opacity-90 transition-opacity"
-            >
-              Download Privacy Engine (~{modelStatus ? formatSize(modelStatus.model_size_bytes) : '5.0 GB'})
-            </button>
+          {!hasAnyLocalModel && (
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 mb-4">
+              <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                No local model downloaded yet
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                Download a model below to enable local AI. We recommend starting with the <strong>1.7B Light</strong> model (~1.1 GB) for the best balance of speed and quality.
+              </p>
+            </div>
           )}
 
-          {isDownloading && modelStatus && (
-            <div className="space-y-2">
-              <div className="w-full h-2 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
+          <div className="space-y-2">
+            {localModels.map((model) => {
+              const isActive = model.id === activeModelId;
+              const isDownloading = downloadingId === model.id;
+
+              return (
                 <div
-                  className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                  style={{ width: `${modelStatus.download_progress}%` }}
-                />
-              </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] text-center">
-                {modelStatus.download_progress}% of {formatSize(modelStatus.model_size_bytes)}
-              </p>
-            </div>
-          )}
+                  key={model.id}
+                  className={`rounded-lg border p-3 transition-colors ${
+                    isActive && model.is_downloaded
+                      ? 'border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-900/10'
+                      : model.is_downloaded
+                        ? 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'
+                        : 'border-[hsl(var(--border)/0.5)]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">{model.name}</span>
+                        <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                          {formatSize(model.size_bytes)}
+                        </span>
+                        {model.is_downloaded && isActive && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-green-500 text-white">
+                            ACTIVE
+                          </span>
+                        )}
+                        {model.is_downloaded && !isActive && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]">
+                            DOWNLOADED
+                          </span>
+                        )}
+                        {model.id === 'qwen3-1.7b' && !model.is_downloaded && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600">
+                            RECOMMENDED
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                        {model.description}
+                      </p>
+                      <div className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-[hsl(var(--muted-foreground))]">
+                        <span>{SPEED_LABEL[model.speed_tier] ?? model.speed_tier}</span>
+                        <span>&middot;</span>
+                        <span>{INTEL_LABEL[model.intelligence_tier] ?? model.intelligence_tier}</span>
+                        <span>&middot;</span>
+                        <span>{model.ctx_size / 1000}K ctx</span>
+                      </div>
+                      {model.is_downloaded && model.local_path && (
+                        <p className="text-[10px] text-[hsl(var(--muted-foreground)/0.6)] mt-1 font-mono truncate">
+                          {model.local_path}
+                        </p>
+                      )}
+                    </div>
 
-          {isModelReady && modelStatus && (
-            <div className="text-xs text-[hsl(var(--muted-foreground))] space-y-1">
-              <p>Model: <span className="font-mono">{modelStatus.model_name}</span></p>
-              <p>Size: {formatSize(modelStatus.model_size_bytes)}</p>
-              <p>
-                Source:{' '}
-                <a
-                  href="https://huggingface.co/Qwen/Qwen3-8B-GGUF"
-                  onClick={(e) => { e.preventDefault(); openLink('https://huggingface.co/Qwen/Qwen3-8B-GGUF'); }}
-                  className="text-[hsl(var(--primary))] hover:underline cursor-pointer"
-                >
-                  huggingface.co/Qwen/Qwen3-8B-GGUF
-                </a>
-              </p>
-              <div className="flex items-center gap-2 mt-2">
-                <button
-                  onClick={() => openFolder(glinerModelsDir.replace(/gliner-models.*/, 'llm-models'))}
-                  className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1"
-                >
-                  <FolderIcon /> Open Folder
-                </button>
-              </div>
-            </div>
-          )}
+                    <div className="shrink-0 flex flex-col gap-1">
+                      {!model.is_downloaded && !isDownloading && (
+                        <button
+                          onClick={() => handleDownloadLocal(model.id)}
+                          disabled={downloadingId !== null}
+                          className="px-3 py-1.5 rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                          Download
+                        </button>
+                      )}
+                      {model.is_downloaded && !isActive && (
+                        <button
+                          onClick={() => handleSelectLocal(model.id)}
+                          className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-600 text-xs font-medium hover:bg-green-500/20 transition-colors"
+                        >
+                          Use This
+                        </button>
+                      )}
+                      {model.is_downloaded && (
+                        <button
+                          onClick={() => handleDeleteLocal(model.id)}
+                          className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 text-xs font-medium hover:bg-red-500/20 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Download Progress */}
+                  {isDownloading && (
+                    <div className="mt-2 space-y-1">
+                      <div className="w-full h-1.5 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-green-500 transition-all duration-500"
+                          style={{ width: `${downloadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] text-center">
+                        Downloading... {downloadProgress}% of {formatSize(model.size_bytes)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -319,7 +433,6 @@ export function PrivacySettings() {
             </button>
           </div>
 
-          {/* Model Cards */}
           <div className="space-y-2">
             {glinerModels.map((model) => (
               <div
@@ -384,7 +497,6 @@ export function PrivacySettings() {
                   </div>
                 </div>
 
-                {/* Download Progress */}
                 {glinerDownloadingId === model.id && (
                   <div className="mt-2 space-y-1">
                     <div className="w-full h-1.5 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
@@ -404,80 +516,305 @@ export function PrivacySettings() {
         </div>
       </div>
 
-      {/* Airplane Mode Section */}
+      {/* Custom Redaction Terms Section */}
       <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
-        <div className={`p-4 ${settings.airplaneMode ? 'bg-blue-500/10' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
+        <div className={`p-4 ${customTerms.length > 0 ? 'bg-pink-500/10' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${settings.airplaneMode ? 'bg-blue-500/20 text-blue-600' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
-                <AirplaneIcon />
+              <div className={`p-2 rounded-lg ${customTerms.length > 0 ? 'bg-pink-500/20 text-pink-600' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
+                <ShieldIcon />
               </div>
               <div>
                 <h3 className="font-semibold text-sm flex items-center gap-2">
-                  Airplane Mode
-                  {settings.airplaneMode && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500 text-white">
-                      ACTIVE
+                  Custom Redaction Terms
+                  {customTerms.length > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-pink-500 text-white">
+                      {customTerms.length} TERM{customTerms.length !== 1 ? 'S' : ''}
                     </span>
                   )}
                 </h3>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                  Force all processing to stay on your machine
+                  Strings to always redact before sending to cloud (names, IDs, etc.)
                 </p>
               </div>
             </div>
-            <button
-              onClick={toggleAirplaneMode}
-              disabled={!isModelReady}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                settings.airplaneMode
-                  ? 'bg-blue-500'
-                  : 'bg-[hsl(var(--muted))]'
-              } ${!isModelReady ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                  settings.airplaneMode ? 'translate-x-6' : ''
-                }`}
-              />
-            </button>
           </div>
         </div>
 
-        {/* Benefits Info */}
-        <div className="p-4 border-t border-[hsl(var(--border)/0.5)] bg-[hsl(var(--muted)/0.2)]">
-          {!isModelReady && (
-            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 mb-4">
-              <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
-                Privacy engine not downloaded
-              </p>
-              <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                Download the privacy engine above to enable Airplane Mode.
-              </p>
+        <div className="p-4 border-t border-[hsl(var(--border)/0.5)] space-y-4">
+          {/* Format guide — always visible */}
+          <div className="rounded-lg bg-[hsl(var(--muted)/0.3)] border border-[hsl(var(--border)/0.5)] p-3">
+            <p className="text-xs font-semibold text-[hsl(var(--foreground))] mb-1">Format: one entry per line</p>
+            <code className="text-[11px] font-mono text-[hsl(var(--muted-foreground))] leading-relaxed block">
+              label,string_to_redact<br />
+              <br />
+              Company Name,Acme Corp<br />
+              Partner BSN,123456789<br />
+              Home Address,123 Main Street
+            </code>
+            <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-2">
+              A same-length replacement is auto-generated for each term (e.g. "Acme Corp" &rarr; "_cmpny_1_") so text structure is preserved and the original can be restored in responses.
+            </p>
+          </div>
+
+          {/* Bulk paste textarea */}
+          <div>
+            <label className="text-xs font-semibold text-[hsl(var(--foreground))] block mb-1.5">
+              Bulk Import
+            </label>
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono resize-y"
+            />
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={handleBulkImport}
+                disabled={!bulkText.trim()}
+                className="px-3 py-1.5 rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Import All
+              </button>
+              {importCount !== null && (
+                <span className="text-xs text-green-600 font-medium">
+                  {importCount} term{importCount !== 1 ? 's' : ''} imported
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Quick add single term */}
+          <div>
+            <label className="text-xs font-semibold text-[hsl(var(--foreground))] block mb-1.5">
+              Quick Add
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={quickInput}
+                onChange={(e) => setQuickInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
+                placeholder="label,string_to_redact"
+                className="flex-1 px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+              />
+              <button
+                onClick={handleQuickAdd}
+                disabled={!quickInput.includes(',')}
+                className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-600 text-xs font-medium hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          {/* Current terms table */}
+          {customTerms.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-[hsl(var(--foreground))]">
+                  Active Terms ({customTerms.length})
+                </span>
+                <button
+                  onClick={clearCustomRedactTerms}
+                  className="text-xs text-red-500 hover:text-red-600 hover:underline"
+                >
+                  Clear All
+                </button>
+              </div>
+              <div className="rounded-lg border border-[hsl(var(--border)/0.5)] overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-[hsl(var(--secondary)/0.4)] text-[hsl(var(--muted-foreground))]">
+                      <th className="text-left px-3 py-2 font-semibold uppercase tracking-wider">Label</th>
+                      <th className="text-left px-3 py-2 font-semibold uppercase tracking-wider">Original</th>
+                      <th className="text-left px-3 py-2 font-semibold uppercase tracking-wider">Replacement</th>
+                      <th className="w-8 px-1 py-2"></th>
+                    </tr>
+                  </thead>
+                </table>
+                <div className="max-h-60 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <tbody className="divide-y divide-[hsl(var(--border)/0.3)]">
+                      {customTerms.map((term, index) => (
+                        <tr
+                          key={index}
+                          className="hover:bg-[hsl(var(--secondary)/0.3)] transition-colors group"
+                          onMouseEnter={() => setHoveredTermIdx(index)}
+                          onMouseLeave={() => setHoveredTermIdx(null)}
+                        >
+                          <td className="px-3 py-2 font-medium text-[hsl(var(--foreground))]">
+                            {term.label}
+                          </td>
+                          <td className="px-3 py-2">
+                            <code className="font-mono text-[hsl(var(--foreground))] bg-[hsl(var(--secondary)/0.5)] px-1.5 py-0.5 rounded">
+                              {hoveredTermIdx === index ? term.value : term.value.length > 2 ? term.value.substring(0, 2) + '***' : '***'}
+                            </code>
+                          </td>
+                          <td className="px-3 py-2">
+                            <code className="font-mono text-pink-600 dark:text-pink-400 bg-pink-500/10 px-1.5 py-0.5 rounded">
+                              {term.replacement || '???'}
+                            </code>
+                          </td>
+                          <td className="px-1 py-2">
+                            <button
+                              onClick={() => removeCustomRedactTerm(index)}
+                              className="p-1 rounded hover:bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Remove"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
-          <h4 className="text-xs font-semibold text-[hsl(var(--foreground))] mb-2">
-            When Airplane Mode is active:
-          </h4>
-          <ul className="space-y-1.5">
-            <li className="text-xs text-[hsl(var(--muted-foreground))] flex items-start gap-2">
-              <span className="text-green-500 mt-0.5">&#x2713;</span>
-              No data leaves your machine
-            </li>
-            <li className="text-xs text-[hsl(var(--muted-foreground))] flex items-start gap-2">
-              <span className="text-green-500 mt-0.5">&#x2713;</span>
-              Works without internet connection
-            </li>
-            <li className="text-xs text-[hsl(var(--muted-foreground))] flex items-start gap-2">
-              <span className="text-green-500 mt-0.5">&#x2713;</span>
-              Maximum privacy for sensitive conversations
-            </li>
-            <li className="text-xs text-[hsl(var(--muted-foreground))] flex items-start gap-2">
-              <span className="text-yellow-500 mt-0.5">&#x26A0;</span>
-              Responses may be slower than cloud models
-            </li>
-          </ul>
+          {customTerms.length === 0 && (
+            <p className="text-xs text-[hsl(var(--muted-foreground))] text-center py-2">
+              No custom redaction terms yet. Add strings above — each will get a same-length replacement for safe cloud sends.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Default Privacy Mode Section */}
+      <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
+        <div className="p-4 bg-[hsl(var(--muted)/0.3)]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))]">
+              <ShieldIcon />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">Default Privacy Mode</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Choose how your data is processed and select a default model for each mode
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-[hsl(var(--border)/0.5)] space-y-3">
+          {/* Local Mode Card */}
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+            settings.privacyMode === 'local'
+              ? 'border-green-500/50 bg-green-500/5'
+              : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
+          }`}>
+            <input
+              type="radio"
+              name="privacyMode"
+              checked={settings.privacyMode === 'local'}
+              onChange={() => setPrivacyMode('local')}
+              disabled={!hasAnyLocalModel}
+              className="mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">🔒 Local</span>
+                {settings.privacyMode === 'local' && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-green-500 text-white">ACTIVE</span>
+                )}
+                {!hasAnyLocalModel && (
+                  <span className="text-xs text-amber-600">No model downloaded</span>
+                )}
+              </div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                All processing on your device. No data leaves your machine. Works offline.
+              </p>
+              <div className="mt-2">
+                <select
+                  value={settings.localModeModel}
+                  onChange={(e) => updateSettings({ localModeModel: e.target.value })}
+                  className="w-full text-xs rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1.5"
+                >
+                  {ollamaModels.filter(m => m.isEnabled).map((m) => (
+                    <option key={m.id} value={m.apiModelId}>🖥️ {m.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </label>
+
+          {/* Hybrid Mode Card */}
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+            settings.privacyMode === 'hybrid'
+              ? 'border-blue-500/50 bg-blue-500/5'
+              : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
+          }`}>
+            <input
+              type="radio"
+              name="privacyMode"
+              checked={settings.privacyMode === 'hybrid'}
+              onChange={() => setPrivacyMode('hybrid')}
+              className="mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">🛡️ Hybrid</span>
+                {settings.privacyMode === 'hybrid' && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500 text-white">ACTIVE</span>
+                )}
+              </div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                PII is redacted locally by the Privacy Guard, then the sanitized prompt is sent to a cloud LLM. Best balance of privacy and quality.
+              </p>
+              <div className="mt-2">
+                <select
+                  value={settings.hybridModeModel}
+                  onChange={(e) => updateSettings({ hybridModeModel: e.target.value })}
+                  className="w-full text-xs rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1.5"
+                >
+                  {models.filter(m => m.isEnabled).map((m) => (
+                    <option key={m.id} value={m.id}>☁️ {m.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </label>
+
+          {/* Cloud Mode Card */}
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+            settings.privacyMode === 'cloud'
+              ? 'border-amber-500/50 bg-amber-500/5'
+              : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
+          }`}>
+            <input
+              type="radio"
+              name="privacyMode"
+              checked={settings.privacyMode === 'cloud'}
+              onChange={() => setPrivacyMode('cloud')}
+              className="mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">⚡ Cloud</span>
+                {settings.privacyMode === 'cloud' && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500 text-white">ACTIVE</span>
+                )}
+              </div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                Direct to cloud API. Fastest responses, best model quality. Custom redaction terms still apply.
+              </p>
+              <div className="mt-2">
+                <select
+                  value={settings.cloudModeModel}
+                  onChange={(e) => updateSettings({ cloudModeModel: e.target.value })}
+                  className="w-full text-xs rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1.5"
+                >
+                  {models.filter(m => m.isEnabled).map((m) => (
+                    <option key={m.id} value={m.id}>☁️ {m.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </label>
         </div>
       </div>
 
@@ -540,23 +877,6 @@ function EngineIcon() {
     >
       <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" />
       <path d="M12 6v6l4 2" />
-    </svg>
-  );
-}
-
-function AirplaneIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
     </svg>
   );
 }

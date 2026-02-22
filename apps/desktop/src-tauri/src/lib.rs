@@ -24,6 +24,7 @@ mod rehydration;
 mod rehydration_commands;
 mod gliner;
 mod gliner_commands;
+mod support_commands;
 
 use commands::DbState;
 use tts::PiperTts;
@@ -31,7 +32,7 @@ use tts_commands::TtsState;
 use stt::WhisperStt;
 use stt_commands::SttState;
 use inference::LocalInference;
-use inference_commands::InferenceState;
+use inference_commands::{InferenceState, LlamaBackendState};
 use ollama::OllamaClient;
 use llama_backend::LlamaCppBackend;
 use crypto::EncryptionKeyManager;
@@ -140,21 +141,24 @@ pub fn run() {
 
     // Initialize inference backend
     // Use AILOCALMIND_USE_OLLAMA=1 env var to fall back to Ollama (for development)
-    let inference: Arc<dyn LocalInference> = if std::env::var("AILOCALMIND_USE_OLLAMA").unwrap_or_default() == "1" {
-        eprintln!("Using Ollama backend (AILOCALMIND_USE_OLLAMA=1)");
-        Arc::new(OllamaClient::new(None, None))
-    } else {
-        match LlamaCppBackend::new() {
-            Ok(backend) => {
-                eprintln!("Using embedded llama.cpp backend");
-                Arc::new(backend)
+    let (inference, llama_backend_opt): (Arc<dyn LocalInference>, Option<Arc<LlamaCppBackend>>) =
+        if std::env::var("AILOCALMIND_USE_OLLAMA").unwrap_or_default() == "1" {
+            eprintln!("Using Ollama backend (AILOCALMIND_USE_OLLAMA=1)");
+            (Arc::new(OllamaClient::new(None, None)), None)
+        } else {
+            match LlamaCppBackend::new() {
+                Ok(backend) => {
+                    eprintln!("Using embedded llama.cpp backend");
+                    let arc = Arc::new(backend);
+                    (arc.clone() as Arc<dyn LocalInference>, Some(arc))
+                }
+                Err(e) => {
+                    eprintln!("Failed to initialize llama.cpp backend: {}, falling back to Ollama", e);
+                    (Arc::new(OllamaClient::new(None, None)), None)
+                }
             }
-            Err(e) => {
-                eprintln!("Failed to initialize llama.cpp backend: {}, falling back to Ollama", e);
-                Arc::new(OllamaClient::new(None, None))
-            }
-        }
-    };
+        };
+    let llama_backend_state = LlamaBackendState(Arc::new(tokio::sync::Mutex::new(llama_backend_opt)));
 
     // Initialize encryption key manager
     let encryption_key = EncryptionKeyManager::new()
@@ -204,6 +208,7 @@ pub fn run() {
         .manage(TtsState(Mutex::new(tts)))
         .manage(SttState(Mutex::new(stt)))
         .manage(inference_state)
+        .manage(llama_backend_state)
         .manage(Mutex::new(encryption_key))
         .manage(AnonymizationState(Mutex::new(anonymization)))
         .manage(Mutex::new(tax_knowledge))
@@ -258,6 +263,14 @@ pub fn run() {
             inference_commands::ollama_initialize,
             inference_commands::get_model_status,
             inference_commands::download_default_model,
+            // Multi-model management
+            inference_commands::list_local_models,
+            inference_commands::download_local_model,
+            inference_commands::delete_local_model,
+            inference_commands::set_active_local_model,
+            inference_commands::get_active_local_model,
+            inference_commands::get_local_download_progress,
+            inference_commands::get_local_models_dir,
             // Anonymization
             anonymization_commands::anonymize_text,
             anonymization_commands::validate_anonymization,
@@ -292,6 +305,8 @@ pub fn run() {
             gliner_commands::delete_gliner_model,
             gliner_commands::get_gliner_models_dir,
             gliner_commands::detect_pii_with_gliner,
+            // Support
+            support_commands::submit_support_issue,
         ])
         .setup(|app| {
             // Set up system tray
@@ -300,6 +315,29 @@ pub fn run() {
             // Set up global shortcuts
             if let Err(e) = setup_global_shortcuts(app) {
                 eprintln!("Failed to setup global shortcuts: {}", e);
+            }
+
+            // Eagerly warm up the local model in the background if it is already downloaded.
+            // This hides the 30-60 s load time: by the time the user sends their first message
+            // the model is already in memory and inference starts immediately.
+            {
+                let inference_state = app.state::<InferenceState>();
+                let inf_arc = inference_state.0.clone();
+                tauri::async_runtime::spawn(async move {
+                    // Briefly lock just to clone the inner Arc, then release immediately
+                    let inference = {
+                        let guard = inf_arc.lock().await;
+                        guard.clone()
+                    };
+                    if inference.is_available().await {
+                        eprintln!("[startup] Local model found — warming up in background…");
+                        if let Err(e) = inference.preload().await {
+                            eprintln!("[startup] Model warm-up failed: {}", e);
+                        } else {
+                            eprintln!("[startup] Local model warm-up complete ✓");
+                        }
+                    }
+                });
             }
 
             Ok(())

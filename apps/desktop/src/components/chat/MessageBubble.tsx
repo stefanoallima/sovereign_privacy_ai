@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SpeakButton } from "./VoiceButton";
@@ -64,7 +64,7 @@ function parseThinkingContent(content: string): { thinking: string | null; mainC
   };
 }
 
-export function MessageBubble({
+export const MessageBubble = React.memo(function MessageBubble({
   id,
   role,
   content,
@@ -268,4 +268,4 @@ export function MessageBubble({
       </div>
     </div>
   );
-}
+});

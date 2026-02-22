@@ -17,11 +17,89 @@ import type { PIIValues } from '@/services/rehydration-service';
 
 // ==================== Types ====================
 
+export interface CustomRedactTerm {
+  label: string;
+  value: string;
+  /** Auto-generated same-length replacement string for rehydration */
+  replacement: string;
+}
+
+/**
+ * Extract a short abbreviation from a label for use in replacement strings.
+ * Uses first 3 lowercase chars of the first word.
+ *   "Company Name" → "com"
+ *   "BSN"          → "bsn"
+ *   "Home Address"  → "hom"
+ *   "IBAN"          → "iba"
+ *   "Name"          → "nam"
+ */
+export function getLabelAbbr(label: string): string {
+  const word = label.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean)[0] || 'x';
+  return word.substring(0, 3);
+}
+
+/**
+ * Count how many existing terms share the same label abbreviation,
+ * then return the next index for that type.
+ */
+function getNextTypeIndex(label: string, existingTerms: CustomRedactTerm[]): number {
+  const abbr = getLabelAbbr(label);
+  const sameType = existingTerms.filter((t) => getLabelAbbr(t.label) === abbr).length;
+  return sameType + 1;
+}
+
+/**
+ * Generate a replacement string with the EXACT same length as the original value.
+ * Uses label abbreviation + per-type counter so the replacement is human-readable.
+ *
+ * Examples:
+ *   ("Company Name", 4,  1) → "com1"          ("bird" → "com1")
+ *   ("Company Name", 9,  1) → "com_1____"     ("Acme Corp" → "com_1____")
+ *   ("Company Name", 16, 2) → "com_2___________"
+ *   ("BSN",          9,  1) → "bsn_1____"     ("123456789" → "bsn_1____")
+ *   ("BSN",          3,  1) → "bs1"
+ *   ("Name",         4,  1) → "nam1"          ("John" → "nam1")
+ *   ("Address",      22, 1) → "add_1_________________"
+ */
+export function generateReplacementString(label: string, valueLength: number, typeIndex: number): string {
+  const abbr = getLabelAbbr(label);
+  const idx = String(typeIndex);
+
+  if (valueLength <= 0) return '';
+
+  // Try with separator: "com_1"
+  const withSep = abbr + '_' + idx;
+  // Try without separator: "com1"
+  const noSep = abbr + idx;
+
+  let core: string;
+  if (withSep.length <= valueLength) {
+    core = withSep; // "com_1" fits — use it
+  } else if (noSep.length <= valueLength) {
+    core = noSep; // "com1" fits — use compact
+  } else {
+    // Very short value — trim abbreviation to make room for index
+    const availForAbbr = valueLength - idx.length;
+    if (availForAbbr > 0) {
+      core = abbr.substring(0, availForAbbr) + idx;
+    } else {
+      core = idx.substring(0, valueLength);
+    }
+  }
+
+  // Pad with trailing underscores to match exact length
+  if (core.length < valueLength) {
+    core = core + '_'.repeat(valueLength - core.length);
+  }
+  return core.substring(0, valueLength);
+}
+
 export interface UserProfile {
   id: string;
   name: string;
   description?: string;
   piiValues: PIIValues;
+  customRedactTerms: CustomRedactTerm[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +134,12 @@ interface UserContextState {
   clearPIIValue: (key: keyof PIIValues | string) => void;
   clearAllPII: () => void;
   importPII: (values: PIIValues) => void;
+
+  // Custom redaction terms
+  addCustomRedactTerm: (label: string, value: string) => void;
+  removeCustomRedactTerm: (index: number) => void;
+  importCustomRedactTerms: (csv: string) => number;
+  clearCustomRedactTerms: () => void;
 
   // Utilities
   getPIIForRehydration: () => PIIValues;
@@ -125,6 +209,7 @@ export const useUserContextStore = create<UserContextState>()(
           name,
           description,
           piiValues: createEmptyPII(),
+          customRedactTerms: [],
           createdAt: now,
           updatedAt: now,
         };
@@ -171,7 +256,7 @@ export const useUserContextStore = create<UserContextState>()(
         set((state) => {
           const newPII = { ...state.currentPII };
 
-          if (key === 'custom' || key === 'relevant_boxes' || key === 'deduction_categories') {
+          if (key === 'relevant_boxes' || key === 'deduction_categories') {
             // Handle special keys separately
             return state;
           }
@@ -244,6 +329,104 @@ export const useUserContextStore = create<UserContextState>()(
           }
 
           return { currentPII: newPII };
+        });
+      },
+
+      addCustomRedactTerm: (label, value) => {
+        set((state) => {
+          const activeProfile = state.profiles.find((p) => p.id === state.activeProfileId);
+          const currentTerms = activeProfile?.customRedactTerms || [];
+          const trimmedLabel = label.trim();
+          const trimmedValue = value.trim();
+          const typeIdx = getNextTypeIndex(trimmedLabel, currentTerms);
+          const replacement = generateReplacementString(trimmedLabel, trimmedValue.length, typeIdx);
+          const newTerms = [...currentTerms, { label: trimmedLabel, value: trimmedValue, replacement }];
+
+          if (state.activeProfileId) {
+            const updatedProfiles = state.profiles.map((p) =>
+              p.id === state.activeProfileId
+                ? { ...p, customRedactTerms: newTerms, updatedAt: new Date() }
+                : p
+            );
+            return { profiles: updatedProfiles };
+          }
+          return state;
+        });
+      },
+
+      removeCustomRedactTerm: (index) => {
+        set((state) => {
+          const activeProfile = state.profiles.find((p) => p.id === state.activeProfileId);
+          const currentTerms = activeProfile?.customRedactTerms || [];
+          const newTerms = currentTerms.filter((_, i) => i !== index);
+
+          if (state.activeProfileId) {
+            const updatedProfiles = state.profiles.map((p) =>
+              p.id === state.activeProfileId
+                ? { ...p, customRedactTerms: newTerms, updatedAt: new Date() }
+                : p
+            );
+            return { profiles: updatedProfiles };
+          }
+          return state;
+        });
+      },
+
+      importCustomRedactTerms: (csv) => {
+        const lines = csv.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+        const parsed: Array<{ label: string; value: string }> = [];
+
+        for (const line of lines) {
+          const commaIdx = line.indexOf(',');
+          if (commaIdx === -1) continue;
+          const label = line.substring(0, commaIdx).trim();
+          const value = line.substring(commaIdx + 1).trim();
+          if (label && value) {
+            parsed.push({ label, value });
+          }
+        }
+
+        if (parsed.length === 0) return 0;
+
+        set((state) => {
+          const activeProfile = state.profiles.find((p) => p.id === state.activeProfileId);
+          const currentTerms = activeProfile?.customRedactTerms || [];
+          // Build terms with per-type indexing, tracking counts as we go
+          const allSoFar = [...currentTerms];
+          const newTerms: CustomRedactTerm[] = parsed.map((p) => {
+            const typeIdx = getNextTypeIndex(p.label, allSoFar);
+            const replacement = generateReplacementString(p.label, p.value.length, typeIdx);
+            const term: CustomRedactTerm = { label: p.label, value: p.value, replacement };
+            allSoFar.push(term); // track for next iteration's count
+            return term;
+          });
+          const merged = [...currentTerms, ...newTerms];
+
+          if (state.activeProfileId) {
+            const updatedProfiles = state.profiles.map((p) =>
+              p.id === state.activeProfileId
+                ? { ...p, customRedactTerms: merged, updatedAt: new Date() }
+                : p
+            );
+            return { profiles: updatedProfiles };
+          }
+          return state;
+        });
+
+        return parsed.length;
+      },
+
+      clearCustomRedactTerms: () => {
+        set((state) => {
+          if (state.activeProfileId) {
+            const updatedProfiles = state.profiles.map((p) =>
+              p.id === state.activeProfileId
+                ? { ...p, customRedactTerms: [], updatedAt: new Date() }
+                : p
+            );
+            return { profiles: updatedProfiles };
+          }
+          return state;
         });
       },
 

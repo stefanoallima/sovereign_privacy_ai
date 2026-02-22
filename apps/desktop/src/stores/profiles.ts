@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
 import type { Person, PIIValue } from "@/types/profiles";
 
 interface ProfileStore {
@@ -45,14 +44,10 @@ const people: Person[] = [
     },
 
     fetchPII: async (personId: string) => {
-        try {
-            const values = await invoke<PIIValue[]>('get_pii_for_person', { personId });
-            set(state => ({
-                piiValues: { ...state.piiValues, [personId]: values }
-            }));
-        } catch (err: any) {
-            console.error("Failed to fetch PII", err);
-        }
+        // get_pii_for_person Rust command not yet registered — return empty until wired up
+        set(state => ({
+            piiValues: { ...state.piiValues, [personId]: [] }
+        }));
     },
 
     addPerson: async (name, relationship) => {
