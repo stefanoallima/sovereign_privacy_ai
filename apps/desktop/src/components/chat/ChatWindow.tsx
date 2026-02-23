@@ -28,7 +28,35 @@ import {
   Settings2,
 } from "lucide-react";
 
-// Detect if AI response should auto-route to canvas
+// Structural line detector — marks where prose ends and structured content begins
+const STRUCTURAL_LINE = /^(#{1,6} |```|\|.+\||\d+\.\s|\- \[|\* \[)/;
+
+/**
+ * Split a message into { intro, canvas }.
+ * intro  — conversational prose before the first structural element (may be empty)
+ * canvas — the structured content (headers, steps, tables, code blocks, lists)
+ */
+function splitForCanvas(content: string): { intro: string; canvas: string } {
+  const lines = content.split('\n');
+  let splitIdx = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (STRUCTURAL_LINE.test(lines[i].trimStart())) {
+      splitIdx = i;
+      break;
+    }
+  }
+
+  if (splitIdx <= 0) {
+    // No prose intro — all goes to canvas
+    return { intro: '', canvas: content.trim() };
+  }
+
+  const intro = lines.slice(0, splitIdx).join('\n').trim();
+  const canvas = lines.slice(splitIdx).join('\n').trim();
+  return { intro, canvas };
+}
+
 function shouldAutoCanvas(content: string): boolean {
   const wordCount = content.split(/\s+/).filter(Boolean).length;
   const hasHeader = /^#{1,6} /m.test(content);
@@ -36,7 +64,6 @@ function shouldAutoCanvas(content: string): boolean {
   const hasCodeBlock = /^```/m.test(content);
   const hasList = /^[-*+] /m.test(content) || /^\d+\. /m.test(content);
   const hasMultipleParagraphs = content.split(/\n\n+/).length >= 3;
-  // Route to canvas: any structured content, or replies longer than ~100 words
   return wordCount > 100 || hasHeader || hasTable || hasCodeBlock || hasMultipleParagraphs || (hasList && wordCount > 50);
 }
 
@@ -89,8 +116,8 @@ export function ChatWindow() {
 
   const { createDocument, openPanel } = useCanvasStore();
 
-  // messageId → { docId, title } for messages that were auto-routed to canvas
-  const [canvasRoutedMap, setCanvasRoutedMap] = useState<Map<string, { docId: string; title: string }>>(new Map());
+  // messageId → { docId, title, intro } for messages that were auto-routed to canvas
+  const [canvasRoutedMap, setCanvasRoutedMap] = useState<Map<string, { docId: string; title: string; intro: string }>>(new Map());
 
 
   const { settings, getEnabledModels, getDefaultModel, isAirplaneModeActive, setPrivacyMode, getActivePrivacyMode } = useSettingsStore();
@@ -500,17 +527,17 @@ export function ChatWindow() {
       const msgs = getCurrentMessages();
       const lastMsg = msgs[msgs.length - 1];
       if (lastMsg?.role === 'assistant' && lastMsg.id && shouldAutoCanvas(lastMsg.content)) {
-        const title = extractCanvasTitle(lastMsg.content);
-        const finalContent = lastMsg.content;
+        const { intro, canvas } = splitForCanvas(lastMsg.content);
+        const title = extractCanvasTitle(canvas || lastMsg.content);
         const msgId = lastMsg.id;
         const projectId = conversations.find(c => c.id === currentConversationId)?.projectId;
         createDocument({
           title,
-          content: finalContent,
+          content: canvas || lastMsg.content,
           projectId,
           conversationId: currentConversationId,
         }).then(docId => {
-          setCanvasRoutedMap(prev => new Map(prev).set(msgId, { docId, title }));
+          setCanvasRoutedMap(prev => new Map(prev).set(msgId, { docId, title, intro }));
         });
       }
     }
@@ -800,6 +827,7 @@ export function ChatWindow() {
                       piiTypesDetected={message.piiTypesDetected}
                       approvalStatus={message.approvalStatus}
                       canvasDocTitle={canvasEntry?.title}
+                      canvasIntro={canvasEntry?.intro}
                       onViewCanvas={canvasEntry ? () => openPanel(canvasEntry.docId) : undefined}
                       onOpenCanvas={canvasEntry ? undefined : async (content) => {
                         const title = extractCanvasTitle(content);
