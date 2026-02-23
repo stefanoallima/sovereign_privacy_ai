@@ -23,16 +23,13 @@ export function ProjectExplorer() {
           </span>
         </div>
         <div className="px-2 py-2 space-y-1.5">
-          {[
-            { icon: '📁', label: 'Q1 Tax Preparation' },
-            { icon: '📁', label: 'Career Planning' },
-          ].map(ghost => (
+          {['Q1 Tax Preparation', 'Career Planning'].map(label => (
             <div
-              key={ghost.label}
+              key={label}
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg opacity-25 pointer-events-none"
             >
-              <span className="text-sm">{ghost.icon}</span>
-              <span className="text-[12px] text-[hsl(var(--foreground-subtle))] italic">{ghost.label}</span>
+              <Folder className="h-4 w-4 flex-shrink-0 text-[hsl(var(--foreground-subtle))]" />
+              <span className="text-[12px] text-[hsl(var(--foreground-subtle))] italic">{label}</span>
             </div>
           ))}
           <button
@@ -120,11 +117,7 @@ export function ProjectExplorer() {
                         transition-colors"
                     >
                       <FileText
-                        className={`h-3.5 w-3.5 flex-shrink-0 transition-all ${
-                          isStreaming
-                            ? 'text-[hsl(var(--violet))] animate-pulse'
-                            : 'text-[hsl(var(--violet))]'
-                        }`}
+                        className={`h-3.5 w-3.5 flex-shrink-0 transition-all text-[hsl(var(--violet))] ${isStreaming ? 'animate-pulse' : ''}`}
                         style={isStreaming ? { filter: 'drop-shadow(0 0 6px hsl(267 84% 71% / 0.8))' } : undefined}
                       />
                       <span className="truncate">{doc.title}</span>
