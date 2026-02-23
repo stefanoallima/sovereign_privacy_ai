@@ -690,31 +690,38 @@ export function ChatWindow() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[hsl(var(--background))] relative">
       {/* Chat Header - Project Breadcrumb */}
-      <div className="flex items-center gap-2 px-6 py-3 border-b border-[hsl(var(--border)/0.3)] bg-[hsl(var(--card)/0.5)] backdrop-blur-sm">
-        {project ? (
-          <>
-            <FolderKanban className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-            <span className="text-sm font-medium text-[hsl(var(--muted-foreground))]">
-              {project.name}
-            </span>
-            <ChevronRight className="h-3 w-3 text-[hsl(var(--muted-foreground)/0.5)]" />
-          </>
-        ) : (
-          <>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]">
-              Quick Chat
-            </span>
-            <ChevronRight className="h-3 w-3 text-[hsl(var(--muted-foreground)/0.5)]" />
-          </>
-        )}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] flex-shrink-0">
         <div className="flex items-center gap-2">
-          {persona && (
-            <span className="text-lg">{persona.icon}</span>
+          {project ? (
+            <>
+              <FolderKanban className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+              <span className="text-sm font-medium text-[hsl(var(--muted-foreground))]">
+                {project.name}
+              </span>
+              <ChevronRight className="h-3 w-3 text-[hsl(var(--muted-foreground)/0.5)]" />
+            </>
+          ) : (
+            <>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]">
+                Quick Chat
+              </span>
+              <ChevronRight className="h-3 w-3 text-[hsl(var(--muted-foreground)/0.5)]" />
+            </>
           )}
-          <span className="text-sm font-semibold text-[hsl(var(--foreground))]">
-            {conversation?.title || "New Chat"}
-          </span>
+          <div className="flex items-center gap-2">
+            {persona && (
+              <span className="text-lg">{persona.icon}</span>
+            )}
+            <span className="text-sm font-semibold text-[hsl(var(--foreground))]">
+              {conversation?.title || "New Chat"}
+            </span>
+          </div>
         </div>
+        {persona && (
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[hsl(var(--violet)/0.15)] text-[hsl(var(--violet))] border border-[hsl(var(--violet)/0.3)]">
+            {persona.name}
+          </span>
+        )}
       </div>
 
       {/* Incognito Banner */}
@@ -852,7 +859,7 @@ export function ChatWindow() {
             </div>
           )}
           {/* Floating Input Box */}
-          <div className={`relative rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] shadow-xl shadow-black/5 focus-within:shadow-2xl focus-within:shadow-[hsl(var(--primary)/0.05)] focus-within:border-[hsl(var(--ring)/0.5)] transition-all duration-300 ${pendingReview ? 'opacity-40 pointer-events-none' : ''}`}>
+          <div className={`relative border border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] rounded-2xl focus-within:border-[hsl(var(--ring)/0.5)] focus-within:ring-1 focus-within:ring-[hsl(var(--ring)/0.15)] transition-all duration-120 shadow-[var(--shadow)] ${pendingReview ? 'opacity-40 pointer-events-none' : ''}`}>
             {/* Mentioned Personas Bar */}
             {mentionedPersonas.length > 0 && (
               <div className="absolute -top-10 left-0 right-0 flex items-center gap-2 px-4">
@@ -1110,7 +1117,7 @@ export function ChatWindow() {
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
                   className={`flex items-center justify-center h-10 w-10 rounded-xl transition-all duration-200 ${input.trim()
-                    ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 shadow-md shadow-[hsl(var(--primary)/0.25)] active:scale-95"
+                    ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 shadow-md shadow-[hsl(var(--primary)/0.25)] shadow-[var(--shadow-glow-cyan)] active:scale-95"
                     : "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground)/0.5)] cursor-not-allowed"
                     }`}
                 >
