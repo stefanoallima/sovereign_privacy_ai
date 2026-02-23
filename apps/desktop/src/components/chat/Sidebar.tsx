@@ -104,7 +104,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[hsl(var(--border)/0.5)]">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(162_78%_50%)] text-white shadow-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--violet)/0.12)] text-[hsl(var(--violet))]">
             <Bot className="h-4 w-4" />
           </div>
           <span className="font-semibold text-[15px]">Chats</span>

@@ -616,7 +616,7 @@ export function ChatWindow() {
   // Welcome screen when no conversation selected
   if (!currentConversationId) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center text-center p-8 pattern-dots">
+      <div className="flex flex-1 flex-col items-center justify-center text-center p-8">
         <div className="mb-8 animate-fade-in">
           <div className="mx-auto h-20 w-20 rounded-3xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(162_78%_55%)] flex items-center justify-center text-white shadow-xl shadow-[hsl(var(--primary)/0.25)]">
             <Bot className="h-10 w-10" />
@@ -1179,7 +1179,7 @@ export function ChatWindow() {
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
                   className={`flex items-center justify-center h-10 w-10 rounded-xl transition-all duration-200 ${input.trim()
-                    ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 shadow-[var(--shadow-glow-cyan)] active:scale-95"
+                    ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 active:scale-95"
                     : "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground)/0.5)] cursor-not-allowed"
                     }`}
                 >

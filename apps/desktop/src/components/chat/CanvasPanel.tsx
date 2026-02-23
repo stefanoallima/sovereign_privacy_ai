@@ -35,7 +35,7 @@ function CanvasEmptyState({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Empty state body */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6 pattern-dots">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6">
         <div className="text-center">
           <div className="h-12 w-12 rounded-2xl bg-[hsl(var(--violet)/0.15)] border border-[hsl(var(--violet)/0.3)] flex items-center justify-center mx-auto mb-4">
             <FileText className="h-6 w-6 text-[hsl(var(--violet))]" />
