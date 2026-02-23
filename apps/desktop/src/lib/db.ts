@@ -60,6 +60,16 @@ export interface LocalContext extends SyncMeta {
   updatedAt: Date;
 }
 
+export interface LocalCanvasDocument extends SyncMeta {
+  id: string;
+  projectId?: string;
+  conversationId?: string;
+  title: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface LocalPersona extends SyncMeta {
   id: string;
   name: string;
@@ -105,6 +115,7 @@ export class AppDatabase extends Dexie {
   personas!: Table<LocalPersona>;
   syncQueue!: Table<SyncQueueItem>;
   syncState!: Table<SyncState>;
+  canvasDocuments!: Table<LocalCanvasDocument>;
 
   constructor() {
     super("PrivateAssistantDB");
@@ -120,6 +131,10 @@ export class AppDatabase extends Dexie {
       personas: "id, clientId, userId, isBuiltIn, updatedAt, pendingSync, deleted",
       syncQueue: "++id, entityType, entityId, operation, createdAt",
       syncState: "id",
+    });
+
+    this.version(2).stores({
+      canvasDocuments: 'id, clientId, userId, projectId, conversationId, updatedAt, pendingSync, deleted',
     });
   }
 }
@@ -495,6 +510,23 @@ export const dbOps = {
         console.error("Failed to migrate personas from localStorage:", err);
       }
     }
+  },
+};
+
+// Canvas document DB operations
+export const canvasDbOps = {
+  async createCanvasDocument(doc: Omit<LocalCanvasDocument, 'clientId' | 'userId' | 'syncedAt' | 'pendingSync'>): Promise<void> {
+    const meta = createSyncMeta();
+    await db.canvasDocuments.add({ ...doc, ...meta });
+  },
+  async updateCanvasDocument(id: string, updates: Partial<LocalCanvasDocument>): Promise<void> {
+    await db.canvasDocuments.update(id, { ...updates, updatedAt: new Date(), pendingSync: true });
+  },
+  async deleteCanvasDocument(id: string): Promise<void> {
+    await db.canvasDocuments.update(id, { deleted: true, pendingSync: true });
+  },
+  async getAllCanvasDocuments(): Promise<LocalCanvasDocument[]> {
+    return db.canvasDocuments.filter(d => !d.deleted).toArray();
   },
 };
 

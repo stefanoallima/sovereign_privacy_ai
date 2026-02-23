@@ -192,3 +192,14 @@ export interface ContextSelection {
   knowledgeBaseIds: string[];
   modelId: string | null;
 }
+
+// Canvas Document — AI-generated or manually authored rich document
+export interface CanvasDocument {
+  id: string;
+  projectId?: string;          // which project this belongs to (optional)
+  conversationId?: string;     // which chat generated it (optional)
+  title: string;
+  content: string;             // markdown
+  createdAt: Date;
+  updatedAt: Date;
+}
