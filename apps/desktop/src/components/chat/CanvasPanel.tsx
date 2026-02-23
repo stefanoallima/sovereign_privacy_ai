@@ -5,8 +5,8 @@ import { X, Code, Eye, Edit2 } from 'lucide-react';
 import { useCanvasStore } from '@/stores';
 
 export function CanvasPanel() {
-    const { closePanel, getActiveDocument, updateDocument } = useCanvasStore();
-    const activeDoc = getActiveDocument();
+    const { closePanel, updateDocument, documents, activeDocumentId } = useCanvasStore();
+    const activeDoc = documents.find(d => d.id === activeDocumentId);
 
     const [mode, setMode] = useState<'preview' | 'edit'>('preview');
 
