@@ -755,7 +755,8 @@ export function usePrivacyChat() {
 
       // Step 3: Check if this needs user review before cloud send
       const needsReview =
-        processed.content_mode === 'attributes_only' || processed.backend === 'hybrid';
+        !settings.skipCloudReview &&
+        (processed.content_mode === 'attributes_only' || processed.backend === 'hybrid');
 
       if (needsReview) {
         // Pause for user review — set pending state

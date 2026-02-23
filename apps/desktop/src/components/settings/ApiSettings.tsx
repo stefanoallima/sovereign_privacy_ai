@@ -106,6 +106,30 @@ export function ApiSettings() {
         />
       </div>
 
+      {/* Cloud Trust */}
+      <div className="border-t border-[hsl(var(--border))] pt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium text-sm">Trust cloud provider</div>
+            <div className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+              Send messages directly without per-message privacy review
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings.skipCloudReview}
+            onClick={() => updateSettings({ skipCloudReview: !settings.skipCloudReview })}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+              settings.skipCloudReview ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--border))]'
+            }`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+              settings.skipCloudReview ? 'translate-x-4' : 'translate-x-0.5'
+            }`} />
+          </button>
+        </div>
+      </div>
+
       {/* Memory Configuration */}
       <div className="border-t border-[hsl(var(--border))] pt-6">
         <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">

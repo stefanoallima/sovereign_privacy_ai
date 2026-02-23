@@ -136,6 +136,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Backward compat (derived from privacyMode)
   airplaneMode: false,
   airplaneModeModel: "qwen3-1.7b",
+  skipCloudReview: false,
   theme: "light",
   showTokenCounts: true,
   showModelSelector: true,
