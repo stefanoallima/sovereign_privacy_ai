@@ -633,17 +633,10 @@ export function ChatWindow() {
         </p>
 
         {!hasApiKey && !isAirplane && (
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 max-w-md animate-slide-up">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20">
-                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              <p className="font-semibold text-amber-700 dark:text-amber-300">
-                API Key Required
-              </p>
-            </div>
-            <p className="text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">
-              Enter your Nebius API key in Settings to start chatting, or enable Airplane Mode to use local models.
+          <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] px-4 py-3 max-w-md animate-slide-up flex items-center gap-3">
+            <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+            <p className="text-sm text-[hsl(var(--foreground-muted))]">
+              Add your <span className="font-medium text-[hsl(var(--foreground))]">Nebius API key</span> in Settings to enable cloud models.
             </p>
           </div>
         )}
@@ -700,8 +693,7 @@ export function ChatWindow() {
           </div>
         )}
 
-        {(hasApiKey || isAirplane) && (
-          <div className="grid grid-cols-2 gap-4 max-w-lg w-full animate-slide-up">
+        <div className="grid grid-cols-2 gap-4 max-w-lg w-full animate-slide-up">
             {personas.slice(0, 4).map((p, i) => (
               <button
                 key={p.id}
@@ -731,7 +723,6 @@ export function ChatWindow() {
               </div>
             </button>
           </div>
-        )}
       </div>
     );
   }
