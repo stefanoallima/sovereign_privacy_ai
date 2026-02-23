@@ -187,14 +187,16 @@ export function CanvasPanel() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6 min-h-0">
         {mode === 'preview' ? (
-          <div className="prose prose-sm prose-invert max-w-none
+          <div className="prose prose-sm max-w-none
             prose-headings:text-[hsl(var(--foreground))] prose-headings:font-semibold
-            prose-p:text-[hsl(var(--foreground-muted))]
+            prose-p:text-[hsl(var(--foreground))]
+            prose-li:text-[hsl(var(--foreground))]
             prose-code:text-[hsl(var(--primary))] prose-code:bg-[hsl(var(--surface-2))]
             prose-pre:bg-[hsl(var(--surface-2))] prose-pre:border prose-pre:border-[hsl(var(--border))]
             prose-a:text-[hsl(var(--primary))]
             prose-strong:text-[hsl(var(--foreground))]
-            prose-th:text-[hsl(var(--foreground))] prose-td:text-[hsl(var(--foreground-muted))]
+            prose-th:text-[hsl(var(--foreground))] prose-td:text-[hsl(var(--foreground))]
+            prose-blockquote:text-[hsl(var(--foreground-muted))] prose-blockquote:border-[hsl(var(--border))]
           ">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {doc.content}
@@ -204,7 +206,7 @@ export function CanvasPanel() {
           <textarea
             value={editContent}
             onChange={e => { setEditContent(e.target.value); setIsDirty(true); }}
-            className="w-full h-full min-h-[400px] bg-transparent resize-none focus:outline-none text-sm font-mono leading-relaxed text-[hsl(var(--foreground-muted))] placeholder:text-[hsl(var(--foreground-subtle))]"
+            className="w-full h-full min-h-[400px] bg-transparent resize-none focus:outline-none text-sm font-mono leading-relaxed text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--foreground-subtle))]"
             placeholder="Write markdown here..."
             spellCheck={false}
           />
