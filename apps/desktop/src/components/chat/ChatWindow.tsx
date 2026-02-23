@@ -429,44 +429,69 @@ export function ChatWindow() {
     }, 0);
   };
 
-  // Auto-generate title
+  // Strip <think>...</think> blocks from any string
+  const stripThinking = (text: string) =>
+    text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+  // Core title generator — takes any conv ID + first user/assistant messages
+  const generateTitleFor = useCallback(async (convId: string, userMsg: string, assistantMsg: string) => {
+    if (!settings.nebiusApiKey) return;
+    try {
+      const client = getNebiusClient(settings.nebiusApiKey, settings.nebiusApiEndpoint);
+      const response = await client.chatCompletion({
+        model: "Qwen/Qwen3-32B-fast",
+        messages: [
+          { role: "system", content: "Generate a short, concise title (max 5 words) for this conversation. Reply with ONLY the title, no quotes, no thinking." },
+          { role: "user", content: userMsg.slice(0, 400) },
+          { role: "assistant", content: stripThinking(assistantMsg).slice(0, 400) }
+        ],
+        temperature: 0.3,
+        max_tokens: 20
+      });
+      const raw = response.choices[0]?.message.content ?? '';
+      const title = stripThinking(raw).replace(/^["']|["']$/g, '').trim();
+      if (title) await updateConversationTitle(convId, title);
+    } catch (error) {
+      console.error("Failed to generate title:", error);
+    }
+  }, [settings.nebiusApiKey, settings.nebiusApiEndpoint, updateConversationTitle]);
+
+  // Auto-generate title for active conversation after first exchange
   useEffect(() => {
-    const generateTitle = async () => {
-      if (!currentConversationId || !settings.nebiusApiKey || generatingTitleRef.current) return;
+    if (!currentConversationId || generatingTitleRef.current) return;
+    const msgs = getCurrentMessages();
+    const conv = getCurrentConversation();
+    if (!isLoading && msgs.length >= 2 && conv?.title === "New Conversation") {
+      generatingTitleRef.current = true;
+      const userMsg = msgs.find(m => m.role === 'user')?.content ?? '';
+      const assistantMsg = msgs.find(m => m.role === 'assistant')?.content ?? '';
+      generateTitleFor(currentConversationId, userMsg, assistantMsg)
+        .finally(() => { generatingTitleRef.current = false; });
+    }
+  }, [messages.length, isLoading, currentConversationId, generateTitleFor]);
 
-      const msgs = getCurrentMessages();
-      const conv = getCurrentConversation();
-
-      if (!isLoading && msgs.length === 2 && conv?.title === "New Conversation") {
-        generatingTitleRef.current = true;
-
+  // Hourly catch-up: retitle any "New Conversation" that has messages
+  useEffect(() => {
+    const retitleStale = async () => {
+      if (!settings.nebiusApiKey) return;
+      const { conversations: allConvs } = useChatStore.getState();
+      const stale = allConvs.filter(c => c.title === 'New Conversation' && !c.isIncognito);
+      for (const conv of stale) {
         try {
-          const client = getNebiusClient(settings.nebiusApiKey, settings.nebiusApiEndpoint);
-          const response = await client.chatCompletion({
-            model: "Qwen/Qwen3-32B-fast",
-            messages: [
-              { role: "system", content: "You are a helpful assistant. Generate a short, concise title (max 5 words) for this conversation based on the user's first message and objective. Do not wrap in quotes." },
-              { role: "user", content: msgs[0].content },
-              { role: "assistant", content: msgs[1].content }
-            ],
-            temperature: 0.5,
-            max_tokens: 20
-          });
-
-          const title = response.choices[0]?.message.content?.trim();
-          if (title) {
-            await updateConversationTitle(currentConversationId, title.replace(/^["']|["']$/g, ''));
+          const { db } = await import('@/lib/db');
+          const msgs = await db.messages.where('conversationId').equals(conv.id).sortBy('createdAt');
+          const userMsg = msgs.find(m => m.role === 'user')?.content ?? '';
+          const assistantMsg = msgs.find(m => m.role === 'assistant')?.content ?? '';
+          if (userMsg && assistantMsg) {
+            await generateTitleFor(conv.id, userMsg, assistantMsg);
           }
-        } catch (error) {
-          console.error("Failed to generate title:", error);
-        } finally {
-          generatingTitleRef.current = false;
-        }
+        } catch { /* ignore per-conv errors */ }
       }
     };
-
-    generateTitle();
-  }, [messages.length, isLoading, currentConversationId, settings.nebiusApiKey]);
+    retitleStale();
+    const interval = setInterval(retitleStale, 60 * 60 * 1000); // every hour
+    return () => clearInterval(interval);
+  }, [settings.nebiusApiKey, generateTitleFor]);
 
   // Auto-route long-form AI responses to canvas
   const prevIsLoadingRef = useRef(false);
