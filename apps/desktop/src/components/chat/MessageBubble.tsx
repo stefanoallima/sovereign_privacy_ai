@@ -22,8 +22,10 @@ interface MessageBubbleProps {
   piiTypesDetected?: string[];
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   onOpenCanvas?: (content: string) => void;
-  /** If set, this message was routed to canvas — show compact card instead of full content */
+  /** If set, this message was routed to canvas */
   canvasDocTitle?: string;
+  /** Conversational intro text that precedes the canvas content (shown in chat) */
+  canvasIntro?: string;
   onViewCanvas?: () => void;
 }
 
@@ -81,6 +83,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   approvalStatus,
   onOpenCanvas,
   canvasDocTitle,
+  canvasIntro,
   onViewCanvas,
 }: MessageBubbleProps) {
   const isUser = role === "user";
@@ -177,26 +180,36 @@ export const MessageBubble = React.memo(function MessageBubble({
               )}
             </div>
 
-            {/* Canvas card — shown when this message was routed to canvas */}
+            {/* Canvas-routed message: show intro prose + inline canvas link */}
             {canvasDocTitle ? (
-              <div className="mx-3 mb-3 flex items-center gap-3 px-3 py-2.5 rounded-xl
-                bg-[hsl(var(--violet)/0.08)] border border-[hsl(var(--violet)/0.25)]">
-                <FileText className="h-4 w-4 flex-shrink-0 text-[hsl(var(--violet))]" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-medium text-[hsl(var(--foreground))] truncate">{canvasDocTitle}</p>
-                  <p className="text-[11px] text-[hsl(var(--foreground-subtle))]">Sent to Canvas</p>
-                </div>
-                {onViewCanvas && (
-                  <button
-                    onClick={onViewCanvas}
-                    className="flex-shrink-0 text-[11px] px-2.5 py-1 rounded-lg
-                      bg-[hsl(var(--violet)/0.15)] text-[hsl(var(--violet))]
-                      hover:bg-[hsl(var(--violet)/0.25)] transition-colors font-medium"
-                  >
-                    View →
-                  </button>
+              <>
+                {/* Intro text (conversational part before the structured content) */}
+                {canvasIntro && (
+                  <div className="px-4 pb-2 prose prose-neutral dark:prose-invert max-w-none prose-p:leading-relaxed prose-p:my-0 text-[13px]">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {canvasIntro}
+                    </ReactMarkdown>
+                  </div>
                 )}
-              </div>
+                {/* Compact canvas reference pill */}
+                <div className="mx-3 mb-3 flex items-center gap-3 px-3 py-2 rounded-xl
+                  bg-[hsl(var(--violet)/0.07)] border border-[hsl(var(--violet)/0.2)]">
+                  <FileText className="h-3.5 w-3.5 flex-shrink-0 text-[hsl(var(--violet))]" />
+                  <p className="flex-1 min-w-0 text-[12px] font-medium text-[hsl(var(--foreground-muted))] truncate">
+                    {canvasDocTitle}
+                  </p>
+                  {onViewCanvas && (
+                    <button
+                      onClick={onViewCanvas}
+                      className="flex-shrink-0 text-[11px] px-2.5 py-1 rounded-lg
+                        bg-[hsl(var(--violet)/0.12)] text-[hsl(var(--violet))]
+                        hover:bg-[hsl(var(--violet)/0.22)] transition-colors font-medium"
+                    >
+                      Open →
+                    </button>
+                  )}
+                </div>
+              </>
             ) : (
               <>
                 {/* Markdown Content */}
