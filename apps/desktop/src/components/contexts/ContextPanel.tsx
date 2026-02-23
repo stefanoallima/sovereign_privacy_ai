@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { usePersonasStore, useSettingsStore, useChatStore } from "@/stores";
+import { usePersonasStore, useSettingsStore, useChatStore, useCanvasStore } from "@/stores";
 import {
   CreatePersonaDialog,
   CreateContextDialog,
@@ -18,6 +18,7 @@ import {
   LayoutGrid,
   Settings,
   Shield,
+  Eye,
 } from "lucide-react";
 import { PIIProfileCard } from "@/components/profile/PIIProfileCard";
 
@@ -28,6 +29,20 @@ export function ContextPanel() {
   const [showPersonaDialog, setShowPersonaDialog] = useState(false);
   const [showContextDialog, setShowContextDialog] = useState(false);
   const [configPersonaId, setConfigPersonaId] = useState<string | null>(null);
+  // contextId → canvasDocId so we re-open the same doc instead of creating duplicates
+  const [contextDocMap, setContextDocMap] = useState<Record<string, string>>({});
+
+  const { createDocument, openPanel } = useCanvasStore();
+
+  const handleViewContext = async (ctxId: string, name: string, content: string) => {
+    if (contextDocMap[ctxId]) {
+      openPanel(contextDocMap[ctxId]);
+      return;
+    }
+    const docId = await createDocument({ title: name, content });
+    setContextDocMap(prev => ({ ...prev, [ctxId]: docId }));
+    openPanel(docId);
+  };
 
   const { personas, selectedPersonaId, selectPersona } = usePersonasStore();
   const { models, getEnabledModels, settings } = useSettingsStore();
@@ -253,6 +268,16 @@ export function ContextPanel() {
                       <span className="text-[10px] text-[hsl(var(--muted-foreground))] bg-[hsl(var(--muted))] px-2 py-0.5 rounded-full font-mono">
                         {ctx.tokenCount}
                       </span>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void handleViewContext(ctx.id, ctx.name, ctx.content);
+                        }}
+                        title="View in Canvas"
+                        className="opacity-0 group-hover:opacity-100 flex items-center justify-center h-6 w-6 rounded-md text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.08)] transition-all"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
                     </label>
                   ))}
                 </div>
