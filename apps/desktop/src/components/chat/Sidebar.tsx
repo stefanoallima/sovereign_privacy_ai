@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useChatStore, usePersonasStore } from "@/stores";
 import { useWizardStore } from "@/stores/wizard";
+import { ProjectExplorer } from "@/components/layout/ProjectExplorer";
 import {
   MessageSquare,
   Plus,
@@ -95,7 +96,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
   })).filter(({ conversations: convs }) => convs.length > 0);
 
   return (
-    <aside className="flex w-72 flex-col glass border-r border-[hsl(var(--border)/0.5)]">
+    <aside className="flex w-72 flex-col bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))]">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[hsl(var(--border)/0.5)]">
         <div className="flex items-center gap-3">
@@ -137,6 +138,10 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
           />
         </div>
       </div>
+
+      {/* Project Explorer */}
+      <ProjectExplorer />
+      <div className="border-t border-[hsl(var(--border))] my-1" />
 
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-6" data-tour="conversations">
