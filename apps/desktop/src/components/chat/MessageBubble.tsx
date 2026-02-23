@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SpeakButton } from "./VoiceButton";
-import { Bot, Brain, Copy, Check, ShieldAlert, Send } from "lucide-react";
+import { Bot, Brain, Copy, Check, ShieldAlert, Send, FileText } from "lucide-react";
 import { PrivacyIndicator, PrivacyLevel } from "./PrivacyIndicator";
 import { useChatStore } from "@/stores";
 
@@ -21,6 +21,7 @@ interface MessageBubbleProps {
   privacyLevel?: PrivacyLevel;
   piiTypesDetected?: string[];
   approvalStatus?: 'pending' | 'approved' | 'rejected';
+  onOpenCanvas?: (content: string) => void;
 }
 
 // Helper to get privacy icon for backend mode
@@ -75,6 +76,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   privacyLevel,
   piiTypesDetected,
   approvalStatus,
+  onOpenCanvas,
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
@@ -257,6 +259,16 @@ export const MessageBubble = React.memo(function MessageBubble({
                       </>
                     )}
                   </button>
+                  {onOpenCanvas && (
+                    <button
+                      onClick={() => onOpenCanvas(mainContent)}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--primary))] transition-colors"
+                      title="Open in Canvas"
+                    >
+                      <FileText className="h-3 w-3" />
+                      <span>Open in Canvas</span>
+                    </button>
+                  )}
                 </div>
                 {privacyLevel && (
                   <PrivacyIndicator level={privacyLevel} piiTypesDetected={piiTypesDetected} />
