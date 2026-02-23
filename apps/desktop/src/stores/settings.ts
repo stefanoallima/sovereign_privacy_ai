@@ -88,6 +88,19 @@ const DEFAULT_MODELS: LLMModel[] = [
     isEnabled: true,
     isDefault: false,
   },
+  {
+    id: "qwen3-32b",
+    provider: "nebius",
+    apiModelId: "Qwen/Qwen3-32B",
+    name: "Qwen3 32B",
+    contextWindow: 128000,
+    speedTier: "fast",
+    intelligenceTier: "high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+  },
 ];
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -341,7 +354,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 10, // v10: correct model IDs from tokenfactory.nebius.com
+      version: 11, // v11: add Qwen3-32B
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
