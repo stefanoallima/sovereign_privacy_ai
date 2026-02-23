@@ -15,6 +15,8 @@ import {
   Wand2,
   Compass,
   LifeBuoy,
+  FolderSymlink,
+  Check,
 } from "lucide-react";
 import { useAppTour } from "@/hooks/useAppTour";
 
@@ -37,6 +39,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
     createConversation,
     deleteConversation,
     updateConversationTitle,
+    moveToProject,
   } = useChatStore();
 
   const { selectedPersonaId } = usePersonasStore();
@@ -202,6 +205,9 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
                       onEditStart={() => handleEditStart(conv.id, conv.title)}
                       onClick={() => selectConversation(conv.id)}
                       onDelete={() => void deleteConversation(conv.id)}
+                      projects={projects}
+                      currentProjectId={conv.projectId}
+                      onMoveToProject={(projectId) => void moveToProject(conv.id, projectId)}
                     />
                   ))
                 ) : (
@@ -246,6 +252,9 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
                     onEditStart={() => handleEditStart(conv.id, conv.title)}
                     onClick={() => selectConversation(conv.id)}
                     onDelete={() => void deleteConversation(conv.id)}
+                    projects={projects}
+                    currentProjectId={conv.projectId}
+                    onMoveToProject={(projectId) => void moveToProject(conv.id, projectId)}
                   />
                 ))}
               </div>
@@ -349,6 +358,9 @@ function ConversationItem({
   onClick,
   onDelete,
   isIncognito,
+  projects,
+  currentProjectId,
+  onMoveToProject,
 }: {
   title: string;
   isActive: boolean;
@@ -361,8 +373,13 @@ function ConversationItem({
   onClick: () => void;
   onDelete: () => void;
   isIncognito?: boolean;
+  projects?: Array<{ id: string; name: string; color?: string }>;
+  currentProjectId?: string;
+  onMoveToProject?: (projectId: string | null) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -370,6 +387,18 @@ function ConversationItem({
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!showProjectPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowProjectPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showProjectPicker]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -409,7 +438,7 @@ function ConversationItem({
         }`}
       onClick={onClick}
     >
-      <div className="flex items-center gap-3 flex-1 px-3 py-2.5 pr-16">
+      <div className="flex items-center gap-3 flex-1 px-3 py-2.5 pr-24">
         {isIncognito ? (
           <EyeOff className={`h-4 w-4 flex-shrink-0 text-purple-400`} />
         ) : (
@@ -420,6 +449,58 @@ function ConversationItem({
 
       {/* Hover Actions */}
       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+        {!isIncognito && onMoveToProject && projects && (
+          <div className="relative" ref={pickerRef}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowProjectPicker(v => !v);
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[hsl(var(--background))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
+              title="Move to project"
+            >
+              <FolderSymlink className="h-3.5 w-3.5" />
+            </button>
+
+            {showProjectPicker && (
+              <div
+                className="absolute bottom-full right-0 mb-1 w-44 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--popover))] shadow-lg overflow-hidden z-50 animate-slide-up"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-3 py-2 border-b border-[hsl(var(--border)/0.5)]">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-[hsl(var(--foreground-subtle))]">
+                    Move to project
+                  </span>
+                </div>
+                <div className="p-1 max-h-48 overflow-y-auto">
+                  {currentProjectId && (
+                    <button
+                      onClick={() => { onMoveToProject(null); setShowProjectPicker(false); }}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="truncate">No project</span>
+                    </button>
+                  )}
+                  {projects.length === 0 && (
+                    <p className="px-3 py-2 text-[11px] text-[hsl(var(--foreground-subtle))]">No projects yet</p>
+                  )}
+                  {projects.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => { onMoveToProject(p.id); setShowProjectPicker(false); }}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors"
+                    >
+                      <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color ?? 'hsl(var(--primary))' }} />
+                      <span className="truncate flex-1">{p.name}</span>
+                      {currentProjectId === p.id && <Check className="h-3 w-3 flex-shrink-0 text-[hsl(var(--primary))]" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {!isIncognito && (
           <button
             onClick={(e) => {
