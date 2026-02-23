@@ -124,6 +124,90 @@ export interface PendingReview {
   glinerMappings?: Map<string, string>;
 }
 
+const SUMMARY_INTERVAL = 5; // generate a summary every N assistant messages
+
+async function maybeGenerateProjectSummary(
+  conversationId: string,
+  settings: { nebiusApiKey: string; nebiusApiEndpoint: string },
+  model: { apiModelId?: string } | undefined,
+) {
+  try {
+    const { useChatStore } = await import('@/stores/chat');
+    const { useCanvasStore } = await import('@/stores/canvas');
+    const chatState = useChatStore.getState();
+    const conversation = chatState.conversations.find(c => c.id === conversationId);
+    if (!conversation) return;
+
+    // Count only assistant messages
+    const allMessages = chatState.messages[conversationId] ?? [];
+    const assistantCount = allMessages.filter(m => m.role === 'assistant').length;
+    if (assistantCount === 0 || assistantCount % SUMMARY_INTERVAL !== 0) return;
+
+    // Gather all conversation text (last 20 messages max to keep prompt small)
+    const recent = allMessages.slice(-20);
+    const transcript = recent
+      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n\n');
+
+    // Also include existing canvas docs as context
+    const canvasState = useCanvasStore.getState();
+    const convDocs = canvasState.getDocumentsByConversation(conversationId);
+    const projectDocs = conversation.projectId ? canvasState.getDocumentsByProject(conversation.projectId) : [];
+    const seen = new Set<string>();
+    const allDocs = [...convDocs, ...projectDocs].filter(d => {
+      if (seen.has(d.id)) return false;
+      seen.add(d.id);
+      return true;
+    });
+    const docsContext = allDocs.length > 0
+      ? `\n\nExisting project documents:\n${allDocs.map(d => `## ${d.title}\n${d.content}`).join('\n\n')}`
+      : '';
+
+    const { getNebiusClient } = await import('@/services/nebius');
+    const client = getNebiusClient(settings.nebiusApiKey, settings.nebiusApiEndpoint);
+
+    const summaryPrompt = `You are a project secretary. Based on the conversation transcript below, write a concise project minutes document in Markdown. Include:
+- Key decisions made
+- Action items or next steps
+- Important facts or agreements
+- Open questions
+
+Keep it brief and structured. Use ## headings. Do NOT include filler text.${docsContext}
+
+---
+Transcript:
+${transcript}`;
+
+    const stream = client.streamChatCompletion({
+      model: model?.apiModelId || 'deepseek-ai/DeepSeek-V3',
+      messages: [{ role: 'user', content: summaryPrompt }],
+      temperature: 0.3,
+      max_tokens: 1024,
+    });
+
+    let summaryContent = '';
+    for await (const chunk of stream) {
+      summaryContent += chunk;
+    }
+
+    if (!summaryContent.trim()) return;
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const title = `Project Minutes — ${dateStr} (msg ${assistantCount})`;
+
+    await canvasState.createDocument({
+      title,
+      content: summaryContent.trim(),
+      conversationId,
+      projectId: conversation.projectId,
+    });
+  } catch (e) {
+    // Non-critical — log and continue
+    console.warn('[summary] Failed to generate project summary:', e);
+  }
+}
+
 export function usePrivacyChat() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const [privacyStatus, setPrivacyStatus] = useState<PrivacyStatus>({
@@ -578,20 +662,31 @@ export function usePrivacyChat() {
         }
       }
 
-      // Add canvas documents from this conversation (default: include unless explicitly excluded)
+      // Add canvas documents from this conversation and its project (default: include unless explicitly excluded)
       if (sendOpts?.includeCanvas !== false) {
         try {
           const { useCanvasStore } = await import('@/stores/canvas');
           const convId = currentConversationId;
           if (convId) {
-            const canvasDocs = useCanvasStore.getState().getDocumentsByConversation(convId);
+            const canvasState = useCanvasStore.getState();
+            const convDocs = canvasState.getDocumentsByConversation(convId);
+            // Also include all docs from the project this conversation belongs to
+            const projectId = getCurrentConversation()?.projectId;
+            const projectDocs = projectId ? canvasState.getDocumentsByProject(projectId) : [];
+            // Merge, deduplicate by id
+            const seen = new Set<string>();
+            const canvasDocs = [...convDocs, ...projectDocs].filter(d => {
+              if (seen.has(d.id)) return false;
+              seen.add(d.id);
+              return true;
+            });
             if (canvasDocs.length > 0) {
               const canvasContent = canvasDocs
                 .map(doc => `## Canvas: ${doc.title}\n${doc.content}`)
                 .join('\n\n');
               messages.push({
                 role: 'system',
-                content: `The following documents were created during this conversation and are relevant context:\n\n${canvasContent}`,
+                content: `The following documents are available as project context:\n\n${canvasContent}`,
               });
             }
           }
@@ -674,6 +769,9 @@ export function usePrivacyChat() {
           }
         }
       }
+
+      // Auto-generate project summary every 5 messages (non-blocking)
+      void maybeGenerateProjectSummary(currentConversationId!, settings, model);
 
       // Reset privacy status
       setPrivacyStatus({

@@ -247,26 +247,36 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
             />
             {!collapsedSections.has(project.id) && (
               <div className="space-y-1 mt-2">
-                {projConvs.map((conv) => (
-                  <ConversationItem
-                    key={conv.id}
-                    title={conv.title}
-                    isActive={conv.id === currentConversationId}
-                    isEditing={editingId === conv.id}
-                    editValue={editTitle}
-                    onEditChange={setEditTitle}
-                    onEditSave={handleEditSave}
-                    onEditCancel={handleEditCancel}
-                    onEditStart={() => handleEditStart(conv.id, conv.title)}
-                    onClick={() => selectConversation(conv.id)}
-                    onDelete={() => void deleteConversation(conv.id)}
-                    projects={projects}
-                    currentProjectId={conv.projectId}
-                    onMoveToProject={(projectId) => void moveToProject(conv.id, projectId)}
-                    canvasDocs={documents.filter(d => d.conversationId === conv.id)}
-                    onOpenCanvasDoc={openPanel}
-                  />
-                ))}
+                {projConvs.map((conv) => {
+                  // All project docs (from every conversation in this project), deduped
+                  const projectDocIds = new Set<string>();
+                  const projectDocs = documents.filter(d => {
+                    if (d.projectId !== project.id) return false;
+                    if (projectDocIds.has(d.id)) return false;
+                    projectDocIds.add(d.id);
+                    return true;
+                  });
+                  return (
+                    <ConversationItem
+                      key={conv.id}
+                      title={conv.title}
+                      isActive={conv.id === currentConversationId}
+                      isEditing={editingId === conv.id}
+                      editValue={editTitle}
+                      onEditChange={setEditTitle}
+                      onEditSave={handleEditSave}
+                      onEditCancel={handleEditCancel}
+                      onEditStart={() => handleEditStart(conv.id, conv.title)}
+                      onClick={() => selectConversation(conv.id)}
+                      onDelete={() => void deleteConversation(conv.id)}
+                      projects={projects}
+                      currentProjectId={conv.projectId}
+                      onMoveToProject={(projectId) => void moveToProject(conv.id, projectId)}
+                      canvasDocs={projectDocs}
+                      onOpenCanvasDoc={openPanel}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -427,12 +437,12 @@ function ConversationItem({
   projects?: Array<{ id: string; name: string; color?: string }>;
   currentProjectId?: string;
   onMoveToProject?: (projectId: string | null) => void;
-  canvasDocs?: Array<{ id: string; title: string }>;
+  canvasDocs?: Array<{ id: string; title: string; conversationId?: string }>;
   onOpenCanvasDoc?: (docId: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
-  const [showDocs, setShowDocs] = useState(false);
+  const [showDocs, setShowDocs] = useState(isActive && (canvasDocs?.length ?? 0) > 0);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -441,6 +451,13 @@ function ConversationItem({
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  // Auto-open docs when this conversation becomes active
+  useEffect(() => {
+    if (isActive && (canvasDocs?.length ?? 0) > 0) {
+      setShowDocs(true);
+    }
+  }, [isActive, canvasDocs?.length]);
 
   // Close picker on outside click
   useEffect(() => {
@@ -499,9 +516,11 @@ function ConversationItem({
         {hasDocs && (
           <button
             onClick={(e) => { e.stopPropagation(); setShowDocs(v => !v); }}
-            className="flex-shrink-0 text-[hsl(var(--foreground-subtle))] hover:text-[hsl(var(--foreground))]"
+            className="flex-shrink-0 flex items-center gap-1 text-[hsl(var(--foreground-subtle))] hover:text-[hsl(var(--primary))] transition-colors"
+            title={showDocs ? 'Hide documents' : `Show ${canvasDocs!.length} document${canvasDocs!.length !== 1 ? 's' : ''}`}
           >
             <ChevronRight className="h-3 w-3" style={{ transform: showDocs ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 150ms' }} />
+            <span className="text-[10px] font-medium tabular-nums">{canvasDocs!.length}</span>
           </button>
         )}
         {!hasDocs && <span className="w-3 flex-shrink-0" />}
@@ -592,18 +611,23 @@ function ConversationItem({
       </div>
     </div>
     {showDocs && hasDocs && (
-      <div className="ml-8 border-l border-[hsl(var(--border))] pl-2 space-y-0.5 mt-0.5 mb-1">
+      <div className="ml-8 border-l border-[hsl(var(--border)/0.6)] pl-2 space-y-0.5 mt-0.5 mb-1.5">
+        <div className="px-2 py-1">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-[hsl(var(--muted-foreground)/0.5)]">
+            Project Documents
+          </span>
+        </div>
         {canvasDocs!.map(doc => (
           <button
             key={doc.id}
             onClick={() => onOpenCanvasDoc?.(doc.id)}
-            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-left
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left
               text-[11.5px] text-[hsl(var(--foreground-subtle))]
               hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]
-              transition-colors"
+              transition-colors group/doc"
           >
-            <FileText className="h-3 w-3 flex-shrink-0 text-[hsl(var(--violet))]" />
-            <span className="truncate">{doc.title}</span>
+            <FileText className="h-3 w-3 flex-shrink-0 text-[hsl(var(--violet)/0.7)] group-hover/doc:text-[hsl(var(--violet))]" />
+            <span className="truncate flex-1">{doc.title}</span>
           </button>
         ))}
       </div>
