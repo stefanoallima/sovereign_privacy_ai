@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSettingsStore, useAuthStore, useChatStore, useRequireAuth } from "@/stores";
+import { useSettingsStore, useAuthStore, useChatStore, useRequireAuth, useCanvasStore } from "@/stores";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ContextPanel } from "@/components/contexts/ContextPanel";
@@ -8,6 +8,7 @@ import { AuthScreen } from "@/components/auth/AuthScreen";
 import { Drawer } from "@/components/layout/Drawer";
 import { BottomSheet } from "@/components/layout/BottomSheet";
 import { MobileHeader } from "@/components/layout/MobileHeader";
+import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
 import { useSync } from "@/hooks/useSync";
 import { useIsMobile } from "@/hooks/useMediaQuery";
@@ -34,6 +35,7 @@ function LoadingScreen() {
 function MainApp() {
   const { settings } = useSettingsStore();
   const { isInitialized: chatInitialized, initialize: initChat, currentConversationId } = useChatStore();
+  const { initialize: initCanvas, isInitialized: canvasInitialized } = useCanvasStore();
   const { isUploadModalOpen, setUploadModalOpen, people } = useProfileStore();
   const { wizardCompleted, showWizard } = useWizardStore();
   const { startTour, tourCompleted } = useAppTour();
@@ -56,6 +58,11 @@ function MainApp() {
       initChat();
     }
   }, [chatInitialized, initChat]);
+
+  // Initialize canvas store if not already
+  useEffect(() => {
+    if (!canvasInitialized) initCanvas();
+  }, [canvasInitialized, initCanvas]);
 
   // Apply theme on mount and when it changes
   useEffect(() => {
@@ -198,20 +205,17 @@ function MainApp() {
 
   // Desktop Layout
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[hsl(var(--background))]">
-      {/* Sidebar - Conversations and Projects */}
-      <Sidebar
-        onSettingsClick={() => setIsSettingsOpen(true)}
-        onSupportClick={() => setIsSupportOpen(true)}
+    <>
+      <WorkspaceLayout
+        sidebar={
+          <Sidebar
+            onSettingsClick={() => setIsSettingsOpen(true)}
+            onSupportClick={() => setIsSupportOpen(true)}
+          />
+        }
+        chat={<ChatWindow />}
+        contextPanel={<ContextPanel />}
       />
-
-      {/* Main Content Area */}
-      <main className="flex flex-1 flex-col overflow-hidden relative">
-        <ChatWindow />
-      </main>
-
-      {/* Context Panel - Persona, Contexts, Model Selection */}
-      <ContextPanel />
 
       {/* Settings Dialog */}
       <SettingsDialog
@@ -253,7 +257,7 @@ function MainApp() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
