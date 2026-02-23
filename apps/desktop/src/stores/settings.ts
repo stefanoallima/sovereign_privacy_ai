@@ -63,19 +63,6 @@ const DEFAULT_OLLAMA_MODELS: LLMModel[] = [
 // Curated cloud models — use "Load models" in API Settings to replace with your endpoint's real list
 const DEFAULT_MODELS: LLMModel[] = [
   {
-    id: "deepseek-v3",
-    provider: "nebius",
-    apiModelId: "deepseek-ai/DeepSeek-V3",
-    name: "DeepSeek V3",
-    contextWindow: 128000,
-    speedTier: "medium",
-    intelligenceTier: "very-high",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    isEnabled: true,
-    isDefault: true,
-  },
-  {
     id: "qwen3-32b",
     provider: "nebius",
     apiModelId: "Qwen/Qwen3-32B",
@@ -86,7 +73,7 @@ const DEFAULT_MODELS: LLMModel[] = [
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     isEnabled: true,
-    isDefault: false,
+    isDefault: true,
   },
   {
     id: "minimax-m1",
@@ -121,7 +108,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiEndpoint: "https://api.studio.nebius.ai/v1",
   mem0ApiKey: "",
   enableMemory: false,
-  defaultModelId: "deepseek-v3",
+  defaultModelId: "qwen3-32b",
   enabledModelIds: DEFAULT_MODELS.map((m) => m.id),
   defaultVoiceId: "en_US-lessac-medium",
   speechRate: 1.0,
@@ -131,8 +118,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Privacy Mode
   privacyMode: "cloud",
   localModeModel: "qwen3-1.7b",
-  hybridModeModel: "deepseek-v3",
-  cloudModeModel: "deepseek-v3",
+  hybridModeModel: "qwen3-32b",
+  cloudModeModel: "qwen3-32b",
   // Backward compat (derived from privacyMode)
   airplaneMode: false,
   airplaneModeModel: "qwen3-1.7b",
@@ -367,7 +354,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 7, // v7: simplified cloud model list (deepseek, qwen, minimax, kimi)
+      version: 8, // v8: remove deepseek, qwen3-32b as default
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -381,9 +368,9 @@ export const useSettingsStore = create<SettingsStore>()(
             privacyMode,
             theme: 'light',
             localModeModel: old.localModeModel ?? old.airplaneModeModel ?? 'qwen3-1.7b',
-            hybridModeModel: 'deepseek-v3',
-            cloudModeModel: 'deepseek-v3',
-            defaultModelId: 'deepseek-v3',
+            hybridModeModel: 'qwen3-32b',
+            cloudModeModel: 'qwen3-32b',
+            defaultModelId: 'qwen3-32b',
             airplaneMode: privacyMode === 'local',
             airplaneModeModel: old.airplaneModeModel ?? 'qwen3-1.7b',
           },

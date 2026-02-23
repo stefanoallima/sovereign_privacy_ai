@@ -322,9 +322,8 @@ export function usePrivacyChat() {
         ? personas.find(p => p.id === mentionedPersonaIds[0])
         : getSelectedPersona();
 
-      // Always use user's current default model (conversations store stale modelId from creation)
-      const defaultModel = getModelById(settings.defaultModelId);
-      const model = defaultModel || getModelById(conversation.modelId || settings.defaultModelId);
+      // Prefer conversation-specific model (set via context panel), fall back to global default
+      const model = getModelById(conversation.modelId || settings.defaultModelId);
 
       // Check for @mention to switch persona
       if (!targetPersona || (content.trim().startsWith('@') && !mentionedPersonaIds)) {
