@@ -530,6 +530,7 @@ export function usePrivacyChat() {
     model: any,
     promptOverride?: string,
     glinerMappings?: Map<string, string>,
+    sendOpts?: { includeHistory?: boolean; includeCanvas?: boolean },
   ) => {
     const startTime = Date.now();
     const promptToSend = promptOverride ?? processed.prompt;
@@ -581,10 +582,34 @@ export function usePrivacyChat() {
         }
       }
 
-      // Add conversation history
-      const history = getCurrentMessages();
-      for (const msg of history) {
-        messages.push({ role: msg.role, content: msg.content });
+      // Add conversation history (default: include unless explicitly excluded)
+      if (sendOpts?.includeHistory !== false) {
+        const history = getCurrentMessages();
+        for (const msg of history) {
+          messages.push({ role: msg.role, content: msg.content });
+        }
+      }
+
+      // Add canvas documents from this conversation (default: include unless explicitly excluded)
+      if (sendOpts?.includeCanvas !== false) {
+        try {
+          const { useCanvasStore } = await import('@/stores/canvas');
+          const convId = currentConversationId;
+          if (convId) {
+            const canvasDocs = useCanvasStore.getState().getDocumentsByConversation(convId);
+            if (canvasDocs.length > 0) {
+              const canvasContent = canvasDocs
+                .map(doc => `## Canvas: ${doc.title}\n${doc.content}`)
+                .join('\n\n');
+              messages.push({
+                role: 'system',
+                content: `The following documents were created during this conversation and are relevant context:\n\n${canvasContent}`,
+              });
+            }
+          }
+        } catch (e) {
+          // canvas store unavailable — skip silently
+        }
       }
 
       // Add the prompt to send (may be edited by user during review)
@@ -790,10 +815,10 @@ export function usePrivacyChat() {
   };
 
   /**
-   * Approve a pending review and send to cloud (optionally with edited prompt)
+   * Approve a pending review and send to cloud (optionally with edited prompt and context opts)
    */
   const approveAndSend = useCallback(
-    async (editedPrompt?: string) => {
+    async (editedPrompt?: string, sendOpts?: { includeHistory?: boolean; includeCanvas?: boolean }) => {
       if (!pendingReview) return;
 
       const { originalMessage, processedPrompt, processed, targetPersona, model, glinerMappings } = pendingReview;
@@ -806,7 +831,7 @@ export function usePrivacyChat() {
       // Restore the privacy status from the processed result
       updatePrivacyStatusFromProcessed(processed);
 
-      await executePrivacySend(originalMessage, processed, targetPersona, model, promptToSend, glinerMappings);
+      await executePrivacySend(originalMessage, processed, targetPersona, model, promptToSend, glinerMappings, sendOpts);
     },
     [pendingReview, setLoading, updateStreamingContent]
   );
