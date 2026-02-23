@@ -79,6 +79,7 @@ export function CanvasPanel() {
     setEditTitle(doc?.title ?? '');
     setIsDirty(false);
     setMode('preview');
+    setIsEditingTitle(false);
   }, [doc?.id]);
 
   const handleSave = useCallback(async () => {
