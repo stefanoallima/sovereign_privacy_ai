@@ -40,6 +40,7 @@ interface ChatStore {
   updateStreamingContent: (content: string) => void;
   finalizeStreaming: (conversationId: string, modelId: string, inputTokens: number, outputTokens: number, latencyMs: number, personaId?: string) => Promise<void>;
   approveMessage: (messageId: string) => Promise<void>;
+  linkMessageToCanvas: (messageId: string, canvasDocId: string, canvasIntro: string) => Promise<void>;
   setLoading: (loading: boolean) => void;
 
   // Project actions
@@ -95,6 +96,8 @@ function toMessage(local: LocalMessage): Message {
     privacyLevel: local.privacyLevel,
     piiTypesDetected: local.piiTypesDetected,
     approvalStatus: local.approvalStatus,
+    canvasDocId: local.canvasDocId,
+    canvasIntro: local.canvasIntro,
   };
 }
 
@@ -465,6 +468,19 @@ export const useChatStore = create<ChatStore>()(
           for (const convoId in newMessages) {
             newMessages[convoId] = newMessages[convoId].map(msg =>
               msg.id === messageId ? { ...msg, approvalStatus: 'approved' } : msg
+            );
+          }
+          return { messages: newMessages };
+        });
+      },
+
+      linkMessageToCanvas: async (messageId, canvasDocId, canvasIntro) => {
+        await dbOps.updateMessage(messageId, { canvasDocId, canvasIntro });
+        set((state) => {
+          const newMessages = { ...state.messages };
+          for (const convoId in newMessages) {
+            newMessages[convoId] = newMessages[convoId].map(msg =>
+              msg.id === messageId ? { ...msg, canvasDocId, canvasIntro } : msg
             );
           }
           return { messages: newMessages };

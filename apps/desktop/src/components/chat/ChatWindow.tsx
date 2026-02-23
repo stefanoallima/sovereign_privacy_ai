@@ -119,12 +119,10 @@ export function ChatWindow() {
     updateConversationTitle,
     createConversation,
     projects,
+    linkMessageToCanvas,
   } = useChatStore();
 
   const { createDocument, openPanel, getDocumentsByConversation } = useCanvasStore();
-
-  // messageId → { docId, title, intro } for messages that were auto-routed to canvas
-  const [canvasRoutedMap, setCanvasRoutedMap] = useState<Map<string, { docId: string; title: string; intro: string }>>(new Map());
 
 
   const { settings, getEnabledModels, getDefaultModel, isAirplaneModeActive, setPrivacyMode, getActivePrivacyMode } = useSettingsStore();
@@ -544,7 +542,7 @@ export function ChatWindow() {
           projectId,
           conversationId: currentConversationId,
         }).then(docId => {
-          setCanvasRoutedMap(prev => new Map(prev).set(msgId, { docId, title, intro }));
+          linkMessageToCanvas(msgId, docId, intro);
         });
       }
     }
@@ -819,7 +817,11 @@ export function ChatWindow() {
                   ? getPersonaById(message.personaId)
                   : persona;
 
-                const canvasEntry = message.id ? canvasRoutedMap.get(message.id) : undefined;
+                // Derive canvas entry from persisted message fields
+                const canvasDocId = message.canvasDocId;
+                const canvasTitle = canvasDocId
+                  ? (getDocumentsByConversation(currentConversationId ?? '').find(d => d.id === canvasDocId)?.title ?? 'Canvas Document')
+                  : undefined;
                 return (
                   <div key={message.id}>
                     <MessageBubble
@@ -833,10 +835,10 @@ export function ChatWindow() {
                       privacyLevel={message.privacyLevel}
                       piiTypesDetected={message.piiTypesDetected}
                       approvalStatus={message.approvalStatus}
-                      canvasDocTitle={canvasEntry?.title}
-                      canvasIntro={canvasEntry?.intro}
-                      onViewCanvas={canvasEntry ? () => openPanel(canvasEntry.docId) : undefined}
-                      onOpenCanvas={canvasEntry ? undefined : async (content) => {
+                      canvasDocTitle={canvasTitle}
+                      canvasIntro={message.canvasIntro}
+                      onViewCanvas={canvasDocId ? () => openPanel(canvasDocId) : undefined}
+                      onOpenCanvas={canvasDocId ? undefined : async (content) => {
                         const { intro, canvas } = splitForCanvas(content);
                         const canvasContent = canvas || content;
                         const title = extractCanvasTitle(canvasContent);
@@ -848,7 +850,7 @@ export function ChatWindow() {
                           conversationId: currentConversationId ?? undefined,
                         });
                         if (message.id) {
-                          setCanvasRoutedMap(prev => new Map(prev).set(message.id!, { docId, title, intro }));
+                          linkMessageToCanvas(message.id, docId, intro);
                         }
                       }}
                     />

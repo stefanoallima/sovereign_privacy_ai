@@ -131,6 +131,9 @@ export interface Message {
   privacyLevel?: 'local-only' | 'anonymized' | 'public';
   piiTypesDetected?: string[];
   approvalStatus?: 'pending' | 'approved' | 'rejected';
+  // Canvas routing
+  canvasDocId?: string;
+  canvasIntro?: string;
 }
 
 // Knowledge Base
