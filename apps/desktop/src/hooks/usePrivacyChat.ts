@@ -322,8 +322,8 @@ export function usePrivacyChat() {
         ? personas.find(p => p.id === mentionedPersonaIds[0])
         : getSelectedPersona();
 
-      // Prefer conversation-specific model (set via context panel), fall back to global default
-      const model = getModelById(conversation.modelId || settings.defaultModelId);
+      // Prefer conversation-specific model (set via context panel), fall back to global default, then first enabled model
+      const model = getModelById(conversation.modelId || settings.defaultModelId) ?? getEnabledModels()[0];
 
       // Check for @mention to switch persona
       if (!targetPersona || (content.trim().startsWith('@') && !mentionedPersonaIds)) {
@@ -405,7 +405,7 @@ export function usePrivacyChat() {
       // Send to each persona sequentially through privacy pipeline
       for (const targetPersona of targetPersonas) {
         updateStreamingContent('');
-        const model = getModelById(conversation.modelId || settings.defaultModelId);
+        const model = getModelById(conversation.modelId || settings.defaultModelId) ?? getEnabledModels()[0];
         await sendSingleMessage(content, targetPersona, model);
       }
 
@@ -719,7 +719,7 @@ export function usePrivacyChat() {
       } else {
         const client = getNebiusClient(settings.nebiusApiKey, settings.nebiusApiEndpoint);
         const stream = client.streamChatCompletion({
-          model: model?.apiModelId || processed.model || 'Qwen/Qwen3-32B-fast',
+          model: model?.apiModelId || getEnabledModels().find(m => m.provider !== 'ollama')?.apiModelId || getEnabledModels()[0]?.apiModelId || '',
           messages,
           temperature: targetPersona?.temperature ?? 0.7,
           max_tokens: targetPersona?.maxTokens ?? 4096,
