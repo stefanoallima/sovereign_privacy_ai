@@ -1,8 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { X, Eye, Edit2, FileText, Trash2, Save, FolderPlus } from 'lucide-react';
+import { X, Eye, Edit2, FileText, Trash2, Save, FolderPlus, BookOpen } from 'lucide-react';
 import { useCanvasStore, useChatStore } from '@/stores';
+
+function extractBriefFromCanvas(content: string): string {
+  const lines = content.split('\n').filter(l => /^([-*•]|#{1,3}) /.test(l.trim()));
+  const items = lines.slice(0, 10).map(l => l.replace(/^#{1,3} /, '• ').replace(/^[-*•] /, '• '));
+  return items.join('\n') || content.slice(0, 300);
+}
 
 const CANVAS_TEMPLATES = [
   { icon: '📊', label: 'Tax Strategy', prompt: 'Create a structured tax strategy document for my situation, with sections for income overview, deduction opportunities, and risk areas.' },
@@ -65,7 +71,7 @@ function CanvasEmptyState({ onClose }: { onClose: () => void }) {
 export function CanvasPanel() {
   const { closePanel, updateDocument, deleteDocument, documents, activeDocumentId } = useCanvasStore();
   const doc = documents.find(d => d.id === activeDocumentId);
-  const { projects } = useChatStore();
+  const { projects, currentConversationId } = useChatStore();
 
   const [mode, setMode] = useState<'preview' | 'edit'>('preview');
   const [editContent, setEditContent] = useState('');
@@ -210,6 +216,22 @@ export function CanvasPanel() {
         <span className="text-[11px] text-[hsl(var(--foreground-subtle))]">
           {doc.content.split(/\s+/).filter(Boolean).length} words
         </span>
+        {currentConversationId && (
+          <button
+            onClick={() => {
+              if (!doc || !currentConversationId) return;
+              const briefContent = extractBriefFromCanvas(doc.content);
+              localStorage.setItem(`brief:${currentConversationId}`, briefContent);
+              window.dispatchEvent(new CustomEvent('brief:updated', { detail: { conversationId: currentConversationId } }));
+            }}
+            className="flex items-center gap-1.5 text-[11px] text-[hsl(var(--foreground-subtle))]
+              hover:text-[hsl(var(--violet))] transition-colors px-2 py-0.5 rounded-lg hover:bg-[hsl(var(--violet)/0.08)]"
+            title="Push canvas key points to Living Brief"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Sync to Brief
+          </button>
+        )}
         <span className="text-[11px] text-[hsl(var(--foreground-subtle))]">
           Updated {new Date(doc.updatedAt).toLocaleDateString()}
         </span>
