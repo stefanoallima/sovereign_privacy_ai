@@ -14,7 +14,7 @@ export function WorkspaceLayout({ sidebar, chat, contextPanel }: WorkspaceLayout
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[hsl(var(--background))]">
       {/* Left: Project Explorer — fixed width, not resizable */}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 h-full">
         {sidebar}
       </div>
 

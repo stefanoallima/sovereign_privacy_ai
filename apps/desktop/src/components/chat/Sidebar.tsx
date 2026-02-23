@@ -96,7 +96,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
   })).filter(({ conversations: convs }) => convs.length > 0);
 
   return (
-    <aside className="flex w-72 flex-col bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))]">
+    <aside className="flex w-72 flex-col h-full bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))]">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[hsl(var(--border)/0.5)]">
         <div className="flex items-center gap-3">
