@@ -13,8 +13,8 @@
 
   /* Foreground */
   --foreground: 220 10% 92%;
-  --foreground-muted: 220 8% 55%;
-  --foreground-subtle: 220 8% 35%;
+  --foreground-muted: 220 8% 72%;
+  --foreground-subtle: 220 8% 52%;
 
   /* Aliases (keep existing var names working) */
   --card: 220 15% 11%;
@@ -34,7 +34,7 @@
 
   /* Muted */
   --muted: 220 15% 14%;
-  --muted-foreground: 220 8% 50%;
+  --muted-foreground: 220 8% 62%;
 
   /* Accent */
   --accent: 220 15% 17%;
