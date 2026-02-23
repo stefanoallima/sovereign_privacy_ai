@@ -54,7 +54,7 @@ export class NebiusClient {
 
   constructor(apiKey: string, baseUrl = "https://api.studio.nebius.ai/v1") {
     this.apiKey = apiKey;
-    this.baseUrl = baseUrl;
+    this.baseUrl = baseUrl.replace(/\/+$/, '');
   }
 
   setApiKey(apiKey: string) {
@@ -62,7 +62,7 @@ export class NebiusClient {
   }
 
   setBaseUrl(baseUrl: string) {
-    this.baseUrl = baseUrl;
+    this.baseUrl = baseUrl.replace(/\/+$/, '');
   }
 
   async validateApiKey(): Promise<boolean> {
