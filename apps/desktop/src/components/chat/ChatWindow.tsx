@@ -493,7 +493,10 @@ export function ChatWindow() {
         }, 4000);
       }
     }
-  }, [isLoading]);
+    return () => {
+      if (canvasToastTimerRef.current) clearTimeout(canvasToastTimerRef.current);
+    };
+  }, [isLoading, currentConversationId]);
 
   // Listen for canvas:template-prompt events from CanvasPanel
   useEffect(() => {
