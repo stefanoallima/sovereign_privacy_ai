@@ -615,7 +615,7 @@ export function usePrivacyChat() {
           model: processed.model || model?.apiModelId || 'Qwen/Qwen3-32B-fast',
           messages,
           temperature: targetPersona?.temperature ?? 0.7,
-          max_tokens: targetPersona?.maxTokens ?? 2000,
+          max_tokens: targetPersona?.maxTokens ?? 4096,
         });
 
         let fullContent = '';

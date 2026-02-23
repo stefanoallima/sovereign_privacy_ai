@@ -29,7 +29,7 @@ Important guidelines:
     preferredModelId: "qwen3-32b-fast",
     knowledgeBaseIds: [],
     temperature: 0.7,
-    maxTokens: 2000,
+    maxTokens: 4096,
     isBuiltIn: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -62,7 +62,7 @@ Be encouraging but realistic. Push for action while respecting the user's pace.`
     preferredModelId: "qwen3-32b-fast",
     knowledgeBaseIds: [],
     temperature: 0.8,
-    maxTokens: 1500,
+    maxTokens: 4096,
     isBuiltIn: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -96,7 +96,7 @@ Draw from business best practices while keeping advice personalized to the user'
     preferredModelId: "qwen3-32b-fast",
     knowledgeBaseIds: [],
     temperature: 0.7,
-    maxTokens: 1500,
+    maxTokens: 4096,
     isBuiltIn: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -138,7 +138,7 @@ Common document types you help explain:
     preferredModelId: "qwen3-32b-fast",
     knowledgeBaseIds: [],
     temperature: 0.6,
-    maxTokens: 2000,
+    maxTokens: 4096,
     isBuiltIn: false, // Custom persona - user can modify or delete
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -186,7 +186,7 @@ Privacy guidelines:
     preferredModelId: "qwen3-32b-fast",
     knowledgeBaseIds: [],
     temperature: 0.5,
-    maxTokens: 2500,
+    maxTokens: 4096,
     isBuiltIn: false, // Custom persona - user can modify or delete
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -297,6 +297,16 @@ export const usePersonasStore = create<PersonasStore>()(
     }),
     {
       name: "assistant-personas",
+      version: 2, // v2: raise maxTokens to 4096 for all built-in personas
+      migrate: (persisted: unknown) => {
+        const p = persisted as Partial<{ personas: Persona[]; selectedPersonaId: string | null }>;
+        const personas = (p?.personas ?? []).map((persona) => {
+          if (!persona.isBuiltIn) return persona;
+          const defaultPersona = DEFAULT_PERSONAS.find(d => d.id === persona.id);
+          return defaultPersona ? { ...persona, maxTokens: defaultPersona.maxTokens } : persona;
+        });
+        return { personas, selectedPersonaId: p?.selectedPersonaId ?? null };
+      },
       partialize: (state) => ({
         personas: state.personas,
         selectedPersonaId: state.selectedPersonaId,
