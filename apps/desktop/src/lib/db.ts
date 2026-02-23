@@ -36,6 +36,8 @@ export interface LocalMessage extends SyncMeta {
   privacyLevel?: 'local-only' | 'anonymized' | 'public';
   piiTypesDetected?: string[];
   approvalStatus?: 'pending' | 'approved' | 'rejected';
+  canvasDocId?: string;
+  canvasIntro?: string;
   createdAt?: Date;
 }
 
@@ -250,6 +252,13 @@ export const dbOps = {
     }
 
     return fullMsg;
+  },
+
+  async updateMessage(
+    id: string,
+    updates: Partial<Pick<LocalMessage, 'canvasDocId' | 'canvasIntro' | 'approvalStatus'>>
+  ): Promise<void> {
+    await db.messages.update(id, updates);
   },
 
   async getMessagesByConversation(
