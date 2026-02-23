@@ -4,50 +4,50 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* ─── Obsidian Pro Design Tokens ─────────────────────────────────────────── */
+/* ─── Design Tokens ───────────────────────────────────────────────────────── */
 :root {
-  /* Depth layers */
-  --background: 220 14% 16%;       /* L0 — app shell */
-  --surface-1: 220 13% 20%;        /* L1 — panels */
-  --surface-2: 220 13% 24%;        /* L2 — cards / bubbles */
+  /* Depth layers — light default */
+  --background: 220 20% 97%;       /* L0 — app shell */
+  --surface-1: 0 0% 100%;          /* L1 — panels */
+  --surface-2: 220 20% 98%;        /* L2 — cards / bubbles */
 
   /* Foreground */
-  --foreground: 220 10% 93%;
-  --foreground-muted: 220 8% 74%;
-  --foreground-subtle: 220 8% 54%;
+  --foreground: 222 47% 11%;
+  --foreground-muted: 215 16% 40%;
+  --foreground-subtle: 215 16% 60%;
 
   /* Aliases (keep existing var names working) */
-  --card: 220 13% 20%;
-  --card-foreground: 220 10% 93%;
-  --popover: 220 13% 22%;
-  --popover-foreground: 220 10% 93%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
 
   /* Primary — Sovereign Cyan */
-  --primary: 199 89% 58%;
-  --primary-foreground: 220 14% 16%;
+  --primary: 199 89% 38%;
+  --primary-foreground: 0 0% 100%;
 
   /* Secondary — Iridescent Violet */
-  --secondary: 220 13% 27%;
-  --secondary-foreground: 220 10% 93%;
-  --violet: 267 84% 71%;
-  --violet-muted: 267 50% 45%;
+  --secondary: 210 40% 94%;
+  --secondary-foreground: 222 47% 11%;
+  --violet: 267 70% 55%;
+  --violet-muted: 267 50% 80%;
 
   /* Muted */
-  --muted: 220 13% 24%;
-  --muted-foreground: 220 8% 64%;
+  --muted: 210 40% 94%;
+  --muted-foreground: 215 16% 47%;
 
   /* Accent */
-  --accent: 220 13% 28%;
-  --accent-foreground: 220 10% 93%;
+  --accent: 210 40% 93%;
+  --accent-foreground: 222 47% 11%;
 
   /* Destructive */
-  --destructive: 0 70% 55%;
-  --destructive-foreground: 220 10% 93%;
+  --destructive: 0 70% 50%;
+  --destructive-foreground: 0 0% 100%;
 
-  /* Borders — separated by depth, not lines */
-  --border: 220 13% 30%;
-  --input: 220 13% 27%;
-  --ring: 199 89% 58%;
+  /* Borders */
+  --border: 214 32% 88%;
+  --input: 214 32% 88%;
+  --ring: 199 89% 38%;
 
   /* Radius */
   --radius: 0.75rem;
@@ -56,45 +56,52 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Shadows — glow-based in dark */
+  /* Shadows — soft in light */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.09), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+  --shadow-glow-cyan: 0 0 20px -4px hsl(199 89% 38% / 0.2);
+  --shadow-glow-violet: 0 0 20px -4px hsl(267 70% 55% / 0.2);
+
+  /* Glass */
+  --glass-border: 0 0 0 / 0.06;
+}
+
+/* Dark mode */
+.dark {
+  --background: 220 14% 16%;
+  --surface-1: 220 13% 20%;
+  --surface-2: 220 13% 24%;
+  --foreground: 220 10% 93%;
+  --foreground-muted: 220 8% 74%;
+  --foreground-subtle: 220 8% 54%;
+  --card: 220 13% 20%;
+  --card-foreground: 220 10% 93%;
+  --popover: 220 13% 22%;
+  --popover-foreground: 220 10% 93%;
+  --primary: 199 89% 58%;
+  --primary-foreground: 220 14% 16%;
+  --secondary: 220 13% 27%;
+  --secondary-foreground: 220 10% 93%;
+  --violet: 267 84% 71%;
+  --violet-muted: 267 50% 45%;
+  --muted: 220 13% 24%;
+  --muted-foreground: 220 8% 64%;
+  --accent: 220 13% 28%;
+  --accent-foreground: 220 10% 93%;
+  --destructive: 0 70% 55%;
+  --destructive-foreground: 220 10% 93%;
+  --border: 220 13% 30%;
+  --input: 220 13% 27%;
+  --ring: 199 89% 58%;
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.25);
   --shadow: 0 4px 8px -2px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.25);
   --shadow-md: 0 8px 16px -4px rgb(0 0 0 / 0.4), 0 4px 8px -4px rgb(0 0 0 / 0.25);
   --shadow-lg: 0 20px 32px -8px rgb(0 0 0 / 0.5), 0 8px 16px -8px rgb(0 0 0 / 0.35);
   --shadow-glow-cyan: 0 0 20px -4px hsl(199 89% 58% / 0.35);
   --shadow-glow-violet: 0 0 20px -4px hsl(267 84% 71% / 0.3);
-
-  /* Glass */
   --glass-border: 255 255 255 / 0.06;
-}
-
-/* Light mode override */
-.light {
-  --background: 220 14% 96%;
-  --surface-1: 0 0% 100%;
-  --surface-2: 220 14% 97%;
-  --foreground: 222 47% 11%;
-  --foreground-muted: 215 16% 47%;
-  --foreground-subtle: 215 16% 65%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --primary: 199 89% 42%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.06);
-  --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.05);
-  --glass-border: 0 0 0 / 0.06;
 }
 
 /* Base */

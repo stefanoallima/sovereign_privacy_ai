@@ -136,7 +136,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Backward compat (derived from privacyMode)
   airplaneMode: false,
   airplaneModeModel: "qwen3-1.7b",
-  theme: "system",
+  theme: "light",
   showTokenCounts: true,
   showModelSelector: true,
 };
@@ -337,7 +337,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 5, // v5: privacy mode replaces airplane mode
+      version: 6, // v6: default theme changed to light
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -349,6 +349,7 @@ export const useSettingsStore = create<SettingsStore>()(
             ...DEFAULT_SETTINGS,
             ...old,
             privacyMode,
+            theme: 'light',
             localModeModel: old.localModeModel ?? old.airplaneModeModel ?? 'qwen3-1.7b',
             hybridModeModel: old.hybridModeModel ?? 'qwen3-32b-fast',
             cloudModeModel: old.cloudModeModel ?? old.defaultModelId ?? 'qwen3-32b-fast',
