@@ -48,6 +48,9 @@ export interface AppSettings {
   airplaneMode: boolean;
   airplaneModeModel: string;
 
+  // Cloud trust
+  skipCloudReview: boolean; // Skip per-message privacy review when trusting the cloud provider
+
   // UI
   theme: "light" | "dark" | "system";
   showTokenCounts: boolean;
