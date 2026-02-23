@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SpeakButton } from "./VoiceButton";
-import { Bot, Brain, Copy, Check, ShieldAlert, Send, FileText } from "lucide-react";
+import { Bot, Copy, Check, ShieldAlert, Send, FileText } from "lucide-react";
 import { PrivacyIndicator, PrivacyLevel } from "./PrivacyIndicator";
 import { useChatStore } from "@/stores";
 
@@ -22,6 +22,9 @@ interface MessageBubbleProps {
   piiTypesDetected?: string[];
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   onOpenCanvas?: (content: string) => void;
+  /** If set, this message was routed to canvas — show compact card instead of full content */
+  canvasDocTitle?: string;
+  onViewCanvas?: () => void;
 }
 
 // Helper to get privacy icon for backend mode
@@ -77,15 +80,16 @@ export const MessageBubble = React.memo(function MessageBubble({
   piiTypesDetected,
   approvalStatus,
   onOpenCanvas,
+  canvasDocTitle,
+  onViewCanvas,
 }: MessageBubbleProps) {
   const isUser = role === "user";
-  const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const { approveMessage } = useChatStore();
   const backendPrivacy = getBackendPrivacyIcon(personaBackendMode);
 
-  // Parse content for thinking blocks
-  const { thinking, mainContent } = useMemo(
+  // Strip thinking blocks — only mainContent is rendered
+  const { mainContent } = useMemo(
     () => parseThinkingContent(content),
     [content]
   );
@@ -157,9 +161,9 @@ export const MessageBubble = React.memo(function MessageBubble({
           </div>
         ) : (
           /* Assistant Content (Left) */
-          <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-tl-sm bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--foreground-muted))] text-[13px] leading-relaxed w-full">
+          <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--foreground-muted))] text-[13px] leading-relaxed w-full overflow-hidden">
             {/* Persona Name + Privacy Badge */}
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 px-4 pt-3 pb-2">
               <span className="font-semibold text-[13px] text-[hsl(var(--foreground)/0.9)]">
                 {personaName || "Assistant"}
               </span>
@@ -173,107 +177,105 @@ export const MessageBubble = React.memo(function MessageBubble({
               )}
             </div>
 
-            {/* Thinking Block */}
-            {thinking && (
-              /* ... (Existing thinking block logic - abbreviated for replace tool) ... */
-              <div className="mb-4 rounded-xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--muted)/0.2)] overflow-hidden">
-                <button
-                  onClick={() => setIsThinkingExpanded(!isThinkingExpanded)}
-                  className="w-full flex items-center gap-2 px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted)/0.3)] transition-colors"
-                >
-                  <Brain className="h-4 w-4" />
-                  <span>Thinking Process</span>
-                  <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-[hsl(var(--muted))]">
-                    {isThinkingExpanded ? "Hide" : "Show"}
-                  </span>
-                </button>
-                {isThinkingExpanded && (
-                  <div className="px-4 py-3 border-t border-[hsl(var(--border)/0.5)] text-sm text-[hsl(var(--muted-foreground))] bg-[hsl(var(--muted)/0.1)]">
-                    <div className="prose prose-sm dark:prose-invert max-w-none opacity-80">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {thinking}
-                      </ReactMarkdown>
+            {/* Canvas card — shown when this message was routed to canvas */}
+            {canvasDocTitle ? (
+              <div className="mx-3 mb-3 flex items-center gap-3 px-3 py-2.5 rounded-xl
+                bg-[hsl(var(--violet)/0.08)] border border-[hsl(var(--violet)/0.25)]">
+                <FileText className="h-4 w-4 flex-shrink-0 text-[hsl(var(--violet))]" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-medium text-[hsl(var(--foreground))] truncate">{canvasDocTitle}</p>
+                  <p className="text-[11px] text-[hsl(var(--foreground-subtle))]">Sent to Canvas</p>
+                </div>
+                {onViewCanvas && (
+                  <button
+                    onClick={onViewCanvas}
+                    className="flex-shrink-0 text-[11px] px-2.5 py-1 rounded-lg
+                      bg-[hsl(var(--violet)/0.15)] text-[hsl(var(--violet))]
+                      hover:bg-[hsl(var(--violet)/0.25)] transition-colors font-medium"
+                  >
+                    View →
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Markdown Content */}
+                <div className="px-4 pb-3 prose prose-neutral dark:prose-invert max-w-none prose-p:leading-relaxed prose-p:my-3 prose-headings:font-semibold prose-headings:mt-6 prose-headings:mb-3 prose-pre:bg-[hsl(var(--secondary))] prose-pre:border prose-pre:border-[hsl(var(--border)/0.5)] prose-pre:rounded-xl prose-pre:shadow-sm prose-code:text-[13px] prose-ul:my-3 prose-ol:my-3 prose-li:my-1">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code: ({ className, children, ...props }) => {
+                        const isInline = !className;
+                        return isInline ? (
+                          <code className="bg-[hsl(var(--secondary))] px-1.5 py-0.5 rounded-md text-[13px] font-medium" {...props}>
+                            {children}
+                          </code>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                      a: ({ children, href }) => (
+                        <a
+                          href={href}
+                          className="text-[hsl(var(--primary))] font-medium hover:underline decoration-[hsl(var(--primary)/0.3)] underline-offset-2"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {children}
+                        </a>
+                      ),
+                      blockquote: ({ children }) => (
+                        <blockquote className="border-l-4 border-[hsl(var(--primary)/0.3)] pl-4 italic text-[hsl(var(--muted-foreground))]">
+                          {children}
+                        </blockquote>
+                      ),
+                    }}
+                  >
+                    {mainContent}
+                  </ReactMarkdown>
+                </div>
+
+                {/* Action Buttons */}
+                {!isStreaming && mainContent && (
+                  <div className="flex flex-wrap items-center gap-3 px-4 pb-3">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <SpeakButton text={mainContent} />
+                      <button
+                        onClick={handleCopy}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] transition-colors"
+                        title="Copy message"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-[hsl(var(--primary))]" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
+                      {onOpenCanvas && (
+                        <button
+                          onClick={() => onOpenCanvas(mainContent)}
+                          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--primary))] transition-colors"
+                          title="Open in Canvas"
+                        >
+                          <FileText className="h-3 w-3" />
+                          <span>Open in Canvas</span>
+                        </button>
+                      )}
                     </div>
+                    {privacyLevel && (
+                      <PrivacyIndicator level={privacyLevel} piiTypesDetected={piiTypesDetected} />
+                    )}
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Markdown Content */}
-            <div className="prose prose-neutral dark:prose-invert max-w-none prose-p:leading-relaxed prose-p:my-3 prose-headings:font-semibold prose-headings:mt-6 prose-headings:mb-3 prose-pre:bg-[hsl(var(--secondary))] prose-pre:border prose-pre:border-[hsl(var(--border)/0.5)] prose-pre:rounded-xl prose-pre:shadow-sm prose-code:text-[13px] prose-ul:my-3 prose-ol:my-3 prose-li:my-1">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code: ({ className, children, ...props }) => {
-                    const isInline = !className;
-                    return isInline ? (
-                      <code className="bg-[hsl(var(--secondary))] px-1.5 py-0.5 rounded-md text-[13px] font-medium" {...props}>
-                        {children}
-                      </code>
-                    ) : (
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  a: ({ children, href }) => (
-                    <a
-                      href={href}
-                      className="text-[hsl(var(--primary))] font-medium hover:underline decoration-[hsl(var(--primary)/0.3)] underline-offset-2"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {children}
-                    </a>
-                  ),
-                  blockquote: ({ children }) => (
-                    <blockquote className="border-l-4 border-[hsl(var(--primary)/0.3)] pl-4 italic text-[hsl(var(--muted-foreground))]">
-                      {children}
-                    </blockquote>
-                  ),
-                }}
-              >
-                {mainContent}
-              </ReactMarkdown>
-            </div>
-
-            {/* Action Buttons */}
-            {!isStreaming && mainContent && (
-              <div className="flex flex-wrap items-center gap-3 mt-4">
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <SpeakButton text={mainContent} />
-                  <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] transition-colors"
-                    title="Copy message"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-[hsl(var(--primary))]" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>Copy</span>
-                      </>
-                    )}
-                  </button>
-                  {onOpenCanvas && (
-                    <button
-                      onClick={() => onOpenCanvas(mainContent)}
-                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--primary))] transition-colors"
-                      title="Open in Canvas"
-                    >
-                      <FileText className="h-3 w-3" />
-                      <span>Open in Canvas</span>
-                    </button>
-                  )}
-                </div>
-                {privacyLevel && (
-                  <PrivacyIndicator level={privacyLevel} piiTypesDetected={piiTypesDetected} />
-                )}
-              </div>
+              </>
             )}
           </div>
         )}
