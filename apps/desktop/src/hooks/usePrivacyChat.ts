@@ -637,7 +637,7 @@ export function usePrivacyChat() {
       } else {
         const client = getNebiusClient(settings.nebiusApiKey, settings.nebiusApiEndpoint);
         const stream = client.streamChatCompletion({
-          model: processed.model || model?.apiModelId || 'Qwen/Qwen3-32B-fast',
+          model: model?.apiModelId || processed.model || 'Qwen/Qwen3-32B-fast',
           messages,
           temperature: targetPersona?.temperature ?? 0.7,
           max_tokens: targetPersona?.maxTokens ?? 4096,
