@@ -325,8 +325,13 @@ export const useSettingsStore = create<SettingsStore>()(
 
       getActivePrivacyMode: (persona?: any) => {
         const { settings } = get();
-        // If persona has custom backend override, return 'custom'
-        if (persona?.preferred_backend && persona.preferred_backend !== 'nebius') {
+        // Map persona's preferred_backend to the equivalent pill mode.
+        // 'custom' is only returned for unrecognised/exotic backends.
+        if (persona?.preferred_backend) {
+          if (persona.preferred_backend === 'ollama') return 'local';
+          if (persona.preferred_backend === 'hybrid') return 'hybrid';
+          if (persona.preferred_backend === 'nebius') return settings.privacyMode;
+          // Truly unknown backend → custom
           return 'custom';
         }
         return settings.privacyMode;
