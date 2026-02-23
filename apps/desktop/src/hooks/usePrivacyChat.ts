@@ -198,24 +198,15 @@ export function usePrivacyChat() {
         return;
       }
 
-      // Check if persona has a custom backend override (non-default)
-      const hasCustomOverride = targetPersona?.preferred_backend &&
-        targetPersona.preferred_backend !== 'nebius';
-
-      // Determine effective mode: persona custom > global privacy mode
-      let effectiveMode: string;
-      if (hasCustomOverride) {
-        effectiveMode = targetPersona.preferred_backend; // 'ollama' | 'hybrid'
-      } else {
-        effectiveMode = privacyMode; // 'local' | 'hybrid' | 'cloud'
-      }
-
-      if (effectiveMode === 'local' || effectiveMode === 'ollama') {
+      // User's pill selection (privacyMode) controls routing.
+      // enable_local_anonymizer on the persona still forces the privacy pipeline
+      // even in cloud mode, as a safety net for privacy-sensitive personas.
+      if (privacyMode === 'local') {
         await sendLocalOnly(content, targetPersona, model);
-      } else if (effectiveMode === 'hybrid') {
+      } else if (privacyMode === 'hybrid') {
         await sendWithPrivacy(content, targetPersona, model);
       } else {
-        // Cloud mode — still check if persona has anonymizer enabled
+        // Cloud mode — still run privacy pipeline if persona requires anonymization
         if (targetPersona?.enable_local_anonymizer) {
           await sendWithPrivacy(content, targetPersona, model);
         } else {

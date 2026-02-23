@@ -323,18 +323,10 @@ export const useSettingsStore = create<SettingsStore>()(
 
       isAirplaneModeActive: () => get().settings.privacyMode === 'local',
 
-      getActivePrivacyMode: (persona?: any) => {
-        const { settings } = get();
-        // Map persona's preferred_backend to the equivalent pill mode.
-        // 'custom' is only returned for unrecognised/exotic backends.
-        if (persona?.preferred_backend) {
-          if (persona.preferred_backend === 'ollama') return 'local';
-          if (persona.preferred_backend === 'hybrid') return 'hybrid';
-          if (persona.preferred_backend === 'nebius') return settings.privacyMode;
-          // Truly unknown backend → custom
-          return 'custom';
-        }
-        return settings.privacyMode;
+      getActivePrivacyMode: (_persona?: any) => {
+        // The user's explicit pill selection (settings.privacyMode) always wins.
+        // Persona preferred_backend is a routing default, not a UI override.
+        return get().settings.privacyMode;
       },
 
       getAllModels: () => [...get().models, ...get().ollamaModels],
