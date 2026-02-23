@@ -18,8 +18,8 @@ export function WorkspaceLayout({ sidebar, chat, contextPanel }: WorkspaceLayout
         {sidebar}
       </div>
 
-      {/* Center + Right: resizable */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Center: Chat + (optional) Canvas — resizable */}
+      <div className="flex flex-1 overflow-hidden min-w-0">
         {isPanelOpen ? (
           <PanelGroup orientation="horizontal" className="flex-1">
             {/* Chat panel — min 20%, default 55% */}
@@ -29,7 +29,6 @@ export function WorkspaceLayout({ sidebar, chat, contextPanel }: WorkspaceLayout
 
             {/* Drag handle */}
             <PanelResizeHandle className="w-1 bg-transparent hover:bg-[hsl(var(--primary)/0.4)] active:bg-[hsl(var(--primary)/0.6)] transition-colors cursor-col-resize group relative">
-              {/* Visual indicator dot */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-[hsl(var(--border))] group-hover:bg-[hsl(var(--primary)/0.6)] transition-colors" />
             </PanelResizeHandle>
 
@@ -39,15 +38,15 @@ export function WorkspaceLayout({ sidebar, chat, contextPanel }: WorkspaceLayout
             </Panel>
           </PanelGroup>
         ) : (
-          <div className="flex flex-1 overflow-hidden">
-            <main className="flex flex-1 flex-col overflow-hidden">
-              {chat}
-            </main>
-            <div className="flex-shrink-0">
-              {contextPanel}
-            </div>
-          </div>
+          <main className="flex flex-1 flex-col overflow-hidden">
+            {chat}
+          </main>
         )}
+      </div>
+
+      {/* Right: Context Panel — always present, collapses to icon strip */}
+      <div className="flex-shrink-0 h-full">
+        {contextPanel}
       </div>
     </div>
   );

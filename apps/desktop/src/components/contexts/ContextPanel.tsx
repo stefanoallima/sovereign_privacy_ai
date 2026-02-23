@@ -3,14 +3,11 @@ import { usePersonasStore, useSettingsStore, useChatStore } from "@/stores";
 import {
   CreatePersonaDialog,
   CreateContextDialog,
-  CreateProjectDialog,
 } from "@/components/dialogs";
 import { PersonaConfigPage } from "@/components/personas";
 import {
-  ChevronLeft,
   ChevronRight,
   Users,
-  FolderKanban,
   FileText,
   Cpu,
   Plus,
@@ -30,18 +27,15 @@ export function ContextPanel() {
 
   const [showPersonaDialog, setShowPersonaDialog] = useState(false);
   const [showContextDialog, setShowContextDialog] = useState(false);
-  const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [configPersonaId, setConfigPersonaId] = useState<string | null>(null);
 
   const { personas, selectedPersonaId, selectPersona } = usePersonasStore();
   const { models, getEnabledModels, settings } = useSettingsStore();
   const {
     contexts,
-    projects,
     getCurrentConversation,
     updateConversationModel,
     toggleConversationContext,
-    moveToProject,
   } = useChatStore();
 
   const conversation = getCurrentConversation();
@@ -51,12 +45,27 @@ export function ContextPanel() {
 
   if (!isOpen) {
     return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center h-12 w-6 rounded-l-lg bg-[hsl(var(--card))] hover:bg-[hsl(var(--accent))] border border-r-0 border-[hsl(var(--border)/0.5)] shadow-md transition-all z-20"
-      >
-        <ChevronLeft className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-      </button>
+      <aside className="flex w-12 flex-shrink-0 flex-col items-center gap-1 py-3 bg-[hsl(var(--surface-1))] border-l border-[hsl(var(--border))] h-full">
+        {/* Expand button */}
+        <button
+          onClick={() => setIsOpen(true)}
+          title="Expand context panel"
+          className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-[hsl(var(--accent))] text-[hsl(var(--primary))] transition-colors mb-1"
+        >
+          <LayoutGrid className="h-4 w-4" />
+        </button>
+        <div className="w-6 h-px bg-[hsl(var(--border)/0.5)] my-1" />
+        {/* Icon shortcuts — clicking expands the panel */}
+        <button onClick={() => { setIsOpen(true); setActiveTab('general'); }} title="Personas" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-[hsl(var(--accent))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+          <Users className="h-4 w-4" />
+        </button>
+<button onClick={() => { setIsOpen(true); setActiveTab('advanced'); }} title="Model & Contexts" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-[hsl(var(--accent))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+          <Cpu className="h-4 w-4" />
+        </button>
+        <button onClick={() => { setIsOpen(true); setActiveTab('general'); }} title="Privacy Shield" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-[hsl(var(--accent))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+          <Shield className="h-4 w-4" />
+        </button>
+      </aside>
     );
   }
 
@@ -150,37 +159,7 @@ export function ContextPanel() {
               </button>
             </CollapsibleSection>
 
-            {/* Project Selection */}
-            <CollapsibleSection title="Project" icon={<FolderKanban className="h-3.5 w-3.5" />} defaultOpen>
-              <div className="relative">
-                <select
-                  value={conversation?.projectId || ""}
-                  onChange={(e) =>
-                    conversation &&
-                    moveToProject(conversation.id, e.target.value || null)
-                  }
-                  disabled={!conversation}
-                  className="w-full appearance-none rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm disabled:opacity-50 focus:outline-none focus:border-[hsl(var(--ring)/0.5)] focus:ring-2 focus:ring-[hsl(var(--ring)/0.1)] transition-all cursor-pointer shadow-sm hover:border-[hsl(var(--border)/0.8)]"
-                >
-                  <option value="">No Project (Quick Chat)</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))] pointer-events-none" />
-              </div>
-              <button
-                onClick={() => setShowProjectDialog(true)}
-                className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-[hsl(var(--border))] px-3 py-2.5 text-xs font-medium text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.05)] transition-all"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                New Project
-              </button>
-            </CollapsibleSection>
-
-            {/* Privacy Shield - Moved from absolute/floating to context panel */}
+{/* Privacy Shield - Moved from absolute/floating to context panel */}
             <CollapsibleSection title="Privacy Shield" icon={<Shield className="h-3.5 w-3.5" />} defaultOpen dataTour="privacy-shield">
               <PIIProfileCard />
             </CollapsibleSection>
@@ -320,11 +299,6 @@ export function ContextPanel() {
         isOpen={showContextDialog}
         onClose={() => setShowContextDialog(false)}
       />
-      <CreateProjectDialog
-        isOpen={showProjectDialog}
-        onClose={() => setShowProjectDialog(false)}
-      />
-
       {/* Persona Configuration Page */}
       {configPersonaId && (
         <PersonaConfigPage
