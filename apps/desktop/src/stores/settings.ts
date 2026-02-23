@@ -60,17 +60,43 @@ const DEFAULT_OLLAMA_MODELS: LLMModel[] = [
   },
 ];
 
-// No hardcoded cloud models — model IDs vary per endpoint.
-// Use "Load models" in API Settings → Advanced to fetch real IDs from your endpoint.
-const DEFAULT_MODELS: LLMModel[] = [];
+// Cloud models available on tokenfactory.nebius.com
+const DEFAULT_MODELS: LLMModel[] = [
+  {
+    id: "minimax-m2",
+    provider: "nebius",
+    apiModelId: "MiniMaxAI/MiniMax-M2.1",
+    name: "MiniMax M2.1",
+    contextWindow: 128000,
+    speedTier: "medium",
+    intelligenceTier: "very-high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: true,
+  },
+  {
+    id: "kimi-k2",
+    provider: "nebius",
+    apiModelId: "moonshotai/Kimi-K2.5",
+    name: "Kimi K2.5",
+    contextWindow: 128000,
+    speedTier: "medium",
+    intelligenceTier: "very-high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+  },
+];
 
 const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiKey: "",
   nebiusApiEndpoint: "https://api.studio.nebius.ai/v1",
   mem0ApiKey: "",
   enableMemory: false,
-  defaultModelId: "",
-  enabledModelIds: [],
+  defaultModelId: "minimax-m2",
+  enabledModelIds: DEFAULT_MODELS.map((m) => m.id),
   defaultVoiceId: "en_US-lessac-medium",
   speechRate: 1.0,
   pushToTalkKey: "Ctrl+Space",
@@ -79,8 +105,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Privacy Mode
   privacyMode: "cloud",
   localModeModel: "qwen3-1.7b",
-  hybridModeModel: "",
-  cloudModeModel: "",
+  hybridModeModel: "minimax-m2",
+  cloudModeModel: "minimax-m2",
   // Backward compat (derived from privacyMode)
   airplaneMode: false,
   airplaneModeModel: "qwen3-1.7b",
@@ -315,7 +341,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 9, // v9: empty default models, load from endpoint
+      version: 10, // v10: correct model IDs from tokenfactory.nebius.com
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -329,9 +355,9 @@ export const useSettingsStore = create<SettingsStore>()(
             privacyMode,
             theme: 'light',
             localModeModel: old.localModeModel ?? old.airplaneModeModel ?? 'qwen3-1.7b',
-            hybridModeModel: '',
-            cloudModeModel: '',
-            defaultModelId: '',
+            hybridModeModel: 'minimax-m2',
+            cloudModeModel: 'minimax-m2',
+            defaultModelId: 'minimax-m2',
             airplaneMode: privacyMode === 'local',
             airplaneModeModel: old.airplaneModeModel ?? 'qwen3-1.7b',
           },
