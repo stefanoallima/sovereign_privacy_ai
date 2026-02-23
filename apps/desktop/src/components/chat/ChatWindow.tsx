@@ -1,12 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useChatStore, useVoiceStore, usePersonasStore, useSettingsStore, useCanvasStore } from "@/stores";
+import { useChatStore, usePersonasStore, useSettingsStore, useCanvasStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { usePrivacyChat } from "@/hooks/usePrivacyChat";
-import { useVoice } from "@/hooks/useVoice";
 import { MessageBubble } from "./MessageBubble";
 import { PromptReviewPanel } from "./PromptReviewPanel";
-import { VoiceButton } from "./VoiceButton";
-import { VoiceConversation } from "./VoiceConversation";
 import { LivingBrief } from "./LivingBrief";
 import { getNebiusClient } from "@/services/nebius";
 import { invoke } from "@tauri-apps/api/core";
@@ -15,7 +12,6 @@ import {
   Bot,
   AlertTriangle,
   Sparkles,
-  Radio,
   FolderKanban,
   ChevronRight,
   Download,
@@ -81,8 +77,6 @@ function extractCanvasTitle(content: string): string {
   return 'Canvas Document';
 }
 
-type VoiceMode = 'local' | 'livekit';
-
 interface ModelStatus {
   is_downloaded: boolean;
   is_loaded: boolean;
@@ -93,9 +87,6 @@ interface ModelStatus {
 
 export function ChatWindow() {
   const [input, setInput] = useState("");
-  const [isConversationMode, setIsConversationMode] = useState(false);
-  const [voiceMode, setVoiceMode] = useState<VoiceMode>('local');
-  const [showLiveKitPanel, setShowLiveKitPanel] = useState(false);
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
   const [isDownloadingModel, setIsDownloadingModel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -127,7 +118,6 @@ export function ChatWindow() {
 
 
   const { settings, getEnabledModels, getDefaultModel, isAirplaneModeActive, setPrivacyMode, getActivePrivacyMode } = useSettingsStore();
-  const { voiceInputEnabled } = useVoiceStore();
   const { personas, getPersonaById } = usePersonasStore();
   const { sendMessage, sendMultiPersonaMessage, privacyStatus, pendingReview, approveAndSend, cancelReview } = usePrivacyChat();
   const activeUserProfile = useUserContextStore(selectActiveProfile);
@@ -141,7 +131,6 @@ export function ChatWindow() {
   const project = useMemo(() => projects.find((p) => p.id === conversationProjectId), [projects, conversationProjectId]);
   const hasApiKey = !!settings.nebiusApiKey;
   const isAirplane = isAirplaneModeActive();
-  const voiceModeEnabled = voiceInputEnabled && (hasApiKey || isAirplane);
   const availableModels = useMemo(() => getEnabledModels(), [settings.enabledModelIds, settings.privacyMode]);
   const defaultModel = useMemo(() => getDefaultModel(), [settings.defaultModelId, settings.privacyMode, settings.localModeModel, settings.hybridModeModel, settings.cloudModeModel]);
   const currentModel = useMemo(() => defaultModel || availableModels[0] || { id: "unknown", name: "No model", provider: "nebius" as const }, [defaultModel, availableModels]);
@@ -270,136 +259,6 @@ export function ChatWindow() {
   // (model selector removed — replaced by privacy mode pills)
 
   // Hands-Free Conversation Mode Logic
-  const { speak, startListening, stopListening, cancelSpeech } = useVoice();
-  const lastMessageRef = useRef<string | null>(null);
-  const isSpeakingRef = useRef(false);
-  const conversationModeRef = useRef(isConversationMode);
-  const wasConversationModeOnRef = useRef(false);
-  const recordingTimeoutRef = useRef<number | null>(null);
-  const RECORDING_DURATION_MS = 8000; // 8 seconds to speak
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    conversationModeRef.current = isConversationMode;
-  }, [isConversationMode]);
-
-  // Cleanup effect - only runs when conversation mode is turned OFF
-  useEffect(() => {
-    if (!isConversationMode && wasConversationModeOnRef.current) {
-      // Clean up when conversation mode is disabled (was on, now off)
-      cancelSpeech();
-      stopListening();
-      isSpeakingRef.current = false;
-      if (recordingTimeoutRef.current) {
-        clearTimeout(recordingTimeoutRef.current);
-        recordingTimeoutRef.current = null;
-      }
-    }
-    wasConversationModeOnRef.current = isConversationMode;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConversationMode]); // Only depend on isConversationMode
-
-  // Function to start listening with auto-stop timeout
-  const startConversationListening = useCallback(async () => {
-    if (!conversationModeRef.current) return;
-
-    // Clear any existing timeout
-    if (recordingTimeoutRef.current) {
-      clearTimeout(recordingTimeoutRef.current);
-    }
-
-    startListening();
-
-    // Auto-stop after timeout
-    recordingTimeoutRef.current = window.setTimeout(async () => {
-      if (conversationModeRef.current) {
-        await stopListening();
-        // The transcription will be picked up by the auto-send effect below
-      }
-    }, RECORDING_DURATION_MS);
-  }, [startListening, stopListening]);
-
-  // Track if initial listen has started
-  const initialListenStartedRef = useRef(false);
-
-  // Start listening when conversation mode is first enabled
-  useEffect(() => {
-    if (isConversationMode && !initialListenStartedRef.current) {
-      // Conversation mode just turned ON - start listening for first user input
-      initialListenStartedRef.current = true;
-      // Small delay to let UI update
-      setTimeout(() => {
-        startConversationListening();
-      }, 500);
-    } else if (!isConversationMode) {
-      // Reset when mode is turned off
-      initialListenStartedRef.current = false;
-    }
-  }, [isConversationMode, startConversationListening]);
-
-  // Main conversation mode effect - handles speaking responses
-  useEffect(() => {
-    if (!isConversationMode) {
-      return;
-    }
-
-    const messages = getCurrentMessages();
-    const lastMessage = messages[messages.length - 1];
-
-    // Check if we just finished receiving a NEW assistant message
-    if (!isLoading && lastMessage?.role === "assistant" && lastMessage.id !== lastMessageRef.current) {
-      // Prevent duplicate speak calls
-      if (isSpeakingRef.current) {
-        return;
-      }
-
-      lastMessageRef.current = lastMessage.id;
-      isSpeakingRef.current = true;
-
-      // 1. Speak the response
-      speak(lastMessage.content, () => {
-        isSpeakingRef.current = false;
-        // 2. When speech ends, auto-start listening with timeout
-        startConversationListening();
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, isConversationMode, messages.length]); // Minimal stable dependencies
-
-  // Effect to handle conversation mode auto-send (the VoiceButton handles the listening part but we need to hook into it or replicate it)
-  // Actually, VoiceButton handles one-off. For loop, we need a way to capture the result. 
-  // Since we don't have direct access to 'onTranscription' from here easily without duplicating useVoice logic, 
-  // we might need to rely on the fact that useVoiceStore updates lastTranscription.
-
-  const { lastTranscription, voiceState, setTranscription } = useVoiceStore();
-  const lastProcessedTranscriptionRef = useRef<string>("");
-
-  useEffect(() => {
-    // Only auto-send when:
-    // 1. In conversation mode
-    // 2. Voice state is idle (not recording, processing, or speaking)
-    // 3. We have a transcription
-    // 4. It's a new transcription we haven't processed yet
-    // 5. We're not currently speaking (double check)
-    if (
-      isConversationMode &&
-      voiceState === 'idle' &&
-      !isSpeakingRef.current &&
-      lastTranscription &&
-      lastTranscription.trim() &&
-      lastTranscription !== lastProcessedTranscriptionRef.current
-    ) {
-      lastProcessedTranscriptionRef.current = lastTranscription;
-
-      // Auto-send
-      setInput(lastTranscription);
-      setTimeout(() => {
-        sendMessage(lastTranscription);
-        setInput("");
-        setTranscription(""); // Clear to avoid double sends
-      }, 500);
-    }
-  }, [isConversationMode, voiceState, lastTranscription, sendMessage, setTranscription]);
 
   // Handle input change to detect mentions
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -637,11 +496,6 @@ export function ChatWindow() {
         </h2>
         <p className="max-w-md text-[hsl(var(--muted-foreground))] mb-10 text-lg leading-relaxed animate-fade-in">
           Your private AI companion for coaching, therapy, and brainstorming.
-          {voiceModeEnabled && (
-            <span className="block mt-2 text-sm">
-              Press <kbd className="px-2 py-1 rounded-md bg-[hsl(var(--secondary))] text-xs font-mono">Ctrl+Space</kbd> to talk.
-            </span>
-          )}
         </p>
 
         {!hasApiKey && !isAirplane && (
@@ -893,22 +747,6 @@ export function ChatWindow() {
       {/* Input Area - Floating at Bottom Center */}
       <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[hsl(var(--background))] via-[hsl(var(--background)/0.95)] to-transparent pointer-events-none">
         <div className="mx-auto max-w-3xl w-full pointer-events-auto">
-          {/* LiveKit Voice Panel */}
-          {showLiveKitPanel && voiceMode === 'livekit' && (
-            <div className="mb-4 rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] shadow-xl overflow-hidden animate-slide-up">
-              <div className="px-4 py-2 border-b border-[hsl(var(--border)/0.3)] bg-[hsl(var(--secondary)/0.3)]">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-[hsl(var(--foreground))]">LiveKit Voice</span>
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">Streaming conversation</span>
-                </div>
-              </div>
-              <VoiceConversation
-                onTranscription={(_text, _role) => {
-                  // When LiveKit transcribes something, we could add it to the chat
-                }}
-              />
-            </div>
-          )}
           {/* Prompt Review Panel */}
           {pendingReview && (
             <div className="mb-4">
@@ -1053,96 +891,6 @@ export function ChatWindow() {
               <div className="flex items-center justify-between px-4 pb-4">
 
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 rounded-lg bg-[hsl(var(--secondary)/0.5)] p-0.5 border border-[hsl(var(--border)/0.5)]">
-                    {/* Voice Mode Toggle (Local vs LiveKit) */}
-                    {voiceModeEnabled && (
-                      <button
-                        onClick={() => setVoiceMode(voiceMode === 'local' ? 'livekit' : 'local')}
-                        className={`flex items-center justify-center h-10 px-2 rounded-lg transition-all text-xs font-medium ${voiceMode === 'livekit'
-                            ? "bg-blue-500 text-white shadow-sm"
-                            : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
-                          }`}
-                        title={voiceMode === 'livekit' ? "Using LiveKit (streaming)" : "Using Local voice"}
-                      >
-                        <Radio className="h-4 w-4 mr-1" />
-                        {voiceMode === 'livekit' ? 'LK' : 'Local'}
-                      </button>
-                    )}
-
-                    {/* Standard Voice Button (Local mode) */}
-                    {voiceModeEnabled && voiceMode === 'local' && !isConversationMode && (
-                      <VoiceButton
-                        onTranscription={(text) => {
-                          setInput(text);
-                          // Auto-send after voice input
-                          setTimeout(() => {
-                            if (text.trim()) {
-                              sendMessage(text.trim());
-                              setInput("");
-                            }
-                          }, 100);
-                        }}
-                      />
-                    )}
-
-                    {/* LiveKit Voice Button */}
-                    {voiceModeEnabled && voiceMode === 'livekit' && (
-                      <button
-                        onClick={() => setShowLiveKitPanel(!showLiveKitPanel)}
-                        className={`flex items-center justify-center h-10 w-10 rounded-lg transition-all ${showLiveKitPanel
-                            ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm"
-                            : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
-                          }`}
-                        title={showLiveKitPanel ? "Hide LiveKit panel" : "Show LiveKit voice panel"}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="h-4 w-4"
-                        >
-                          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                          <line x1="12" x2="12" y1="19" y2="22" />
-                        </svg>
-                      </button>
-                    )}
-
-                    {/* Conversation Mode Toggle (Local mode only) */}
-                    {voiceModeEnabled && voiceMode === 'local' && (
-                      <button
-                        onClick={() => setIsConversationMode(!isConversationMode)}
-                        className={`flex items-center justify-center h-10 w-10 rounded-lg transition-all ${isConversationMode
-                          ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm animate-pulse"
-                          : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
-                          }`}
-                        title={isConversationMode ? "Stop conversation mode" : "Start hands-free conversation"}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="h-4 w-4"
-                        >
-                          <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
-                          <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-
                   {/* Redaction badge + hint (always visible when idle) */}
                   {privacyStatus.mode === 'idle' && (
                     <div className="hidden sm:flex items-center gap-1.5 flex-wrap" data-tour="privacy-badge">

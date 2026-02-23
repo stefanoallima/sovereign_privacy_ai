@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useSettingsStore } from "@/stores";
-import type { LLMModel } from "@/types";
 
 export function ApiSettings() {
-  const { settings, updateSettings, models, addCustomModel, removeCustomModel } = useSettingsStore();
+  const { settings, updateSettings, replaceCloudModels } = useSettingsStore();
   const [apiKey, setApiKey] = useState(settings.nebiusApiKey);
   const [endpoint, setEndpoint] = useState(settings.nebiusApiEndpoint);
   const [mem0ApiKey, setMem0ApiKey] = useState(settings.mem0ApiKey);
@@ -66,32 +65,7 @@ export function ApiSettings() {
   };
 
   const handleReplaceCloudModels = (ids: string[]) => {
-    // Remove all existing non-custom cloud models, add new ones from endpoint
-    const currentCustomIds = models.filter(m => m.id.startsWith('custom-')).map(m => m.id);
-    currentCustomIds.forEach(id => removeCustomModel(id));
-
-    // Replace DEFAULT_MODELS by adding each fetched model as custom
-    ids.forEach((id, i) => {
-      const newModel: Omit<LLMModel, "id"> = {
-        provider: "nebius",
-        apiModelId: id,
-        name: id.split('/').pop() ?? id,
-        contextWindow: 128000,
-        speedTier: "medium",
-        intelligenceTier: "high",
-        inputCostPer1M: 0,
-        outputCostPer1M: 0,
-        isEnabled: true,
-        isDefault: i === 0,
-      };
-      addCustomModel(newModel);
-    });
-
-    // Set first model as default
-    if (ids.length > 0) {
-      const firstName = ids[0].split('/').pop() ?? ids[0];
-      updateSettings({ defaultModelId: `custom-${Date.now()}`, cloudModeModel: firstName });
-    }
+    replaceCloudModels(ids);
     setFetchedModels(null);
   };
 

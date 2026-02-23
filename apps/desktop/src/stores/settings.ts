@@ -60,57 +60,57 @@ const DEFAULT_OLLAMA_MODELS: LLMModel[] = [
   },
 ];
 
-// Curated cloud models available on Nebius AI Studio
+// Curated cloud models — use "Load models" in API Settings to replace with your endpoint's real list
 const DEFAULT_MODELS: LLMModel[] = [
-  {
-    id: "qwen3-32b-fast",
-    provider: "nebius",
-    apiModelId: "Qwen/Qwen3-32B-fast",
-    name: "Qwen3 32B Fast",
-    contextWindow: 32000,
-    speedTier: "fast",
-    intelligenceTier: "high",
-    inputCostPer1M: 0.2,
-    outputCostPer1M: 0.2,
-    isEnabled: true,
-    isDefault: true,
-  },
   {
     id: "deepseek-v3",
     provider: "nebius",
     apiModelId: "deepseek-ai/DeepSeek-V3",
     name: "DeepSeek V3",
-    contextWindow: 64000,
-    speedTier: "medium",
-    intelligenceTier: "very-high",
-    inputCostPer1M: 0.3,
-    outputCostPer1M: 0.3,
-    isEnabled: true,
-    isDefault: false,
-  },
-  {
-    id: "qwen3-235b",
-    provider: "nebius",
-    apiModelId: "Qwen/Qwen3-235B-A22B-Instruct-2507",
-    name: "Qwen3 235B MoE",
     contextWindow: 128000,
     speedTier: "medium",
     intelligenceTier: "very-high",
-    inputCostPer1M: 0.35,
-    outputCostPer1M: 0.35,
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
     isEnabled: true,
-    isDefault: false,
+    isDefault: true,
   },
   {
-    id: "llama-3.3-70b-fast",
+    id: "qwen3-32b",
     provider: "nebius",
-    apiModelId: "meta-llama/Llama-3.3-70B-Instruct-fast",
-    name: "Llama 3.3 70B Fast",
+    apiModelId: "Qwen/Qwen3-32B",
+    name: "Qwen3 32B",
     contextWindow: 128000,
     speedTier: "fast",
+    intelligenceTier: "high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+  },
+  {
+    id: "minimax-m1",
+    provider: "nebius",
+    apiModelId: "MiniMax/MiniMax-M1",
+    name: "MiniMax M1",
+    contextWindow: 128000,
+    speedTier: "medium",
     intelligenceTier: "very-high",
-    inputCostPer1M: 0.35,
-    outputCostPer1M: 0.35,
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+  },
+  {
+    id: "kimi-k2",
+    provider: "nebius",
+    apiModelId: "moonshotai/Kimi-K2-Instruct",
+    name: "Kimi K2",
+    contextWindow: 128000,
+    speedTier: "medium",
+    intelligenceTier: "very-high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
     isEnabled: true,
     isDefault: false,
   },
@@ -121,7 +121,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiEndpoint: "https://api.studio.nebius.ai/v1",
   mem0ApiKey: "",
   enableMemory: false,
-  defaultModelId: "qwen3-32b-fast",
+  defaultModelId: "deepseek-v3",
   enabledModelIds: DEFAULT_MODELS.map((m) => m.id),
   defaultVoiceId: "en_US-lessac-medium",
   speechRate: 1.0,
@@ -131,8 +131,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Privacy Mode
   privacyMode: "cloud",
   localModeModel: "qwen3-1.7b",
-  hybridModeModel: "qwen3-32b-fast",
-  cloudModeModel: "qwen3-32b-fast",
+  hybridModeModel: "deepseek-v3",
+  cloudModeModel: "deepseek-v3",
   // Backward compat (derived from privacyMode)
   airplaneMode: false,
   airplaneModeModel: "qwen3-1.7b",
@@ -162,6 +162,7 @@ interface SettingsStore {
   ) => void;
   addCustomModel: (model: Omit<LLMModel, "id">) => void;
   removeCustomModel: (modelId: string) => void;
+  replaceCloudModels: (ids: string[]) => void;
   resetToDefaults: () => void;
 
   // Selectors
@@ -280,6 +281,34 @@ export const useSettingsStore = create<SettingsStore>()(
           },
         })),
 
+      replaceCloudModels: (ids) =>
+        set((state) => {
+          const newModels: LLMModel[] = ids.map((id, i) => ({
+            id: `cloud-${id.replace(/[^a-zA-Z0-9]/g, '-')}`,
+            provider: "nebius" as const,
+            apiModelId: id,
+            name: id.split('/').pop() ?? id,
+            contextWindow: 128000,
+            speedTier: "medium" as const,
+            intelligenceTier: "high" as const,
+            inputCostPer1M: 0,
+            outputCostPer1M: 0,
+            isEnabled: true,
+            isDefault: i === 0,
+          }));
+          const firstId = newModels[0]?.id ?? state.settings.cloudModeModel;
+          return {
+            models: newModels,
+            settings: {
+              ...state.settings,
+              enabledModelIds: newModels.map((m) => m.id),
+              defaultModelId: firstId,
+              cloudModeModel: firstId,
+              hybridModeModel: firstId,
+            },
+          };
+        }),
+
       resetToDefaults: () =>
         set({
           settings: DEFAULT_SETTINGS,
@@ -338,7 +367,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 6, // v6: default theme changed to light
+      version: 7, // v7: simplified cloud model list (deepseek, qwen, minimax, kimi)
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -352,8 +381,9 @@ export const useSettingsStore = create<SettingsStore>()(
             privacyMode,
             theme: 'light',
             localModeModel: old.localModeModel ?? old.airplaneModeModel ?? 'qwen3-1.7b',
-            hybridModeModel: old.hybridModeModel ?? 'qwen3-32b-fast',
-            cloudModeModel: old.cloudModeModel ?? old.defaultModelId ?? 'qwen3-32b-fast',
+            hybridModeModel: 'deepseek-v3',
+            cloudModeModel: 'deepseek-v3',
+            defaultModelId: 'deepseek-v3',
             airplaneMode: privacyMode === 'local',
             airplaneModeModel: old.airplaneModeModel ?? 'qwen3-1.7b',
           },
