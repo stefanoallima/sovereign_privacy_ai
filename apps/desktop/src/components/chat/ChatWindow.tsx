@@ -28,33 +28,33 @@ import {
   Settings2,
 } from "lucide-react";
 
-// Structural line detector — marks where prose ends and structured content begins
-const STRUCTURAL_LINE = /^(#{1,6} |```|\|.+\||\d+\.\s|\- \[|\* \[)/;
+// A paragraph is "structural" when its first non-empty line looks like a step,
+// header, code block, table, or list — including emoji-prefixed formats.
+const STRUCTURAL_PARAGRAPH_FIRST_LINE =
+  /^(#{1,6} |```|\|.+\||\d+\.\s|[-*+] |\*\*Step|\*\*\d|Step \d|[\p{Emoji_Presentation}\p{Extended_Pictographic}])/u;
 
 /**
  * Split a message into { intro, canvas }.
- * intro  — conversational prose before the first structural element (may be empty)
- * canvas — the structured content (headers, steps, tables, code blocks, lists)
+ * - Splits at the first paragraph whose first line looks structural.
+ * - If no prose precedes the structural part, intro is ''.
  */
 function splitForCanvas(content: string): { intro: string; canvas: string } {
-  const lines = content.split('\n');
-  let splitIdx = -1;
+  const paragraphs = content.split(/\n\n+/);
+  if (paragraphs.length < 2) return { intro: '', canvas: content.trim() };
 
-  for (let i = 0; i < lines.length; i++) {
-    if (STRUCTURAL_LINE.test(lines[i].trimStart())) {
-      splitIdx = i;
-      break;
+  for (let i = 0; i < paragraphs.length; i++) {
+    const firstLine = paragraphs[i].trimStart().split('\n')[0];
+    if (STRUCTURAL_PARAGRAPH_FIRST_LINE.test(firstLine)) {
+      if (i === 0) return { intro: '', canvas: content.trim() };
+      return {
+        intro: paragraphs.slice(0, i).join('\n\n').trim(),
+        canvas: paragraphs.slice(i).join('\n\n').trim(),
+      };
     }
   }
 
-  if (splitIdx <= 0) {
-    // No prose intro — all goes to canvas
-    return { intro: '', canvas: content.trim() };
-  }
-
-  const intro = lines.slice(0, splitIdx).join('\n').trim();
-  const canvas = lines.slice(splitIdx).join('\n').trim();
-  return { intro, canvas };
+  // No structural paragraph found — all canvas
+  return { intro: '', canvas: content.trim() };
 }
 
 function shouldAutoCanvas(content: string): boolean {
@@ -64,14 +64,21 @@ function shouldAutoCanvas(content: string): boolean {
   const hasCodeBlock = /^```/m.test(content);
   const hasList = /^[-*+] /m.test(content) || /^\d+\. /m.test(content);
   const hasMultipleParagraphs = content.split(/\n\n+/).length >= 3;
-  return wordCount > 100 || hasHeader || hasTable || hasCodeBlock || hasMultipleParagraphs || (hasList && wordCount > 50);
+  // Emoji-step format: "📌 Step 1:", "✅ Step 2:", etc.
+  const hasEmojiStep = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}].*(step|tip|note|\d+)/umi.test(content);
+  return wordCount > 100 || hasHeader || hasTable || hasCodeBlock || hasMultipleParagraphs
+    || (hasList && wordCount > 50) || hasEmojiStep;
 }
 
 function extractCanvasTitle(content: string): string {
   const headingMatch = content.match(/^#+ (.+)/m);
   if (headingMatch) return headingMatch[1].trim();
-  const firstLine = content.split('\n')[0].trim();
-  return firstLine.length > 60 ? firstLine.slice(0, 57) + '...' : firstLine || 'Canvas Document';
+  // First non-empty non-emoji line
+  for (const line of content.split('\n')) {
+    const t = line.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '').trim();
+    if (t.length > 3) return t.length > 60 ? t.slice(0, 57) + '...' : t;
+  }
+  return 'Canvas Document';
 }
 
 type VoiceMode = 'local' | 'livekit';
@@ -830,16 +837,18 @@ export function ChatWindow() {
                       canvasIntro={canvasEntry?.intro}
                       onViewCanvas={canvasEntry ? () => openPanel(canvasEntry.docId) : undefined}
                       onOpenCanvas={canvasEntry ? undefined : async (content) => {
-                        const title = extractCanvasTitle(content);
+                        const { intro, canvas } = splitForCanvas(content);
+                        const canvasContent = canvas || content;
+                        const title = extractCanvasTitle(canvasContent);
                         const projectId = conversations.find(c => c.id === currentConversationId)?.projectId;
                         const docId = await createDocument({
                           title,
-                          content,
+                          content: canvasContent,
                           projectId,
                           conversationId: currentConversationId ?? undefined,
                         });
                         if (message.id) {
-                          setCanvasRoutedMap(prev => new Map(prev).set(message.id!, { docId, title }));
+                          setCanvasRoutedMap(prev => new Map(prev).set(message.id!, { docId, title, intro }));
                         }
                       }}
                     />
