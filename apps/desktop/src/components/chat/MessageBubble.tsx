@@ -121,9 +121,9 @@ export const MessageBubble = React.memo(function MessageBubble({
         {/* User Bubble (Right) */}
         {isUser ? (
           <div className="flex flex-col items-end gap-1">
-            <div className={`rounded-2xl rounded-br-md px-5 py-3 text-sm shadow-md transition-all ${approvalStatus === 'pending'
-                ? "bg-amber-100 text-amber-900 border border-amber-200"
-                : "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[hsl(var(--primary)/0.15)]"
+            <div className={`transition-all ${approvalStatus === 'pending'
+                ? "max-w-[75%] ml-auto px-4 py-2.5 rounded-2xl rounded-tr-sm bg-amber-100 border border-amber-200 text-amber-900 text-[13px] leading-relaxed"
+                : "max-w-[75%] ml-auto px-4 py-2.5 rounded-2xl rounded-tr-sm bg-[hsl(var(--primary)/0.15)] border border-[hsl(var(--primary)/0.2)] text-[hsl(var(--foreground))] text-[13px] leading-relaxed"
               }`}>
               {mainContent}
             </div>
@@ -157,7 +157,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           </div>
         ) : (
           /* Assistant Content (Left) */
-          <div className="text-sm text-[hsl(var(--foreground))] leading-7 w-full">
+          <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-tl-sm bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--foreground-muted))] text-[13px] leading-relaxed w-full">
             {/* Persona Name + Privacy Badge */}
             <div className="flex items-center gap-2 mb-2">
               <span className="font-semibold text-[13px] text-[hsl(var(--foreground)/0.9)]">

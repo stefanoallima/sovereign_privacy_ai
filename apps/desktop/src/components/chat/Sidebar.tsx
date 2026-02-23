@@ -319,7 +319,7 @@ function SectionHeader({
       onClick={onToggle}
       className="w-full px-3 py-2 flex items-center justify-between group rounded-lg hover:bg-[hsl(var(--secondary)/0.5)] transition-colors"
     >
-      <span className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider group-hover:text-[hsl(var(--foreground))] transition-colors">
+      <span className="px-2 mb-1 text-[11px] font-semibold tracking-widest uppercase text-[hsl(var(--foreground-subtle))]">
         {title}
       </span>
       <div className="flex items-center gap-2">
@@ -399,13 +399,13 @@ function ConversationItem({
 
   return (
     <div
-      className={`group relative flex items-center rounded-xl transition-all cursor-pointer ${
+      className={`group relative flex items-center rounded-lg transition-all cursor-pointer ${
         isIncognito ? "border border-dashed border-purple-500/30 " : ""
       }${isActive
           ? isIncognito
             ? "bg-purple-500/15 text-[hsl(var(--accent-foreground))] shadow-sm"
-            : "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] shadow-sm"
-          : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))] hover:text-[hsl(var(--foreground))]"
+            : "bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] font-medium"
+          : "text-[hsl(var(--foreground-subtle))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]"
         }`}
       onClick={onClick}
     >
