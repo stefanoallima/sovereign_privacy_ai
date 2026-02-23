@@ -17,6 +17,7 @@ import {
   LifeBuoy,
   FolderSymlink,
   Check,
+  Zap,
 } from "lucide-react";
 import { useAppTour } from "@/hooks/useAppTour";
 
@@ -180,11 +181,12 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
           </div>
         )}
 
-        {/* Quick Chats Section */}
+        {/* Quick Chat — treated as the default project */}
         {(quickChats.length > 0 || !searchQuery) && (
           <div>
-            <SectionHeader
-              title="Recent Chats"
+            <ProjectSectionHeader
+              title="Quick Chat"
+              icon={<Zap className="h-3.5 w-3.5" />}
               count={quickChats.length}
               isCollapsed={collapsedSections.has("quick")}
               onToggle={() => toggleSection("quick")}
@@ -231,7 +233,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
         {/* Projects */}
         {projectChats.map(({ project, conversations: projConvs }) => (
           <div key={project.id}>
-            <SectionHeader
+            <ProjectSectionHeader
               title={project.name}
               count={projConvs.length}
               isCollapsed={collapsedSections.has(project.id)}
@@ -340,6 +342,45 @@ function SectionHeader({
         <ChevronDown
           className={`h-3.5 w-3.5 text-[hsl(var(--muted-foreground)/0.5)] transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""
             }`}
+        />
+      </div>
+    </button>
+  );
+}
+
+/** Project-style section header — same visual weight as project folders */
+function ProjectSectionHeader({
+  title,
+  icon,
+  count,
+  isCollapsed,
+  onToggle,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  count: number;
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className="w-full px-3 py-2 flex items-center gap-2.5 group rounded-xl hover:bg-[hsl(var(--secondary)/0.6)] transition-colors"
+    >
+      <span className="text-[hsl(var(--foreground-muted))] group-hover:text-[hsl(var(--foreground))] transition-colors">
+        {icon ?? <MessageSquare className="h-3.5 w-3.5" />}
+      </span>
+      <span className="flex-1 text-left text-[13px] font-semibold text-[hsl(var(--foreground-muted))] group-hover:text-[hsl(var(--foreground))] transition-colors truncate">
+        {title}
+      </span>
+      <div className="flex items-center gap-1.5">
+        {count > 0 && (
+          <span className="text-[10px] bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] px-1.5 py-0.5 rounded-full font-medium">
+            {count}
+          </span>
+        )}
+        <ChevronDown
+          className={`h-3.5 w-3.5 text-[hsl(var(--muted-foreground)/0.4)] transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
         />
       </div>
     </button>
