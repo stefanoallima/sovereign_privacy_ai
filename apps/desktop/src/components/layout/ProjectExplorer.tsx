@@ -8,6 +8,14 @@ export function ProjectExplorer() {
   const { documents, openPanel, streamingDocId } = useCanvasStore();
   const { selectedPersonaId } = usePersonasStore();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expandedConvs, setExpandedConvs] = useState<Set<string>>(new Set());
+
+  const toggleConv = (id: string) =>
+    setExpandedConvs(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
 
@@ -123,7 +131,8 @@ export function ProjectExplorer() {
       {projects.map(project => {
         const isExpanded = expanded.has(project.id);
         const projectChats = conversations.filter(c => c.projectId === project.id);
-        const projectDocs = documents.filter(d => d.projectId === project.id);
+        // Docs not attached to a specific conversation (project-level)
+        const projectDocs = documents.filter(d => d.projectId === project.id && !d.conversationId);
         const hasChildren = projectChats.length > 0 || projectDocs.length > 0;
 
         return (
@@ -170,19 +179,58 @@ export function ProjectExplorer() {
             {/* Children */}
             {isExpanded && (
               <div className="ml-5 border-l border-[hsl(var(--border))] pl-2 mt-0.5 space-y-0.5">
-                {projectChats.map(chat => (
-                  <button
-                    key={chat.id}
-                    onClick={() => selectConversation(chat.id)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left
-                      text-[12px] text-[hsl(var(--foreground-subtle))]
-                      hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]
-                      transition-colors"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-[hsl(var(--foreground-subtle))]" />
-                    <span className="truncate">{chat.title}</span>
-                  </button>
-                ))}
+                {projectChats.map(chat => {
+                  const chatDocs = documents.filter(d => d.conversationId === chat.id);
+                  const isConvExpanded = expandedConvs.has(chat.id);
+                  return (
+                    <div key={chat.id}>
+                      <div className="flex items-center gap-0.5">
+                        {chatDocs.length > 0 && (
+                          <button
+                            onClick={() => toggleConv(chat.id)}
+                            className="flex-shrink-0 p-0.5 rounded text-[hsl(var(--foreground-subtle))] hover:text-[hsl(var(--foreground))] transition-colors"
+                          >
+                            <ChevronRight
+                              className="h-3 w-3"
+                              style={{ transform: isConvExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}
+                            />
+                          </button>
+                        )}
+                        {chatDocs.length === 0 && <span className="w-4 flex-shrink-0" />}
+                        <button
+                          onClick={() => selectConversation(chat.id)}
+                          className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-left
+                            text-[12px] text-[hsl(var(--foreground-subtle))]
+                            hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]
+                            transition-colors min-w-0"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-[hsl(var(--foreground-subtle))]" />
+                          <span className="truncate">{chat.title}</span>
+                        </button>
+                      </div>
+                      {isConvExpanded && chatDocs.length > 0 && (
+                        <div className="ml-6 border-l border-[hsl(var(--border))] pl-2 space-y-0.5 mt-0.5 mb-1">
+                          {chatDocs.map(doc => {
+                            const isStreaming = streamingDocId === doc.id;
+                            return (
+                              <button
+                                key={doc.id}
+                                onClick={() => openPanel(doc.id)}
+                                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-left
+                                  text-[11.5px] text-[hsl(var(--foreground-subtle))]
+                                  hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]
+                                  transition-colors"
+                              >
+                                <FileText className={`h-3 w-3 flex-shrink-0 text-[hsl(var(--violet))] ${isStreaming ? 'animate-pulse' : ''}`} />
+                                <span className="truncate">{doc.title}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {projectDocs.map(doc => {
                   const isStreaming = streamingDocId === doc.id;

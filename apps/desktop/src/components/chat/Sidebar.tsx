@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useChatStore, usePersonasStore } from "@/stores";
+import { useChatStore, usePersonasStore, useCanvasStore } from "@/stores";
 import { useWizardStore } from "@/stores/wizard";
 import { ProjectExplorer } from "@/components/layout/ProjectExplorer";
 import {
@@ -7,6 +7,7 @@ import {
   Plus,
   Search,
   ChevronDown,
+  ChevronRight,
   Settings,
   Pencil,
   Trash2,
@@ -18,6 +19,7 @@ import {
   FolderSymlink,
   Check,
   Zap,
+  FileText,
 } from "lucide-react";
 import { useAppTour } from "@/hooks/useAppTour";
 
@@ -42,6 +44,8 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
     updateConversationTitle,
     moveToProject,
   } = useChatStore();
+
+  const { documents, openPanel } = useCanvasStore();
 
   const { selectedPersonaId } = usePersonasStore();
   const { resetWizard } = useWizardStore();
@@ -210,6 +214,8 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
                       projects={projects}
                       currentProjectId={conv.projectId}
                       onMoveToProject={(projectId) => void moveToProject(conv.id, projectId)}
+                      canvasDocs={documents.filter(d => d.conversationId === conv.id)}
+                      onOpenCanvasDoc={openPanel}
                     />
                   ))
                 ) : (
@@ -257,6 +263,8 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
                     projects={projects}
                     currentProjectId={conv.projectId}
                     onMoveToProject={(projectId) => void moveToProject(conv.id, projectId)}
+                    canvasDocs={documents.filter(d => d.conversationId === conv.id)}
+                    onOpenCanvasDoc={openPanel}
                   />
                 ))}
               </div>
@@ -402,6 +410,8 @@ function ConversationItem({
   projects,
   currentProjectId,
   onMoveToProject,
+  canvasDocs,
+  onOpenCanvasDoc,
 }: {
   title: string;
   isActive: boolean;
@@ -417,9 +427,12 @@ function ConversationItem({
   projects?: Array<{ id: string; name: string; color?: string }>;
   currentProjectId?: string;
   onMoveToProject?: (projectId: string | null) => void;
+  canvasDocs?: Array<{ id: string; title: string }>;
+  onOpenCanvasDoc?: (docId: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [showDocs, setShowDocs] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -467,7 +480,10 @@ function ConversationItem({
     );
   }
 
+  const hasDocs = canvasDocs && canvasDocs.length > 0;
+
   return (
+    <div>
     <div
       className={`group relative flex items-center rounded-lg transition-all cursor-pointer ${
         isIncognito ? "border border-dashed border-purple-500/30 " : ""
@@ -479,7 +495,16 @@ function ConversationItem({
         }`}
       onClick={onClick}
     >
-      <div className="flex items-center gap-3 flex-1 px-3 py-2.5 pr-24">
+      <div className="flex items-center gap-2 flex-1 px-3 py-2.5 pr-24">
+        {hasDocs && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowDocs(v => !v); }}
+            className="flex-shrink-0 text-[hsl(var(--foreground-subtle))] hover:text-[hsl(var(--foreground))]"
+          >
+            <ChevronRight className="h-3 w-3" style={{ transform: showDocs ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 150ms' }} />
+          </button>
+        )}
+        {!hasDocs && <span className="w-3 flex-shrink-0" />}
         {isIncognito ? (
           <EyeOff className={`h-4 w-4 flex-shrink-0 text-purple-400`} />
         ) : (
@@ -565,6 +590,24 @@ function ConversationItem({
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
+    </div>
+    {showDocs && hasDocs && (
+      <div className="ml-8 border-l border-[hsl(var(--border))] pl-2 space-y-0.5 mt-0.5 mb-1">
+        {canvasDocs!.map(doc => (
+          <button
+            key={doc.id}
+            onClick={() => onOpenCanvasDoc?.(doc.id)}
+            className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-left
+              text-[11.5px] text-[hsl(var(--foreground-subtle))]
+              hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]
+              transition-colors"
+          >
+            <FileText className="h-3 w-3 flex-shrink-0 text-[hsl(var(--violet))]" />
+            <span className="truncate">{doc.title}</span>
+          </button>
+        ))}
+      </div>
+    )}
     </div>
   );
 }
