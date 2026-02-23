@@ -1117,7 +1117,7 @@ export function ChatWindow() {
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
                   className={`flex items-center justify-center h-10 w-10 rounded-xl transition-all duration-200 ${input.trim()
-                    ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 shadow-md shadow-[hsl(var(--primary)/0.25)] shadow-[var(--shadow-glow-cyan)] active:scale-95"
+                    ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 shadow-[var(--shadow-glow-cyan)] active:scale-95"
                     : "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground)/0.5)] cursor-not-allowed"
                     }`}
                 >

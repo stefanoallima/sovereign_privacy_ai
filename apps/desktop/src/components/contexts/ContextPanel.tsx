@@ -199,6 +199,14 @@ export function ContextPanel() {
                   </span>
                 </div>
               )}
+              {settings.privacyMode === 'cloud' && (
+                <div className="mb-3">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] border border-[hsl(var(--primary)/0.25)]">
+                    <Shield size={12} />
+                    Cloud Mode — Remote inference
+                  </span>
+                </div>
+              )}
               <div className="relative">
                 <select
                   value={selectedModelId}
