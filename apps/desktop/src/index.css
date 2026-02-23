@@ -379,7 +379,7 @@ select:focus {
   }
 }
 
-.animate-slide-in-right {
+.animate-slide-in-right-full {
   animation: slide-in-right-full 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
