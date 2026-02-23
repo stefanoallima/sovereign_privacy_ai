@@ -273,6 +273,10 @@ export const useChatStore = create<ChatStore>()(
               : c
           ),
         }));
+
+        // Move any canvas documents linked to this conversation to the same project
+        const { moveConversationDocuments } = await import('./canvas').then(m => m.useCanvasStore.getState());
+        await moveConversationDocuments(conversationId, projectId);
       },
 
       updateConversationModel: async (id, modelId) => {

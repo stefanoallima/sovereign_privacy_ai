@@ -7,46 +7,46 @@
 /* ─── Obsidian Pro Design Tokens ─────────────────────────────────────────── */
 :root {
   /* Depth layers */
-  --background: 220 15% 8%;        /* L0 — app shell */
-  --surface-1: 220 15% 11%;        /* L1 — panels */
-  --surface-2: 220 15% 14%;        /* L2 — cards / bubbles */
+  --background: 220 14% 16%;       /* L0 — app shell */
+  --surface-1: 220 13% 20%;        /* L1 — panels */
+  --surface-2: 220 13% 24%;        /* L2 — cards / bubbles */
 
   /* Foreground */
-  --foreground: 220 10% 92%;
-  --foreground-muted: 220 8% 72%;
-  --foreground-subtle: 220 8% 52%;
+  --foreground: 220 10% 93%;
+  --foreground-muted: 220 8% 74%;
+  --foreground-subtle: 220 8% 54%;
 
   /* Aliases (keep existing var names working) */
-  --card: 220 15% 11%;
-  --card-foreground: 220 10% 92%;
-  --popover: 220 15% 13%;
-  --popover-foreground: 220 10% 92%;
+  --card: 220 13% 20%;
+  --card-foreground: 220 10% 93%;
+  --popover: 220 13% 22%;
+  --popover-foreground: 220 10% 93%;
 
   /* Primary — Sovereign Cyan */
   --primary: 199 89% 58%;
-  --primary-foreground: 220 15% 8%;
+  --primary-foreground: 220 14% 16%;
 
   /* Secondary — Iridescent Violet */
-  --secondary: 220 15% 16%;
-  --secondary-foreground: 220 10% 92%;
+  --secondary: 220 13% 27%;
+  --secondary-foreground: 220 10% 93%;
   --violet: 267 84% 71%;
-  --violet-muted: 267 50% 40%;
+  --violet-muted: 267 50% 45%;
 
   /* Muted */
-  --muted: 220 15% 14%;
-  --muted-foreground: 220 8% 62%;
+  --muted: 220 13% 24%;
+  --muted-foreground: 220 8% 64%;
 
   /* Accent */
-  --accent: 220 15% 17%;
-  --accent-foreground: 220 10% 92%;
+  --accent: 220 13% 28%;
+  --accent-foreground: 220 10% 93%;
 
   /* Destructive */
   --destructive: 0 70% 55%;
-  --destructive-foreground: 220 10% 92%;
+  --destructive-foreground: 220 10% 93%;
 
   /* Borders — separated by depth, not lines */
-  --border: 220 15% 18%;
-  --input: 220 15% 16%;
+  --border: 220 13% 30%;
+  --input: 220 13% 27%;
   --ring: 199 89% 58%;
 
   /* Radius */
@@ -57,10 +57,10 @@
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Shadows — glow-based in dark */
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.4);
-  --shadow: 0 4px 8px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 8px 16px -4px rgb(0 0 0 / 0.6), 0 4px 8px -4px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 20px 32px -8px rgb(0 0 0 / 0.7), 0 8px 16px -8px rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.25);
+  --shadow: 0 4px 8px -2px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.25);
+  --shadow-md: 0 8px 16px -4px rgb(0 0 0 / 0.4), 0 4px 8px -4px rgb(0 0 0 / 0.25);
+  --shadow-lg: 0 20px 32px -8px rgb(0 0 0 / 0.5), 0 8px 16px -8px rgb(0 0 0 / 0.35);
   --shadow-glow-cyan: 0 0 20px -4px hsl(199 89% 58% / 0.35);
   --shadow-glow-violet: 0 0 20px -4px hsl(267 84% 71% / 0.3);
 

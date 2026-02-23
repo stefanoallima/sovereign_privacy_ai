@@ -33,7 +33,9 @@ interface CanvasStore {
     projectId?: string;
     conversationId?: string;
   }) => Promise<string>;
-  updateDocument: (id: string, updates: Partial<Pick<CanvasDocument, 'title' | 'content'>>) => Promise<void>;
+  updateDocument: (id: string, updates: Partial<Pick<CanvasDocument, 'title' | 'content' | 'projectId'>>) => Promise<void>;
+  /** Move all canvas documents that belong to a conversation to a new project (or clear projectId). */
+  moveConversationDocuments: (conversationId: string, projectId: string | null) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
 
   // Selectors
@@ -111,6 +113,13 @@ export const useCanvasStore = create<CanvasStore>()(
             d.id === id ? { ...d, ...updates, updatedAt: now } : d
           ),
         }));
+      },
+
+      moveConversationDocuments: async (conversationId, projectId) => {
+        const docs = get().documents.filter(d => d.conversationId === conversationId);
+        for (const doc of docs) {
+          await get().updateDocument(doc.id, { projectId: projectId ?? undefined });
+        }
       },
 
       deleteDocument: async (id) => {
