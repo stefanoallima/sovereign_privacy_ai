@@ -88,11 +88,11 @@ export const MessageBubble = React.memo(function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
+  const [showThinking, setShowThinking] = useState(false);
   const { approveMessage } = useChatStore();
   const backendPrivacy = getBackendPrivacyIcon(personaBackendMode);
 
-  // Strip thinking blocks — only mainContent is rendered
-  const { mainContent } = useMemo(
+  const { thinking, mainContent } = useMemo(
     () => parseThinkingContent(content),
     [content]
   );
@@ -179,6 +179,33 @@ export const MessageBubble = React.memo(function MessageBubble({
                 </span>
               )}
             </div>
+
+            {/* Thinking block — foldable */}
+            {thinking && (
+              <div className="mx-4 mb-2">
+                <button
+                  onClick={() => setShowThinking(v => !v)}
+                  className="flex items-center gap-1.5 text-[11px] text-[hsl(var(--muted-foreground)/0.6)] hover:text-[hsl(var(--muted-foreground))] transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12" height="12"
+                    viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: showThinking ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                  <span>{showThinking ? 'Hide' : 'Show'} thinking</span>
+                </button>
+                {showThinking && (
+                  <div className="mt-1.5 rounded-lg bg-[hsl(var(--muted)/0.4)] border border-[hsl(var(--border)/0.5)] px-3 py-2 text-[11.5px] text-[hsl(var(--muted-foreground)/0.7)] font-mono leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
+                    {thinking}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Canvas-routed message: show intro prose + inline canvas link */}
             {canvasDocTitle ? (
