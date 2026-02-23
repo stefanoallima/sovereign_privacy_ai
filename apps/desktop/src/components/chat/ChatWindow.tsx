@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useChatStore, useVoiceStore, usePersonasStore, useSettingsStore } from "@/stores";
+import { useChatStore, useVoiceStore, usePersonasStore, useSettingsStore, useCanvasStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { usePrivacyChat } from "@/hooks/usePrivacyChat";
 import { useVoice } from "@/hooks/useVoice";
@@ -25,7 +25,24 @@ import {
   ShieldCheck,
   Zap,
   Settings2,
+  FileText,
 } from "lucide-react";
+
+// Detect if AI response should auto-route to canvas
+function shouldAutoCanvas(content: string): boolean {
+  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const hasH1 = /^# /m.test(content);
+  const hasTable = /^\|.+\|/m.test(content);
+  const hasMultipleHeaders = (content.match(/^#{1,3} /gm) || []).length >= 2;
+  return wordCount > 400 || hasH1 || hasTable || hasMultipleHeaders;
+}
+
+function extractCanvasTitle(content: string): string {
+  const headingMatch = content.match(/^#+ (.+)/m);
+  if (headingMatch) return headingMatch[1].trim();
+  const firstLine = content.split('\n')[0].trim();
+  return firstLine.length > 60 ? firstLine.slice(0, 57) + '...' : firstLine || 'Canvas Document';
+}
 
 type VoiceMode = 'local' | 'livekit';
 
@@ -57,6 +74,7 @@ export function ChatWindow() {
 
   const {
     currentConversationId,
+    conversations,
     getCurrentMessages,
     getCurrentConversation,
     isLoading,
@@ -65,6 +83,17 @@ export function ChatWindow() {
     createConversation,
     projects,
   } = useChatStore();
+
+  const { createDocument } = useCanvasStore();
+
+  const [canvasToast, setCanvasToast] = useState<{ title: string; content: string } | null>(null);
+  const canvasToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dismissCanvasToast = useCallback(() => {
+    if (canvasToastTimerRef.current) clearTimeout(canvasToastTimerRef.current);
+    setCanvasToast(null);
+    canvasToastTimerRef.current = null;
+  }, []);
 
   const { settings, getEnabledModels, getDefaultModel, isAirplaneModeActive, setPrivacyMode, getActivePrivacyMode } = useSettingsStore();
   const { voiceInputEnabled } = useVoiceStore();
@@ -438,6 +467,43 @@ export function ChatWindow() {
     generateTitle();
   }, [messages.length, isLoading, currentConversationId, settings.nebiusApiKey]);
 
+  // Auto-route long-form AI responses to canvas
+  const prevIsLoadingRef = useRef(false);
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current;
+    prevIsLoadingRef.current = isLoading;
+
+    if (wasLoading && !isLoading && currentConversationId) {
+      const msgs = getCurrentMessages();
+      const lastMsg = msgs[msgs.length - 1];
+      if (lastMsg?.role === 'assistant' && shouldAutoCanvas(lastMsg.content)) {
+        const title = extractCanvasTitle(lastMsg.content);
+        const finalContent = lastMsg.content;
+        setCanvasToast({ title, content: finalContent });
+        canvasToastTimerRef.current = setTimeout(async () => {
+          const projectId = conversations.find(c => c.id === currentConversationId)?.projectId;
+          await createDocument({
+            title,
+            content: finalContent,
+            projectId,
+            conversationId: currentConversationId,
+          });
+          setCanvasToast(null);
+          canvasToastTimerRef.current = null;
+        }, 4000);
+      }
+    }
+  }, [isLoading]);
+
+  // Listen for canvas:template-prompt events from CanvasPanel
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ prompt: string }>) => {
+      setInput(e.detail.prompt);
+    };
+    window.addEventListener('canvas:template-prompt', handler as EventListener);
+    return () => window.removeEventListener('canvas:template-prompt', handler as EventListener);
+  }, []);
+
   const handleSend = async () => {
     console.log('[handleSend] input:', input?.substring(0, 30), 'conversationId:', currentConversationId, 'isLoading:', isLoading);
     if (!input.trim() || !currentConversationId || isLoading) return;
@@ -699,6 +765,16 @@ export function ChatWindow() {
                       privacyLevel={message.privacyLevel}
                       piiTypesDetected={message.piiTypesDetected}
                       approvalStatus={message.approvalStatus}
+                      onOpenCanvas={async (content) => {
+                        const title = extractCanvasTitle(content);
+                        const projectId = conversations.find(c => c.id === currentConversationId)?.projectId;
+                        await createDocument({
+                          title,
+                          content,
+                          projectId,
+                          conversationId: currentConversationId ?? undefined,
+                        });
+                      }}
                     />
                   </div>
                 );
@@ -1047,6 +1123,25 @@ export function ChatWindow() {
           </p>
         </div>
       </div>
+
+      {/* Canvas auto-route toast */}
+      {canvasToast && (
+        <div className="absolute bottom-28 right-4 z-30 flex items-center gap-3 px-4 py-3 rounded-xl
+          bg-[hsl(var(--surface-2))] border border-[hsl(var(--violet)/0.4)]
+          shadow-[var(--shadow-glow-violet)] animate-slide-in-right text-[12px]">
+          <FileText className="h-4 w-4 text-[hsl(var(--violet))] flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="font-medium text-[hsl(var(--foreground))]">Routing to Canvas</p>
+            <p className="text-[hsl(var(--muted-foreground))] truncate max-w-[180px]">{canvasToast.title}</p>
+          </div>
+          <button
+            onClick={dismissCanvasToast}
+            className="text-[11px] px-2 py-0.5 rounded-lg bg-[hsl(var(--accent))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors flex-shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
     </div>
   );
 }
