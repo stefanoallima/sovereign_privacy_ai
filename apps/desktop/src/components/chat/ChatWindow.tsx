@@ -7,6 +7,7 @@ import { MessageBubble } from "./MessageBubble";
 import { PromptReviewPanel } from "./PromptReviewPanel";
 import { VoiceButton } from "./VoiceButton";
 import { VoiceConversation } from "./VoiceConversation";
+import { LivingBrief } from "./LivingBrief";
 import { getNebiusClient } from "@/services/nebius";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -724,6 +725,11 @@ export function ChatWindow() {
             Incognito Mode — This conversation won't be saved
           </span>
         </div>
+      )}
+
+      {/* Living Brief Context Header */}
+      {currentConversationId && !conversation?.isIncognito && (
+        <LivingBrief conversationId={currentConversationId} />
       )}
 
       {/* Messages Area - Centered */}
