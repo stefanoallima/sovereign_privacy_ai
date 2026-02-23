@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { useSettingsStore } from "@/stores";
+import type { LLMModel } from "@/types";
 
 export function ApiSettings() {
-  const { settings, updateSettings } = useSettingsStore();
+  const { settings, updateSettings, models, addCustomModel, removeCustomModel } = useSettingsStore();
   const [apiKey, setApiKey] = useState(settings.nebiusApiKey);
   const [endpoint, setEndpoint] = useState(settings.nebiusApiEndpoint);
   const [mem0ApiKey, setMem0ApiKey] = useState(settings.mem0ApiKey);
@@ -10,18 +12,24 @@ export function ApiSettings() {
   const [isValidatingMem0, setIsValidatingMem0] = useState(false);
   const [validationResult, setValidationResult] = useState<"valid" | "invalid" | null>(null);
   const [mem0ValidationResult, setMem0ValidationResult] = useState<"valid" | "invalid" | null>(null);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [fetchedModels, setFetchedModels] = useState<string[] | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const handleSaveEndpoint = () => {
-    updateSettings({ nebiusApiEndpoint: endpoint.trim().replace(/\/+$/, '') });
+    const normalized = endpoint.trim().replace(/\/+$/, '');
+    setEndpoint(normalized);
+    updateSettings({ nebiusApiEndpoint: normalized });
   };
 
   const handleSaveApiKey = async () => {
+    const normalizedEndpoint = settings.nebiusApiEndpoint.replace(/\/+$/, '');
     updateSettings({ nebiusApiKey: apiKey });
     setIsValidating(true);
     setValidationResult(null);
 
     try {
-      const response = await fetch(`${settings.nebiusApiEndpoint}/models`, {
+      const response = await fetch(`${normalizedEndpoint}/models`, {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
       setValidationResult(response.ok ? "valid" : "invalid");
@@ -30,6 +38,61 @@ export function ApiSettings() {
     } finally {
       setIsValidating(false);
     }
+  };
+
+  const handleFetchModels = async () => {
+    setIsFetchingModels(true);
+    setFetchedModels(null);
+    setFetchError(null);
+    const normalizedEndpoint = settings.nebiusApiEndpoint.replace(/\/+$/, '');
+    try {
+      const response = await fetch(`${normalizedEndpoint}/models`, {
+        headers: { Authorization: `Bearer ${settings.nebiusApiKey}` },
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        setFetchError(`${response.status}: ${text}`);
+        return;
+      }
+      const data = await response.json();
+      // OpenAI-compatible: { data: [{ id: "model-id", ... }] }
+      const ids: string[] = (data?.data ?? []).map((m: { id: string }) => m.id).sort();
+      setFetchedModels(ids);
+    } catch (e) {
+      setFetchError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsFetchingModels(false);
+    }
+  };
+
+  const handleReplaceCloudModels = (ids: string[]) => {
+    // Remove all existing non-custom cloud models, add new ones from endpoint
+    const currentCustomIds = models.filter(m => m.id.startsWith('custom-')).map(m => m.id);
+    currentCustomIds.forEach(id => removeCustomModel(id));
+
+    // Replace DEFAULT_MODELS by adding each fetched model as custom
+    ids.forEach((id, i) => {
+      const newModel: Omit<LLMModel, "id"> = {
+        provider: "nebius",
+        apiModelId: id,
+        name: id.split('/').pop() ?? id,
+        contextWindow: 128000,
+        speedTier: "medium",
+        intelligenceTier: "high",
+        inputCostPer1M: 0,
+        outputCostPer1M: 0,
+        isEnabled: true,
+        isDefault: i === 0,
+      };
+      addCustomModel(newModel);
+    });
+
+    // Set first model as default
+    if (ids.length > 0) {
+      const firstName = ids[0].split('/').pop() ?? ids[0];
+      updateSettings({ defaultModelId: `custom-${Date.now()}`, cloudModeModel: firstName });
+    }
+    setFetchedModels(null);
   };
 
   const handleSaveMem0ApiKey = async () => {
@@ -51,16 +114,15 @@ export function ApiSettings() {
 
   return (
     <div className="space-y-6">
+      {/* API Key */}
       <div>
-        <label className="mb-2 block text-sm font-medium">
-          Nebius API Key
-        </label>
+        <label className="mb-2 block text-sm font-medium">API Key</label>
         <div className="flex gap-2">
           <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter your Nebius API key"
+            placeholder="Enter your API key"
             className="flex-1 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-2 text-sm focus:border-[hsl(var(--ring))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
           />
           <button
@@ -68,39 +130,19 @@ export function ApiSettings() {
             disabled={isValidating}
             className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm text-[hsl(var(--primary-foreground))] disabled:opacity-50"
           >
-            {isValidating ? "Validating..." : "Save"}
+            {isValidating ? "Validating…" : "Save"}
           </button>
         </div>
         {validationResult && (
-          <p
-            className={`mt-2 text-sm ${
-              validationResult === "valid"
-                ? "text-green-500"
-                : "text-red-500"
-            }`}
-          >
-            {validationResult === "valid"
-              ? "✓ API key is valid"
-              : "✗ Invalid API key"}
+          <p className={`mt-2 text-sm ${validationResult === "valid" ? "text-green-500" : "text-red-500"}`}>
+            {validationResult === "valid" ? "✓ API key is valid" : "✗ Invalid API key"}
           </p>
         )}
-        <p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
-          Get your API key from{" "}
-          <a
-            href="https://studio.nebius.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[hsl(var(--primary))] hover:underline"
-          >
-            Nebius AI Studio
-          </a>
-        </p>
       </div>
 
+      {/* Endpoint */}
       <div>
-        <label className="mb-2 block text-sm font-medium">
-          API Endpoint
-        </label>
+        <label className="mb-2 block text-sm font-medium">API Endpoint</label>
         <div className="flex gap-2">
           <input
             type="text"
@@ -120,6 +162,63 @@ export function ApiSettings() {
         <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
           Saved: <span className="font-mono">{settings.nebiusApiEndpoint}</span>
         </p>
+      </div>
+
+      {/* Load models from endpoint */}
+      <div className="rounded-lg border border-[hsl(var(--border))] p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium">Available models</div>
+            <div className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+              Fetch the real model list from your endpoint
+            </div>
+          </div>
+          <button
+            onClick={handleFetchModels}
+            disabled={isFetchingModels || !settings.nebiusApiKey}
+            className="flex items-center gap-1.5 rounded-lg border border-[hsl(var(--border))] px-3 py-1.5 text-xs font-medium hover:bg-[hsl(var(--accent))] disabled:opacity-40 transition-colors"
+          >
+            <RefreshCw className={`h-3 w-3 ${isFetchingModels ? 'animate-spin' : ''}`} />
+            {isFetchingModels ? "Fetching…" : "Load models"}
+          </button>
+        </div>
+
+        {fetchError && (
+          <p className="text-xs text-red-500">{fetchError}</p>
+        )}
+
+        {fetchedModels && fetchedModels.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">
+              {fetchedModels.length} models found. Replace the current cloud model list?
+            </p>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-[hsl(var(--border))] divide-y divide-[hsl(var(--border))]">
+              {fetchedModels.map(id => (
+                <div key={id} className="px-3 py-1.5 text-xs font-mono text-[hsl(var(--foreground-muted))]">
+                  {id}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleReplaceCloudModels(fetchedModels)}
+                className="flex-1 rounded-lg bg-[hsl(var(--primary))] px-3 py-1.5 text-xs font-medium text-[hsl(var(--primary-foreground))]"
+              >
+                Use these models
+              </button>
+              <button
+                onClick={() => setFetchedModels(null)}
+                className="rounded-lg border border-[hsl(var(--border))] px-3 py-1.5 text-xs font-medium hover:bg-[hsl(var(--accent))] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {fetchedModels && fetchedModels.length === 0 && (
+          <p className="text-xs text-[hsl(var(--muted-foreground))]">No models returned from endpoint.</p>
+        )}
       </div>
 
       {/* Cloud Trust */}
@@ -163,17 +262,13 @@ export function ApiSettings() {
           <input
             type="checkbox"
             checked={settings.enableMemory}
-            onChange={(e) =>
-              updateSettings({ enableMemory: e.target.checked })
-            }
+            onChange={(e) => updateSettings({ enableMemory: e.target.checked })}
             className="h-4 w-4 rounded"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium">
-            mem0 API Key
-          </label>
+          <label className="mb-2 block text-sm font-medium">mem0 API Key</label>
           <div className="flex gap-2">
             <input
               type="password"
@@ -187,47 +282,20 @@ export function ApiSettings() {
               disabled={isValidatingMem0}
               className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm text-[hsl(var(--primary-foreground))] disabled:opacity-50"
             >
-              {isValidatingMem0 ? "Validating..." : "Save"}
+              {isValidatingMem0 ? "Validating…" : "Save"}
             </button>
           </div>
           {mem0ValidationResult && (
-            <p
-              className={`mt-2 text-sm ${
-                mem0ValidationResult === "valid"
-                  ? "text-green-500"
-                  : "text-red-500"
-              }`}
-            >
-              {mem0ValidationResult === "valid"
-                ? "✓ API key is valid"
-                : "✗ Invalid API key"}
+            <p className={`mt-2 text-sm ${mem0ValidationResult === "valid" ? "text-green-500" : "text-red-500"}`}>
+              {mem0ValidationResult === "valid" ? "✓ API key is valid" : "✗ Invalid API key"}
             </p>
           )}
           <p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
             Get your API key from{" "}
-            <a
-              href="https://app.mem0.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[hsl(var(--primary))] hover:underline"
-            >
+            <a href="https://app.mem0.ai" target="_blank" rel="noopener noreferrer" className="text-[hsl(var(--primary))] hover:underline">
               mem0 Dashboard
             </a>
           </p>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)] p-4">
-          <div className="flex items-start gap-3">
-            <BrainIcon />
-            <div className="flex-1">
-              <div className="font-medium text-sm">How Memory Works</div>
-              <div className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                When enabled, the assistant learns facts about you from conversations
-                (preferences, habits, important dates) and uses this knowledge to provide
-                more personalized responses.
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -236,17 +304,7 @@ export function ApiSettings() {
 
 function BrainIcon() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-[hsl(var(--primary))]"
-    >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[hsl(var(--primary))]">
       <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
       <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
       <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" />
