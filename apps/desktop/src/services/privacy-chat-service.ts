@@ -93,7 +93,7 @@ export interface PrivacyProcessingInfo {
 export async function sendPrivacyAwareChat(
   options: PrivacyChatOptions
 ): Promise<PrivacyChatResult> {
-  const { message, persona, history = [], apiKey, temperature = 0.7, maxTokens = 2048 } = options;
+  const { message, persona, history = [], apiKey, temperature = 0.7, maxTokens = 4096 } = options;
 
   try {
     // Step 1: Process message with privacy-first routing
@@ -194,7 +194,7 @@ export async function* streamPrivacyAwareChat(
   { type: 'chunk'; content: string } | { type: 'info'; info: PrivacyProcessingInfo },
   PrivacyChatResult
 > {
-  const { message, persona, history = [], apiKey, temperature = 0.7, maxTokens = 2048 } = options;
+  const { message, persona, history = [], apiKey, temperature = 0.7, maxTokens = 4096 } = options;
 
   try {
     // Step 1: Process message with privacy-first routing
