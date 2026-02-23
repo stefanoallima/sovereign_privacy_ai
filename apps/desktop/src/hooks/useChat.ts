@@ -235,11 +235,6 @@ export function useChat() {
       const conversation = getCurrentConversation();
       if (!conversation) return;
 
-      if (!settings.nebiusApiKey) {
-        console.error("No API key configured");
-        return;
-      }
-
       // Get target personas (maintain order)
       const targetPersonas = targetPersonaIds
         .map(id => personas.find(p => p.id === id))
@@ -331,11 +326,6 @@ export function useChat() {
       // Final fallback to selected persona
       if (!targetPersona) {
         targetPersona = getSelectedPersona();
-      }
-
-      if (!settings.nebiusApiKey) {
-        console.error("No API key configured");
-        return;
       }
 
       // Add user message

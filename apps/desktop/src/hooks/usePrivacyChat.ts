@@ -264,12 +264,6 @@ export function usePrivacyChat() {
       const airplaneMode = isAirplaneModeActive();
       const isLocalModel = model?.provider === 'ollama';
 
-      // Only require API key when using cloud models and not in airplane mode
-      if (!airplaneMode && !isLocalModel && !settings.nebiusApiKey) {
-        console.error('No API key configured and not in airplane mode');
-        return;
-      }
-
       // Add user message
       addMessage(currentConversationId, {
         conversationId: currentConversationId,
@@ -314,12 +308,6 @@ export function usePrivacyChat() {
         .filter((p): p is Persona => p !== undefined);
 
       if (targetPersonas.length === 0) return;
-
-      const airplaneMode = isAirplaneModeActive();
-      if (!airplaneMode && !settings.nebiusApiKey) {
-        console.error('No API key configured and not in airplane mode');
-        return;
-      }
 
       // Add user message
       addMessage(currentConversationId, {
