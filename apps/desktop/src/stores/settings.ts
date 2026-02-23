@@ -60,56 +60,17 @@ const DEFAULT_OLLAMA_MODELS: LLMModel[] = [
   },
 ];
 
-// Curated cloud models — use "Load models" in API Settings to replace with your endpoint's real list
-const DEFAULT_MODELS: LLMModel[] = [
-  {
-    id: "qwen3-32b",
-    provider: "nebius",
-    apiModelId: "Qwen/Qwen3-32B",
-    name: "Qwen3 32B",
-    contextWindow: 128000,
-    speedTier: "fast",
-    intelligenceTier: "high",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    isEnabled: true,
-    isDefault: true,
-  },
-  {
-    id: "minimax-m1",
-    provider: "nebius",
-    apiModelId: "MiniMax/MiniMax-M1",
-    name: "MiniMax M1",
-    contextWindow: 128000,
-    speedTier: "medium",
-    intelligenceTier: "very-high",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    isEnabled: true,
-    isDefault: false,
-  },
-  {
-    id: "kimi-k2",
-    provider: "nebius",
-    apiModelId: "moonshotai/Kimi-K2-Instruct",
-    name: "Kimi K2",
-    contextWindow: 128000,
-    speedTier: "medium",
-    intelligenceTier: "very-high",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    isEnabled: true,
-    isDefault: false,
-  },
-];
+// No hardcoded cloud models — model IDs vary per endpoint.
+// Use "Load models" in API Settings → Advanced to fetch real IDs from your endpoint.
+const DEFAULT_MODELS: LLMModel[] = [];
 
 const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiKey: "",
   nebiusApiEndpoint: "https://api.studio.nebius.ai/v1",
   mem0ApiKey: "",
   enableMemory: false,
-  defaultModelId: "qwen3-32b",
-  enabledModelIds: DEFAULT_MODELS.map((m) => m.id),
+  defaultModelId: "",
+  enabledModelIds: [],
   defaultVoiceId: "en_US-lessac-medium",
   speechRate: 1.0,
   pushToTalkKey: "Ctrl+Space",
@@ -118,8 +79,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Privacy Mode
   privacyMode: "cloud",
   localModeModel: "qwen3-1.7b",
-  hybridModeModel: "qwen3-32b",
-  cloudModeModel: "qwen3-32b",
+  hybridModeModel: "",
+  cloudModeModel: "",
   // Backward compat (derived from privacyMode)
   airplaneMode: false,
   airplaneModeModel: "qwen3-1.7b",
@@ -354,7 +315,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 8, // v8: remove deepseek, qwen3-32b as default
+      version: 9, // v9: empty default models, load from endpoint
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -368,9 +329,9 @@ export const useSettingsStore = create<SettingsStore>()(
             privacyMode,
             theme: 'light',
             localModeModel: old.localModeModel ?? old.airplaneModeModel ?? 'qwen3-1.7b',
-            hybridModeModel: 'qwen3-32b',
-            cloudModeModel: 'qwen3-32b',
-            defaultModelId: 'qwen3-32b',
+            hybridModeModel: '',
+            cloudModeModel: '',
+            defaultModelId: '',
             airplaneMode: privacyMode === 'local',
             airplaneModeModel: old.airplaneModeModel ?? 'qwen3-1.7b',
           },
