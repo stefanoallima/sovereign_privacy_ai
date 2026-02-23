@@ -4,11 +4,16 @@ import { useSettingsStore } from "@/stores";
 export function ApiSettings() {
   const { settings, updateSettings } = useSettingsStore();
   const [apiKey, setApiKey] = useState(settings.nebiusApiKey);
+  const [endpoint, setEndpoint] = useState(settings.nebiusApiEndpoint);
   const [mem0ApiKey, setMem0ApiKey] = useState(settings.mem0ApiKey);
   const [isValidating, setIsValidating] = useState(false);
   const [isValidatingMem0, setIsValidatingMem0] = useState(false);
   const [validationResult, setValidationResult] = useState<"valid" | "invalid" | null>(null);
   const [mem0ValidationResult, setMem0ValidationResult] = useState<"valid" | "invalid" | null>(null);
+
+  const handleSaveEndpoint = () => {
+    updateSettings({ nebiusApiEndpoint: endpoint.trim().replace(/\/+$/, '') });
+  };
 
   const handleSaveApiKey = async () => {
     updateSettings({ nebiusApiKey: apiKey });
@@ -96,14 +101,25 @@ export function ApiSettings() {
         <label className="mb-2 block text-sm font-medium">
           API Endpoint
         </label>
-        <input
-          type="text"
-          value={settings.nebiusApiEndpoint}
-          onChange={(e) =>
-            updateSettings({ nebiusApiEndpoint: e.target.value })
-          }
-          className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-2 text-sm focus:border-[hsl(var(--ring))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSaveEndpoint()}
+            placeholder="https://api.studio.nebius.ai/v1"
+            className="flex-1 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-2 text-sm focus:border-[hsl(var(--ring))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+          />
+          <button
+            onClick={handleSaveEndpoint}
+            className="rounded-lg bg-[hsl(var(--primary))] px-4 py-2 text-sm text-[hsl(var(--primary-foreground))]"
+          >
+            Save
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+          Saved: <span className="font-mono">{settings.nebiusApiEndpoint}</span>
+        </p>
       </div>
 
       {/* Cloud Trust */}

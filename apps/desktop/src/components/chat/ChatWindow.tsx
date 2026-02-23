@@ -117,6 +117,7 @@ export function ChatWindow() {
     isLoading,
     streamingContent,
     updateConversationTitle,
+    updateConversationModel,
     createConversation,
     projects,
     linkMessageToCanvas,
@@ -609,6 +610,17 @@ export function ChatWindow() {
   // Privacy mode pill handler
   const handlePrivacyModeSelect = (mode: 'local' | 'hybrid' | 'cloud') => {
     setPrivacyMode(mode);
+    // Also sync the current conversation's modelId to the model for this mode
+    if (currentConversationId) {
+      const { settings: s, models, ollamaModels } = useSettingsStore.getState();
+      const modelId =
+        mode === 'local'
+          ? (ollamaModels.find(m => m.apiModelId === s.localModeModel)?.id ?? ollamaModels[0]?.id)
+          : mode === 'hybrid'
+          ? s.hybridModeModel
+          : s.cloudModeModel;
+      if (modelId) updateConversationModel(currentConversationId, modelId);
+    }
   };
 
   // Welcome screen when no conversation selected
