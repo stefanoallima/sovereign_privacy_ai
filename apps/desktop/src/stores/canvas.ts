@@ -52,17 +52,23 @@ export const useCanvasStore = create<CanvasStore>()(
       isInitialized: false,
 
       initialize: async () => {
-        const rows = await db.canvasDocuments.filter(d => !d.deleted).toArray();
-        const documents: CanvasDocument[] = rows.map(r => ({
-          id: r.id,
-          projectId: r.projectId,
-          conversationId: r.conversationId,
-          title: r.title,
-          content: r.content,
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-        }));
-        set({ documents, isInitialized: true });
+        if (get().isInitialized) return;
+        try {
+          const rows = await db.canvasDocuments.filter(d => !d.deleted).toArray();
+          const documents: CanvasDocument[] = rows.map(r => ({
+            id: r.id,
+            projectId: r.projectId,
+            conversationId: r.conversationId,
+            title: r.title,
+            content: r.content,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+          }));
+          set({ documents, isInitialized: true });
+        } catch (error) {
+          console.error('Failed to initialize canvas store from IndexedDB:', error);
+          set({ isInitialized: true });
+        }
       },
 
       openPanel: (documentId) => {
@@ -96,6 +102,8 @@ export const useCanvasStore = create<CanvasStore>()(
       },
 
       updateDocument: async (id, updates) => {
+        const exists = get().documents.some(d => d.id === id);
+        if (!exists) return;
         const now = new Date();
         await db.canvasDocuments.update(id, { ...updates, updatedAt: now, pendingSync: true });
         set(s => ({
