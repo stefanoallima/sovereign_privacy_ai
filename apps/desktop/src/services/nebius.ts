@@ -83,7 +83,9 @@ export class NebiusClient {
   async *streamChatCompletion(
     options: ChatCompletionOptions
   ): AsyncGenerator<string, { inputTokens: number; outputTokens: number }> {
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    const url = `${this.baseUrl}/chat/completions`;
+    console.debug(`[Nebius] POST ${url} model=${options.model} key=${this.apiKey ? this.apiKey.slice(0, 8) + '…' : '(none)'}`);
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -97,7 +99,7 @@ export class NebiusClient {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Nebius API error: ${response.status} - ${error}`);
+      throw new Error(`Nebius API error: ${response.status} - ${error}\n(endpoint: ${url}, model: ${options.model})`);
     }
 
     const reader = response.body?.getReader();
