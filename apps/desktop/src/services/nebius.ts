@@ -61,6 +61,10 @@ export class NebiusClient {
     this.apiKey = apiKey;
   }
 
+  setBaseUrl(baseUrl: string) {
+    this.baseUrl = baseUrl;
+  }
+
   async validateApiKey(): Promise<boolean> {
     if (!this.apiKey) return false;
 
@@ -171,8 +175,9 @@ let clientInstance: NebiusClient | null = null;
 export function getNebiusClient(apiKey?: string, baseUrl?: string): NebiusClient {
   if (!clientInstance) {
     clientInstance = new NebiusClient(apiKey || "", baseUrl);
-  } else if (apiKey) {
-    clientInstance.setApiKey(apiKey);
+  } else {
+    if (apiKey !== undefined) clientInstance.setApiKey(apiKey);
+    if (baseUrl !== undefined) clientInstance.setBaseUrl(baseUrl);
   }
   return clientInstance;
 }
