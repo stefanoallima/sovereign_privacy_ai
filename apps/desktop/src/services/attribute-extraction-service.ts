@@ -149,6 +149,31 @@ export async function generatePrivacySafePrompt(
 }
 
 /**
+ * Map a TypeScript Persona (camelCase) to the snake_case shape the Rust command expects.
+ * Only the fields present in the Rust `Persona` struct are included; extra JS fields
+ * (icon, knowledgeBaseIds, requiresPIIVault …) are dropped so Serde doesn't error.
+ */
+function toRustPersona(persona: any): Record<string, unknown> {
+  return {
+    id: persona.id ?? '',
+    name: persona.name ?? '',
+    description: persona.description ?? '',
+    system_prompt: persona.system_prompt ?? persona.systemPrompt ?? '',
+    voice_id: persona.voice_id ?? persona.voiceId ?? '',
+    preferred_model_id: persona.preferred_model_id ?? persona.preferredModelId ?? '',
+    temperature: persona.temperature ?? 0.7,
+    max_tokens: persona.max_tokens ?? persona.maxTokens ?? 2000,
+    is_built_in: persona.is_built_in ?? persona.isBuiltIn ?? false,
+    created_at: persona.created_at ?? persona.createdAt?.toISOString?.() ?? new Date().toISOString(),
+    updated_at: persona.updated_at ?? persona.updatedAt?.toISOString?.() ?? new Date().toISOString(),
+    enable_local_anonymizer: persona.enable_local_anonymizer ?? false,
+    preferred_backend: persona.preferred_backend ?? 'nebius',
+    anonymization_mode: persona.anonymization_mode ?? 'none',
+    local_ollama_model: persona.local_ollama_model ?? null,
+  };
+}
+
+/**
  * Process a chat message with privacy-first routing
  * This is the main entry point for privacy-aware chat
  *
@@ -160,7 +185,7 @@ export async function processChatWithPrivacy(
   text: string,
   persona: any,
 ): Promise<ProcessedChatRequest> {
-  return invoke('process_chat_with_privacy', { text, persona });
+  return invoke('process_chat_with_privacy', { text, persona: toRustPersona(persona) });
 }
 
 /**
