@@ -121,7 +121,7 @@ export function ChatWindow() {
     projects,
   } = useChatStore();
 
-  const { createDocument, openPanel } = useCanvasStore();
+  const { createDocument, openPanel, getDocumentsByConversation } = useCanvasStore();
 
   // messageId → { docId, title, intro } for messages that were auto-routed to canvas
   const [canvasRoutedMap, setCanvasRoutedMap] = useState<Map<string, { docId: string; title: string; intro: string }>>(new Map());
@@ -913,7 +913,9 @@ export function ChatWindow() {
                 contentMode={pendingReview.processed.content_mode}
                 attributesCount={pendingReview.processed.attributes_count}
                 privacyInfo={pendingReview.processed.info}
-                onApprove={(editedPrompt) => void approveAndSend(editedPrompt)}
+                historyMessages={getCurrentMessages().map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))}
+                canvasDocs={currentConversationId ? getDocumentsByConversation(currentConversationId).map(d => ({ id: d.id, title: d.title })) : []}
+                onApprove={(editedPrompt, opts) => void approveAndSend(editedPrompt, opts)}
                 onCancel={cancelReview}
               />
             </div>
