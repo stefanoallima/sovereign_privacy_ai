@@ -26,16 +26,18 @@ import {
   ShieldCheck,
   Zap,
   Settings2,
-  FileText,
 } from "lucide-react";
 
 // Detect if AI response should auto-route to canvas
 function shouldAutoCanvas(content: string): boolean {
   const wordCount = content.split(/\s+/).filter(Boolean).length;
-  const hasH1 = /^# /m.test(content);
+  const hasHeader = /^#{1,6} /m.test(content);
   const hasTable = /^\|.+\|/m.test(content);
-  const hasMultipleHeaders = (content.match(/^#{1,3} /gm) || []).length >= 2;
-  return wordCount > 400 || hasH1 || hasTable || hasMultipleHeaders;
+  const hasCodeBlock = /^```/m.test(content);
+  const hasList = /^[-*+] /m.test(content) || /^\d+\. /m.test(content);
+  const hasMultipleParagraphs = content.split(/\n\n+/).length >= 3;
+  // Route to canvas: any structured content, or replies longer than ~100 words
+  return wordCount > 100 || hasHeader || hasTable || hasCodeBlock || hasMultipleParagraphs || (hasList && wordCount > 50);
 }
 
 function extractCanvasTitle(content: string): string {
@@ -85,16 +87,11 @@ export function ChatWindow() {
     projects,
   } = useChatStore();
 
-  const { createDocument } = useCanvasStore();
+  const { createDocument, openPanel } = useCanvasStore();
 
-  const [canvasToast, setCanvasToast] = useState<{ title: string; content: string } | null>(null);
-  const canvasToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // messageId → { docId, title } for messages that were auto-routed to canvas
+  const [canvasRoutedMap, setCanvasRoutedMap] = useState<Map<string, { docId: string; title: string }>>(new Map());
 
-  const dismissCanvasToast = useCallback(() => {
-    if (canvasToastTimerRef.current) clearTimeout(canvasToastTimerRef.current);
-    setCanvasToast(null);
-    canvasToastTimerRef.current = null;
-  }, []);
 
   const { settings, getEnabledModels, getDefaultModel, isAirplaneModeActive, setPrivacyMode, getActivePrivacyMode } = useSettingsStore();
   const { voiceInputEnabled } = useVoiceStore();
@@ -493,7 +490,7 @@ export function ChatWindow() {
     return () => clearInterval(interval);
   }, [settings.nebiusApiKey, generateTitleFor]);
 
-  // Auto-route long-form AI responses to canvas
+  // Auto-route structured AI responses to canvas
   const prevIsLoadingRef = useRef(false);
   useEffect(() => {
     const wasLoading = prevIsLoadingRef.current;
@@ -502,26 +499,21 @@ export function ChatWindow() {
     if (wasLoading && !isLoading && currentConversationId) {
       const msgs = getCurrentMessages();
       const lastMsg = msgs[msgs.length - 1];
-      if (lastMsg?.role === 'assistant' && shouldAutoCanvas(lastMsg.content)) {
+      if (lastMsg?.role === 'assistant' && lastMsg.id && shouldAutoCanvas(lastMsg.content)) {
         const title = extractCanvasTitle(lastMsg.content);
         const finalContent = lastMsg.content;
-        setCanvasToast({ title, content: finalContent });
-        canvasToastTimerRef.current = setTimeout(async () => {
-          const projectId = conversations.find(c => c.id === currentConversationId)?.projectId;
-          await createDocument({
-            title,
-            content: finalContent,
-            projectId,
-            conversationId: currentConversationId,
-          });
-          setCanvasToast(null);
-          canvasToastTimerRef.current = null;
-        }, 4000);
+        const msgId = lastMsg.id;
+        const projectId = conversations.find(c => c.id === currentConversationId)?.projectId;
+        createDocument({
+          title,
+          content: finalContent,
+          projectId,
+          conversationId: currentConversationId,
+        }).then(docId => {
+          setCanvasRoutedMap(prev => new Map(prev).set(msgId, { docId, title }));
+        });
       }
     }
-    return () => {
-      if (canvasToastTimerRef.current) clearTimeout(canvasToastTimerRef.current);
-    };
   }, [isLoading, currentConversationId]);
 
   // Listen for canvas:template-prompt events from CanvasPanel
@@ -793,6 +785,7 @@ export function ChatWindow() {
                   ? getPersonaById(message.personaId)
                   : persona;
 
+                const canvasEntry = message.id ? canvasRoutedMap.get(message.id) : undefined;
                 return (
                   <div key={message.id}>
                     <MessageBubble
@@ -806,15 +799,20 @@ export function ChatWindow() {
                       privacyLevel={message.privacyLevel}
                       piiTypesDetected={message.piiTypesDetected}
                       approvalStatus={message.approvalStatus}
-                      onOpenCanvas={async (content) => {
+                      canvasDocTitle={canvasEntry?.title}
+                      onViewCanvas={canvasEntry ? () => openPanel(canvasEntry.docId) : undefined}
+                      onOpenCanvas={canvasEntry ? undefined : async (content) => {
                         const title = extractCanvasTitle(content);
                         const projectId = conversations.find(c => c.id === currentConversationId)?.projectId;
-                        await createDocument({
+                        const docId = await createDocument({
                           title,
                           content,
                           projectId,
                           conversationId: currentConversationId ?? undefined,
                         });
+                        if (message.id) {
+                          setCanvasRoutedMap(prev => new Map(prev).set(message.id!, { docId, title }));
+                        }
                       }}
                     />
                   </div>
@@ -824,7 +822,7 @@ export function ChatWindow() {
                 <div className="animate-fade-in">
                   <MessageBubble
                     role="assistant"
-                    content={streamingContent}
+                    content={streamingContent.replace(/<think>[\s\S]*?<\/think>/gi, '')}
                     isStreaming
                     personaName={persona?.name}
                     personaIcon={persona?.icon}
@@ -1165,24 +1163,6 @@ export function ChatWindow() {
         </div>
       </div>
 
-      {/* Canvas auto-route toast */}
-      {canvasToast && (
-        <div className="absolute bottom-28 right-4 z-30 flex items-center gap-3 px-4 py-3 rounded-xl
-          bg-[hsl(var(--surface-2))] border border-[hsl(var(--violet)/0.4)]
-          shadow-[var(--shadow-glow-violet)] animate-slide-in-right text-[12px]">
-          <FileText className="h-4 w-4 text-[hsl(var(--violet))] flex-shrink-0" />
-          <div className="min-w-0">
-            <p className="font-medium text-[hsl(var(--foreground))]">Routing to Canvas</p>
-            <p className="text-[hsl(var(--muted-foreground))] truncate max-w-[180px]">{canvasToast.title}</p>
-          </div>
-          <button
-            onClick={dismissCanvasToast}
-            className="text-[11px] px-2 py-0.5 rounded-lg bg-[hsl(var(--accent))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors flex-shrink-0"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
     </div>
   );
 }
