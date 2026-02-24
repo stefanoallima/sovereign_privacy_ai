@@ -11,7 +11,6 @@ import {
   Settings,
   Pencil,
   Trash2,
-  Bot,
   EyeOff,
   Wand2,
   Compass,
@@ -108,8 +107,8 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[hsl(var(--border)/0.5)]">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--violet)/0.12)] text-[hsl(var(--violet))]">
-            <Bot className="h-4 w-4" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--violet)/0.12)] text-[hsl(var(--violet))] overflow-hidden p-[2px]">
+            <img src="/logo.svg" alt="Sovereign AI logo" className="h-full w-full object-contain" />
           </div>
           <span className="font-semibold text-[15px]">Chats</span>
         </div>
@@ -171,10 +170,10 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
                     isActive={conv.id === currentConversationId}
                     isEditing={false}
                     editValue=""
-                    onEditChange={() => {}}
-                    onEditSave={() => {}}
-                    onEditCancel={() => {}}
-                    onEditStart={() => {}}
+                    onEditChange={() => { }}
+                    onEditSave={() => { }}
+                    onEditCancel={() => { }}
+                    onEditStart={() => { }}
                     onClick={() => selectConversation(conv.id)}
                     onDelete={() => void deleteConversation(conv.id)}
                     isIncognito
@@ -501,137 +500,136 @@ function ConversationItem({
 
   return (
     <div>
-    <div
-      className={`group relative flex items-center rounded-lg transition-all cursor-pointer ${
-        isIncognito ? "border border-dashed border-purple-500/30 " : ""
-      }${isActive
-          ? isIncognito
-            ? "bg-purple-500/15 text-[hsl(var(--accent-foreground))] shadow-sm"
-            : "bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] font-medium"
-          : "text-[hsl(var(--foreground-subtle))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]"
-        }`}
-      onClick={onClick}
-    >
-      <div className="flex items-center gap-2 flex-1 px-3 py-2.5 pr-24">
-        {hasDocs && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowDocs(v => !v); }}
-            className="flex-shrink-0 flex items-center gap-1 text-[hsl(var(--foreground-subtle))] hover:text-[hsl(var(--primary))] transition-colors"
-            title={showDocs ? 'Hide documents' : `Show ${canvasDocs!.length} document${canvasDocs!.length !== 1 ? 's' : ''}`}
-          >
-            <ChevronRight className="h-3 w-3" style={{ transform: showDocs ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 150ms' }} />
-            <span className="text-[10px] font-medium tabular-nums">{canvasDocs!.length}</span>
-          </button>
-        )}
-        {!hasDocs && <span className="w-3 flex-shrink-0" />}
-        {isIncognito ? (
-          <EyeOff className={`h-4 w-4 flex-shrink-0 text-purple-400`} />
-        ) : (
-          <MessageSquare className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-[hsl(var(--primary))]" : ""}`} />
-        )}
-        <span className="text-sm truncate font-medium">{title}</span>
-      </div>
+      <div
+        className={`group relative flex items-center rounded-lg transition-all cursor-pointer ${isIncognito ? "border border-dashed border-purple-500/30 " : ""
+          }${isActive
+            ? isIncognito
+              ? "bg-purple-500/15 text-[hsl(var(--accent-foreground))] shadow-sm"
+              : "bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] font-medium"
+            : "text-[hsl(var(--foreground-subtle))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]"
+          }`}
+        onClick={onClick}
+      >
+        <div className="flex items-center gap-2 flex-1 px-3 py-2.5 pr-24">
+          {hasDocs && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowDocs(v => !v); }}
+              className="flex-shrink-0 flex items-center gap-1 text-[hsl(var(--foreground-subtle))] hover:text-[hsl(var(--primary))] transition-colors"
+              title={showDocs ? 'Hide documents' : `Show ${canvasDocs!.length} document${canvasDocs!.length !== 1 ? 's' : ''}`}
+            >
+              <ChevronRight className="h-3 w-3" style={{ transform: showDocs ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 150ms' }} />
+              <span className="text-[10px] font-medium tabular-nums">{canvasDocs!.length}</span>
+            </button>
+          )}
+          {!hasDocs && <span className="w-3 flex-shrink-0" />}
+          {isIncognito ? (
+            <EyeOff className={`h-4 w-4 flex-shrink-0 text-purple-400`} />
+          ) : (
+            <MessageSquare className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-[hsl(var(--primary))]" : ""}`} />
+          )}
+          <span className="text-sm truncate font-medium">{title}</span>
+        </div>
 
-      {/* Hover Actions */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
-        {!isIncognito && onMoveToProject && projects && (
-          <div className="relative" ref={pickerRef}>
+        {/* Hover Actions */}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+          {!isIncognito && onMoveToProject && projects && (
+            <div className="relative" ref={pickerRef}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowProjectPicker(v => !v);
+                }}
+                className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[hsl(var(--background))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
+                title="Move to project"
+              >
+                <FolderSymlink className="h-3.5 w-3.5" />
+              </button>
+
+              {showProjectPicker && (
+                <div
+                  className="absolute bottom-full right-0 mb-1 w-44 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--popover))] shadow-lg overflow-hidden z-50 animate-slide-up"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="px-3 py-2 border-b border-[hsl(var(--border)/0.5)]">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-[hsl(var(--foreground-subtle))]">
+                      Move to project
+                    </span>
+                  </div>
+                  <div className="p-1 max-h-48 overflow-y-auto">
+                    {currentProjectId && (
+                      <button
+                        onClick={() => { onMoveToProject(null); setShowProjectPicker(false); }}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="truncate">No project</span>
+                      </button>
+                    )}
+                    {projects.length === 0 && (
+                      <p className="px-3 py-2 text-[11px] text-[hsl(var(--foreground-subtle))]">No projects yet</p>
+                    )}
+                    {projects.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => { onMoveToProject(p.id); setShowProjectPicker(false); }}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors"
+                      >
+                        <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color ?? 'hsl(var(--primary))' }} />
+                        <span className="truncate flex-1">{p.name}</span>
+                        {currentProjectId === p.id && <Check className="h-3 w-3 flex-shrink-0 text-[hsl(var(--primary))]" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {!isIncognito && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setShowProjectPicker(v => !v);
+                onEditStart();
               }}
-              className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[hsl(var(--background))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors"
-              title="Move to project"
+              className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[hsl(var(--background))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+              title="Rename"
             >
-              <FolderSymlink className="h-3.5 w-3.5" />
+              <Pencil className="h-3.5 w-3.5" />
             </button>
-
-            {showProjectPicker && (
-              <div
-                className="absolute bottom-full right-0 mb-1 w-44 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--popover))] shadow-lg overflow-hidden z-50 animate-slide-up"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="px-3 py-2 border-b border-[hsl(var(--border)/0.5)]">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-[hsl(var(--foreground-subtle))]">
-                    Move to project
-                  </span>
-                </div>
-                <div className="p-1 max-h-48 overflow-y-auto">
-                  {currentProjectId && (
-                    <button
-                      onClick={() => { onMoveToProject(null); setShowProjectPicker(false); }}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors"
-                    >
-                      <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
-                      <span className="truncate">No project</span>
-                    </button>
-                  )}
-                  {projects.length === 0 && (
-                    <p className="px-3 py-2 text-[11px] text-[hsl(var(--foreground-subtle))]">No projects yet</p>
-                  )}
-                  {projects.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => { onMoveToProject(p.id); setShowProjectPicker(false); }}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] transition-colors"
-                    >
-                      <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color ?? 'hsl(var(--primary))' }} />
-                      <span className="truncate flex-1">{p.name}</span>
-                      {currentProjectId === p.id && <Check className="h-3 w-3 flex-shrink-0 text-[hsl(var(--primary))]" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {!isIncognito && (
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onEditStart();
+              onDelete();
             }}
-            className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[hsl(var(--background))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
-            title="Rename"
+            className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[hsl(var(--destructive)/0.1)] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] transition-colors"
+            title="Delete"
           >
-            <Pencil className="h-3.5 w-3.5" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[hsl(var(--destructive)/0.1)] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] transition-colors"
-          title="Delete"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
-    {showDocs && hasDocs && (
-      <div className="ml-8 border-l border-[hsl(var(--border)/0.6)] pl-2 space-y-0.5 mt-0.5 mb-1.5">
-        <div className="px-2 py-1">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-[hsl(var(--muted-foreground)/0.5)]">
-            Project Documents
-          </span>
         </div>
-        {canvasDocs!.map(doc => (
-          <button
-            key={doc.id}
-            onClick={() => onOpenCanvasDoc?.(doc.id)}
-            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left
+      </div>
+      {showDocs && hasDocs && (
+        <div className="ml-8 border-l border-[hsl(var(--border)/0.6)] pl-2 space-y-0.5 mt-0.5 mb-1.5">
+          <div className="px-2 py-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-[hsl(var(--muted-foreground)/0.5)]">
+              Project Documents
+            </span>
+          </div>
+          {canvasDocs!.map(doc => (
+            <button
+              key={doc.id}
+              onClick={() => onOpenCanvasDoc?.(doc.id)}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left
               text-[11.5px] text-[hsl(var(--foreground-subtle))]
               hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]
               transition-colors group/doc"
-          >
-            <FileText className="h-3 w-3 flex-shrink-0 text-[hsl(var(--violet)/0.7)] group-hover/doc:text-[hsl(var(--violet))]" />
-            <span className="truncate flex-1">{doc.title}</span>
-          </button>
-        ))}
-      </div>
-    )}
+            >
+              <FileText className="h-3 w-3 flex-shrink-0 text-[hsl(var(--violet)/0.7)] group-hover/doc:text-[hsl(var(--violet))]" />
+              <span className="truncate flex-1">{doc.title}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

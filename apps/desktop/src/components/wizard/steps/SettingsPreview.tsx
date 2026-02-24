@@ -13,6 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+
 const PRIVACY_LABELS = {
   maximum: { label: "Maximum Privacy", icon: Shield, color: "text-green-500" },
   balanced: { label: "Balanced", icon: Lock, color: "text-blue-500" },
@@ -121,6 +122,28 @@ export function SettingsPreview() {
           </button>
         </div>
 
+        {/* Privacy Shield (GLiNER) */}
+        <div className="flex items-center justify-between p-4 border-b border-[hsl(var(--border)/0.3)]">
+          <div className="flex items-center gap-3">
+            <Shield className={`h-5 w-5 ${choices.glinerEnabled ? "text-blue-500" : "text-[hsl(var(--muted-foreground))]"}`} />
+            <div>
+              <p className="text-sm font-medium">Privacy Shield</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                {choices.glinerEnabled && choices.glinerModelId
+                  ? `Enabled — ${choices.glinerModelId}`
+                  : "Not enabled"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => goToStep(2)}
+            className="flex items-center gap-1 text-xs text-[hsl(var(--primary))] hover:underline"
+          >
+            <Pencil className="h-3 w-3" />
+            Change
+          </button>
+        </div>
+
         {/* API Key */}
         {choices.privacyMode !== "maximum" && (
           <div className="flex items-center justify-between p-4 border-b border-[hsl(var(--border)/0.3)]">
@@ -138,7 +161,7 @@ export function SettingsPreview() {
               </div>
             </div>
             <button
-              onClick={() => goToStep(2)}
+              onClick={() => goToStep(3)}
               className="flex items-center gap-1 text-xs text-[hsl(var(--primary))] hover:underline"
             >
               <Pencil className="h-3 w-3" />
@@ -161,7 +184,7 @@ export function SettingsPreview() {
             </div>
           </div>
           <button
-            onClick={() => goToStep(3)}
+            onClick={() => goToStep(4)}
             className="flex items-center gap-1 text-xs text-[hsl(var(--primary))] hover:underline"
           >
             <Pencil className="h-3 w-3" />

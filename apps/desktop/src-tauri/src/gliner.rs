@@ -433,7 +433,12 @@ impl GlinerBackend {
     }
 
     /// Detect PII entities in text using GLiNER zero-shot NER.
-    pub async fn detect_pii(&self, text: &str) -> Result<Vec<DetectedEntity>, String> {
+    pub async fn detect_pii(
+        &self,
+        text: &str,
+        confidence_threshold: Option<f32>,
+        enabled_labels: Option<Vec<String>>,
+    ) -> Result<Vec<DetectedEntity>, String> {
         let model_id = self
             .first_downloaded_model_id()
             .ok_or("No GLiNER model downloaded. Please download one in Settings.")?;
@@ -458,13 +463,24 @@ impl GlinerBackend {
                 .inference(input)
                 .map_err(|e| format!("GLiNER inference failed: {}", e))?;
 
+            let threshold = confidence_threshold.unwrap_or(0.4_f32);
             let mut entities = Vec::new();
             for spans in output.spans {
                 for span in spans {
+                    let confidence = span.probability() as f32;
+                    if confidence < threshold {
+                        continue;
+                    }
+                    let label = span.class().to_string();
+                    if let Some(ref labels) = enabled_labels {
+                        if !labels.is_empty() && !labels.contains(&label) {
+                            continue;
+                        }
+                    }
                     entities.push(DetectedEntity {
                         text: span.text().to_string(),
-                        label: span.class().to_string(),
-                        confidence: span.probability() as f32,
+                        label,
+                        confidence,
                         start: span.sequence(),
                         end: span.sequence() + span.text().len(),
                     });

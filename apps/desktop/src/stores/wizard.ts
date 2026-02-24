@@ -7,6 +7,8 @@ export interface WizardChoices {
   apiKeyValue: string;
   defaultPersonaId: string | null;
   localModelDownloaded: boolean;
+  glinerModelId: string | null;
+  glinerEnabled: boolean;
 }
 
 interface WizardChatMessage {
@@ -56,6 +58,8 @@ export const useWizardStore = create<WizardStore>()(
         apiKeyValue: "",
         defaultPersonaId: null,
         localModelDownloaded: false,
+        glinerModelId: null,
+        glinerEnabled: false,
       },
       chatMessages: [],
       isAiLoading: false,
@@ -106,6 +110,8 @@ export const useWizardStore = create<WizardStore>()(
             apiKeyValue: "",
             defaultPersonaId: null,
             localModelDownloaded: false,
+            glinerModelId: null,
+            glinerEnabled: false,
           },
           chatMessages: [],
           isAiLoading: false,

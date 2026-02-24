@@ -55,6 +55,21 @@ export interface AppSettings {
   theme: "light" | "dark" | "system";
   showTokenCounts: boolean;
   showModelSelector: boolean;
+
+  // GLiNER Privacy Shield settings
+  glinerEnabled: boolean;
+  glinerModelId: string | null;
+  glinerConfidenceThreshold: number;  // 0.0-1.0, default 0.4
+}
+
+// PII Vault Entry — a confirmed PII entity the user wants always redacted
+export interface PiiVaultEntry {
+  id: string;
+  text: string;           // original text (e.g., "John Smith")
+  category: string;       // PII category (e.g., "person name")
+  placeholder: string;    // replacement (e.g., "[PERSON_NAME_1]")
+  confirmedAt: string;    // ISO date string
+  useCount: number;
 }
 
 // Persona

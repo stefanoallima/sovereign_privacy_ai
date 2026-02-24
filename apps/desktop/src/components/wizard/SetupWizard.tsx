@@ -1,23 +1,24 @@
 import { useWizardStore } from "@/stores/wizard";
 import { WelcomeStep } from "./steps/WelcomeStep";
 import { PrivacyProfileStep } from "./steps/PrivacyProfileStep";
+import { PrivacyGuardStep } from "./steps/PrivacyGuardStep";
 import { ApiConfigStep } from "./steps/ApiConfigStep";
 import { PersonaStep } from "./steps/PersonaStep";
 import { SettingsPreview } from "./steps/SettingsPreview";
 import { WizardChat } from "./WizardChat";
 import { ArrowLeft, X } from "lucide-react";
 
-const STEP_LABELS = ["Welcome", "Privacy", "Cloud AI API", "Persona", "Review"];
+const STEP_LABELS = ["Welcome", "Privacy", "Privacy Shield", "Cloud AI API", "Persona", "Review"];
 
 export function SetupWizard() {
   const { currentStep, prevStep, goToStep, choices, wizardCompleted, setShowWizard } = useWizardStore();
 
-  // If user chose maximum privacy, skip API key step (step 2)
+  // If user chose maximum privacy, skip API key step (step 3)
   const skipApiStep = choices.privacyMode === "maximum";
 
   // Map logical steps to actual steps, accounting for skipped API step
   const getEffectiveStep = () => {
-    if (skipApiStep && currentStep >= 2) {
+    if (skipApiStep && currentStep >= 3) {
       return currentStep + 1;
     }
     return currentStep;
@@ -27,17 +28,11 @@ export function SetupWizard() {
 
   // Determine which step labels to show
   const visibleSteps = skipApiStep
-    ? STEP_LABELS.filter((_, i) => i !== 2)
+    ? STEP_LABELS.filter((_, i) => i !== 3)
     : STEP_LABELS;
 
   // Convert a visible-step index back to a currentStep value
   const visibleIndexToCurrentStep = (visibleIndex: number) => {
-    if (skipApiStep && visibleIndex >= 2) {
-      // visible index 2 = actual step 3, visible 3 = actual 4, etc.
-      // but currentStep uses pre-skip numbering, so currentStep = visibleIndex
-      // (the getEffectiveStep adds +1 for >=2)
-      return visibleIndex;
-    }
     return visibleIndex;
   };
 
@@ -48,10 +43,12 @@ export function SetupWizard() {
       case 1:
         return <PrivacyProfileStep />;
       case 2:
-        return <ApiConfigStep />;
+        return <PrivacyGuardStep />;
       case 3:
-        return <PersonaStep />;
+        return <ApiConfigStep />;
       case 4:
+        return <PersonaStep />;
+      case 5:
         return <SettingsPreview />;
       default:
         return <SettingsPreview />;
@@ -101,7 +98,7 @@ export function SetupWizard() {
       {/* Progress — clickable steps */}
       <div className="px-6 py-3 flex items-center gap-2">
         {visibleSteps.map((label, i) => {
-          const stepIndex = skipApiStep && i >= 2 ? i + 1 : i;
+          const stepIndex = skipApiStep && i >= 3 ? i + 1 : i;
           const isActive = effectiveStep === stepIndex;
           const isCompleted = effectiveStep > stepIndex;
           const navigable = isStepNavigable(stepIndex);
@@ -134,7 +131,7 @@ export function SetupWizard() {
       </div>
       <div className="px-6 pb-2 flex justify-between">
         {visibleSteps.map((label, i) => {
-          const stepIndex = skipApiStep && i >= 2 ? i + 1 : i;
+          const stepIndex = skipApiStep && i >= 3 ? i + 1 : i;
           const isActive = effectiveStep === stepIndex;
           const isCompleted = effectiveStep > stepIndex;
 

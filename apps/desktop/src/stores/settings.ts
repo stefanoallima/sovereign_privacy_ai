@@ -127,6 +127,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: "light",
   showTokenCounts: true,
   showModelSelector: true,
+  // GLiNER Privacy Shield
+  glinerEnabled: false,
+  glinerModelId: null,
+  glinerConfidenceThreshold: 0.4,
 };
 
 interface SettingsStore {
@@ -354,7 +358,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 11, // v11: add Qwen3-32B
+      version: 12, // v12: add GLiNER privacy shield settings
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -373,6 +377,9 @@ export const useSettingsStore = create<SettingsStore>()(
             defaultModelId: 'minimax-m2',
             airplaneMode: privacyMode === 'local',
             airplaneModeModel: old.airplaneModeModel ?? 'qwen3-1.7b',
+            glinerEnabled: old.glinerEnabled ?? false,
+            glinerModelId: old.glinerModelId ?? null,
+            glinerConfidenceThreshold: old.glinerConfidenceThreshold ?? 0.4,
           },
           models: DEFAULT_MODELS,
           ollamaModels: DEFAULT_OLLAMA_MODELS,
