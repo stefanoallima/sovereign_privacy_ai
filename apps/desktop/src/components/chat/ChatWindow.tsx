@@ -471,7 +471,7 @@ export function ChatWindow() {
     setPrivacyMode(mode);
     // Also sync the current conversation's modelId to the model for this mode
     if (currentConversationId) {
-      const { settings: s, models, ollamaModels } = useSettingsStore.getState();
+      const { settings: s, ollamaModels } = useSettingsStore.getState();
       const modelId =
         mode === 'local'
           ? (ollamaModels.find(m => m.apiModelId === s.localModeModel)?.id ?? ollamaModels[0]?.id)
