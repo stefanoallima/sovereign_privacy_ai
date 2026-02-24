@@ -61,6 +61,26 @@ jobs:
           echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      # Bundle ONNX Runtime 1.20.1 so GLiNER PII detection works on user machines
+      - name: Bundle ONNX Runtime (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p apps/desktop/src-tauri/onnxruntime
+          curl -L "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-osx-arm64-1.20.1.tgz" -o /tmp/ort.tgz
+          tar -xzf /tmp/ort.tgz -C /tmp/
+          # Copy the versioned dylib, rename to unversioned so ORT_DYLIB_PATH is stable
+          cp /tmp/onnxruntime-osx-arm64-1.20.1/lib/libonnxruntime.1.20.1.dylib \
+             apps/desktop/src-tauri/onnxruntime/libonnxruntime.dylib
+
+      - name: Bundle ONNX Runtime (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          New-Item -ItemType Directory -Force -Path "apps/desktop/src-tauri/onnxruntime"
+          Invoke-WebRequest -Uri "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-win-x64-1.20.1.zip" -OutFile "$env:TEMP\ort.zip"
+          Expand-Archive -Path "$env:TEMP\ort.zip" -DestinationPath "$env:TEMP\ort"
+          Copy-Item "$env:TEMP\ort\onnxruntime-win-x64-1.20.1\lib\onnxruntime.dll" "apps/desktop/src-tauri/onnxruntime/"
+          Copy-Item "$env:TEMP\ort\onnxruntime-win-x64-1.20.1\lib\onnxruntime_providers_shared.dll" "apps/desktop/src-tauri/onnxruntime/"
+
       - name: Install frontend dependencies
         working-directory: apps/desktop
         run: pnpm install

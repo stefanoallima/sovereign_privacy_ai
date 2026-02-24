@@ -30,6 +30,8 @@ desktop.ini
 
 # Project-specific
 tmpclaude-*
+# ONNX Runtime prebuilt binaries (downloaded by CI, not committed)
+apps/desktop/src-tauri/onnxruntime/
 _bmad*/
 .agent/
 .gemini/
