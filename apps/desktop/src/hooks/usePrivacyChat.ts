@@ -231,7 +231,7 @@ export function usePrivacyChat() {
     contexts,
   } = useChatStore();
 
-  const { settings, getModelById, isAirplaneModeActive } = useSettingsStore();
+  const { settings, getModelById, getEnabledModels, isAirplaneModeActive } = useSettingsStore();
   const { getSelectedPersona, personas } = usePersonasStore();
   const activeUserProfile = useUserContextStore(selectActiveProfile);
 
@@ -342,10 +342,6 @@ export function usePrivacyChat() {
       if (!targetPersona) {
         targetPersona = getSelectedPersona();
       }
-
-      // Check airplane mode and model provider
-      const airplaneMode = isAirplaneModeActive();
-      const isLocalModel = model?.provider === 'ollama';
 
       // Add user message
       addMessage(currentConversationId, {
