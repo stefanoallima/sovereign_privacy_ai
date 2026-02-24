@@ -2,18 +2,21 @@
 # Mixed CRT situation:
 #   llama-cpp-sys-2 → MD_DynamicRelease (dynamic CRT, /MD)
 #   esaxx-rs (via tokenizers via gline-rs) → MT_StaticRelease (static CRT, /MT)
-# This causes:
-#   LNK2038: RuntimeLibrary mismatch (WARNING only — "link will still proceed" per MSVC docs)
-#   LNK2005: duplicate C++ stdlib symbols between msvcprt.lib and libcpmt.lib (FATAL → LNK1169)
-#   LNK4098: defaultlib conflicts
+#     even with the [patch.crates-io] setting static_crt(false), the pragma
+#     comment(linker, "/NODEFAULTLIB:msvcrt.lib") is still embedded in the .obj.
 #
-# Fix for LNK2005 / LNK1169:
-#   Exclude static C/C++ runtime libraries so the linker uses only the dynamic runtime.
-#   The LNK2038 warnings remain but are non-fatal.
-#   load-dynamic in Cargo.toml already removed ort-sys from the static link.
+# Strategy: exclude libcmt (static CRT) via /NODEFAULTLIB, then force-include
+#   msvcrt.lib as a *direct* link input (bypasses /NODEFAULTLIB:msvcrt.lib pragma).
+#   Direct library inputs are always searched regardless of /NODEFAULTLIB flags.
 rustflags = [
-    "-C", "link-arg=/NODEFAULTLIB:libcpmt.lib",
-    "-C", "link-arg=/NODEFAULTLIB:libcpmtd.lib",
+    # Exclude static CRT default libs (pragma-injected by esaxx-rs /MT objects)
     "-C", "link-arg=/NODEFAULTLIB:LIBCMT",
     "-C", "link-arg=/NODEFAULTLIB:LIBCMTD",
+    "-C", "link-arg=/NODEFAULTLIB:libcpmt.lib",
+    "-C", "link-arg=/NODEFAULTLIB:libcpmtd.lib",
+    # Force dynamic CRT as a direct input — bypasses the /NODEFAULTLIB:msvcrt.lib
+    # pragma embedded in /MT-compiled esaxx-rs objects, ensuring __chkstk resolves.
+    "-C", "link-arg=msvcrt.lib",
+    "-C", "link-arg=vcruntime.lib",
+    "-C", "link-arg=ucrt.lib",
 ]
