@@ -60,8 +60,10 @@ pub async fn get_gliner_models_dir(
 pub async fn detect_pii_with_gliner(
     state: State<'_, GlinerState>,
     text: String,
+    confidence_threshold: Option<f32>,
+    enabled_labels: Option<Vec<String>>,
 ) -> Result<Vec<DetectedEntity>, String> {
     let backend = state.0.lock().await;
     info!("Detecting PII with GLiNER (text length: {} chars)", text.len());
-    backend.detect_pii(&text).await
+    backend.detect_pii(&text, confidence_threshold, enabled_labels).await
 }

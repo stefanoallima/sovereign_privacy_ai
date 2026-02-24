@@ -38,11 +38,19 @@ interface DetectedEntity {
  */
 async function applyGlinerPiiRedaction(
   text: string,
+  onEntitiesDetected?: (entities: DetectedEntity[]) => void,
 ): Promise<{ sanitized: string; mappings: Map<string, string>; entityCount: number }> {
   try {
-    const entities = await invoke<DetectedEntity[]>('detect_pii_with_gliner', { text });
+    const entities = await invoke<DetectedEntity[]>('detect_pii_with_gliner', {
+      text,
+      confidenceThreshold: null,
+      enabledLabels: null,
+    });
     if (!entities || entities.length === 0) {
       return { sanitized: text, mappings: new Map(), entityCount: 0 };
+    }
+    if (onEntitiesDetected && entities.length > 0) {
+      onEntitiesDetected(entities);
     }
 
     // Sort by position descending so replacements don't shift indices
@@ -218,6 +226,7 @@ export function usePrivacyChat() {
     hadFallback: false,
   });
   const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
+  const [lastDetectedEntities, setLastDetectedEntities] = useState<DetectedEntity[]>([]);
 
   const {
     currentConversationId,
@@ -804,15 +813,35 @@ export function usePrivacyChat() {
     try {
       // Step 0: Apply GLiNER PII detection to redact personal data before any cloud sends
       const { sanitized: glinerSanitized, mappings: glinerMappings, entityCount: glinerEntityCount } =
-        await applyGlinerPiiRedaction(content);
+        await applyGlinerPiiRedaction(content, setLastDetectedEntities);
 
       if (glinerEntityCount > 0) {
         console.log(`GLiNER detected ${glinerEntityCount} PII entities, text redacted before privacy processing`);
       }
 
+      // Apply PII vault entries (user-confirmed redactions)
+      const { usePiiVaultStore } = await import('@/stores/piiVault');
+      const vaultEntries = usePiiVaultStore.getState().entries;
+      let textAfterGliner = glinerEntityCount > 0 ? glinerSanitized : content;
+      if (vaultEntries.length > 0) {
+        const vaultTerms = vaultEntries.map(e => ({ label: e.category, value: e.text, replacement: e.placeholder }));
+        const { sanitized: vaultSanitized, mappings: vaultMappings } = applyCustomRedaction(textAfterGliner, vaultTerms);
+        textAfterGliner = vaultSanitized;
+        for (const [placeholder, original] of vaultMappings) {
+          glinerMappings.set(placeholder, original);
+        }
+        if (vaultMappings.size > 0) {
+          console.log(`PII vault applied ${vaultMappings.size} term(s)`);
+          // Increment use counts for applied vault entries
+          vaultMappings.forEach((original) => {
+            const entry = vaultEntries.find(e => e.text === original);
+            if (entry) usePiiVaultStore.getState().incrementUseCount(entry.id);
+          });
+        }
+      }
+
       // Apply custom redaction terms from user profile
       const customTerms = activeUserProfile?.customRedactTerms || [];
-      let textAfterGliner = glinerEntityCount > 0 ? glinerSanitized : content;
       if (customTerms.length > 0) {
         const { sanitized: customSanitized, mappings: customMappings } = applyCustomRedaction(textAfterGliner, customTerms);
         textAfterGliner = customSanitized;
@@ -1134,6 +1163,10 @@ export function usePrivacyChat() {
     });
   }, [setLoading, updateStreamingContent]);
 
+  const clearDetectedEntities = useCallback(() => {
+    setLastDetectedEntities([]);
+  }, []);
+
   return {
     sendMessage,
     sendMultiPersonaMessage,
@@ -1144,5 +1177,7 @@ export function usePrivacyChat() {
     pendingReview,
     approveAndSend,
     cancelReview,
+    lastDetectedEntities,
+    clearDetectedEntities,
   };
 }
