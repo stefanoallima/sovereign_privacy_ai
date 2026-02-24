@@ -309,6 +309,22 @@ pub fn run() {
             support_commands::submit_support_issue,
         ])
         .setup(|app| {
+            // Point ort to the bundled ONNX Runtime so GLiNER works on user machines
+            // that don't have onnxruntime installed system-wide.
+            if let Ok(resource_dir) = app.path().resource_dir() {
+                #[cfg(target_os = "macos")]
+                let ort_lib = resource_dir.join("libonnxruntime.dylib");
+                #[cfg(target_os = "windows")]
+                let ort_lib = resource_dir.join("onnxruntime.dll");
+                #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+                let ort_lib = resource_dir.join("libonnxruntime.so");
+
+                if ort_lib.exists() {
+                    std::env::set_var("ORT_DYLIB_PATH", &ort_lib);
+                    eprintln!("[startup] ONNX Runtime: {}", ort_lib.display());
+                }
+            }
+
             // Set up system tray
             setup_tray(app)?;
 
