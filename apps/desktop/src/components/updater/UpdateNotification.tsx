@@ -44,9 +44,11 @@ export function UpdateNotification() {
       setUpdate({ status: "downloading", progress: 0 });
 
       await result.downloadAndInstall((event) => {
-        if (event.event === "Progress" && event.data.chunkLength != null) {
-          const pct = event.data.contentLength
-            ? Math.round((event.data.chunkLength / event.data.contentLength) * 100)
+        if (event.event === "Progress") {
+          // The plugin types only guarantee chunkLength; contentLength is optional at runtime
+          const data = event.data as { chunkLength: number; contentLength?: number };
+          const pct = data.contentLength
+            ? Math.round((data.chunkLength / data.contentLength) * 100)
             : 0;
           setUpdate({ status: "downloading", progress: pct });
         } else if (event.event === "Finished") {
