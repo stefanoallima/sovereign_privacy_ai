@@ -8,7 +8,6 @@
 export { getNebiusClient } from './nebius';
 export * from './tts';
 export * from './stt';
-export * from './sync';
 export * from './livekit';
 
 // PII & Privacy Services (explicitly named to avoid conflicts)

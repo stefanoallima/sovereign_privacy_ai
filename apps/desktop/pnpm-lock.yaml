@@ -20,9 +20,6 @@ importers:
       '@chatscope/chat-ui-kit-styles':
         specifier: ^1.4.0
         version: 1.4.0
-      '@supabase/supabase-js':
-        specifier: ^2.89.0
-        version: 2.89.0
       '@tailwindcss/typography':
         specifier: ^0.5.19
         version: 0.5.19(tailwindcss@4.1.18)

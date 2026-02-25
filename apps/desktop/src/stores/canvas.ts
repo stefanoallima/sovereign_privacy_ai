@@ -1,12 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CanvasDocument } from '@/types';
-import { db, generateClientId, createSyncMeta } from '@/lib/db';
-import { useAuthStore } from './auth';
-
-function getUserId(): string | undefined {
-  return useAuthStore.getState().user?.id;
-}
+import { db, generateClientId } from '@/lib/db';
 
 interface CanvasStore {
   // State
@@ -56,7 +51,7 @@ export const useCanvasStore = create<CanvasStore>()(
       initialize: async () => {
         if (get().isInitialized) return;
         try {
-          const rows = await db.canvasDocuments.filter(d => !d.deleted).toArray();
+          const rows = await db.canvasDocuments.toArray();
           const documents: CanvasDocument[] = rows.map(r => ({
             id: r.id,
             projectId: r.projectId,
@@ -87,17 +82,7 @@ export const useCanvasStore = create<CanvasStore>()(
       createDocument: async ({ title, content, projectId, conversationId }) => {
         const id = generateClientId();
         const now = new Date();
-        const local = {
-          id,
-          title,
-          content,
-          projectId,
-          conversationId,
-          createdAt: now,
-          updatedAt: now,
-          ...createSyncMeta(getUserId()),
-        };
-        await db.canvasDocuments.add(local);
+        await db.canvasDocuments.add({ id, title, content, projectId, conversationId, createdAt: now, updatedAt: now });
         const doc: CanvasDocument = { id, title, content, projectId, conversationId, createdAt: now, updatedAt: now };
         set(s => ({ documents: [...s.documents, doc], activeDocumentId: id, isPanelOpen: true }));
         return id;
@@ -107,7 +92,7 @@ export const useCanvasStore = create<CanvasStore>()(
         const exists = get().documents.some(d => d.id === id);
         if (!exists) return;
         const now = new Date();
-        await db.canvasDocuments.update(id, { ...updates, updatedAt: now, pendingSync: true });
+        await db.canvasDocuments.update(id, { ...updates, updatedAt: now });
         set(s => ({
           documents: s.documents.map(d =>
             d.id === id ? { ...d, ...updates, updatedAt: now } : d
@@ -123,7 +108,7 @@ export const useCanvasStore = create<CanvasStore>()(
       },
 
       deleteDocument: async (id) => {
-        await db.canvasDocuments.update(id, { deleted: true, pendingSync: true });
+        await db.canvasDocuments.delete(id);
         set(s => ({
           documents: s.documents.filter(d => d.id !== id),
           activeDocumentId: s.activeDocumentId === id ? null : s.activeDocumentId,

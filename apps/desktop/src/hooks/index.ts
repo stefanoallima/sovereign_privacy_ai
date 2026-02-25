@@ -9,6 +9,5 @@ export { useVoice } from './useVoice';
 export { useLiveKit } from './useLiveKit';
 export { useGlobalShortcut } from './useGlobalShortcut';
 export { useOnlineStatus } from './useOnlineStatus';
-export { useSync } from './useSync';
 export { useMediaQuery } from './useMediaQuery';
 export { usePrivacyChat, type PrivacyStatus } from './usePrivacyChat';
