@@ -437,8 +437,8 @@ section {
 }
 
 .mode-card-contrast {
-  border-color: rgba(239, 68, 68, 0.2);
-  background: rgba(239, 68, 68, 0.03);
+  border-color: rgba(234, 115, 23, 0.2);
+  background: rgba(234, 115, 23, 0.03);
   opacity: 0.75;
 }
 
@@ -463,9 +463,9 @@ section {
   top: -11px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(239, 68, 68, 0.15);
-  color: rgb(239, 68, 68);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(234, 115, 23, 0.15);
+  color: rgb(234, 115, 23);
+  border: 1px solid rgba(234, 115, 23, 0.3);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -495,7 +495,7 @@ section {
 .mode-icon-local  { background: rgba(52, 211, 153, 0.12); }
 .mode-icon-shield { background: rgba(108, 99, 255, 0.12); }
 .mode-icon-perf   { background: rgba(251, 191, 36, 0.12); }
-.mode-icon-contrast { background: rgba(239, 68, 68, 0.12); }
+.mode-icon-contrast { background: rgba(234, 115, 23, 0.12); }
 
 .mode-title {
   font-size: 0.95rem;
@@ -512,7 +512,7 @@ section {
   margin: 2px 0 0;
 }
 
-.mode-subtitle-contrast { color: rgba(239, 68, 68, 0.7); }
+.mode-subtitle-contrast { color: rgba(234, 115, 23, 0.7); }
 
 /* Bar rows */
 .mode-bars {
@@ -552,7 +552,7 @@ section {
 .mode-bar-green  { background: #34d399; }
 .mode-bar-blue   { background: #6c63ff; }
 .mode-bar-amber  { background: #fbbf24; }
-.mode-bar-red    { background: #ef4444; }
+.mode-bar-red    { background: #ea7317; }
 .mode-bar-muted  { background: rgba(255, 255, 255, 0.2); }
 
 .mode-bar-value {
@@ -586,7 +586,7 @@ section {
   margin: 0;
 }
 
-.mode-manages-label-contrast { color: rgba(239, 68, 68, 0.7); }
+.mode-manages-label-contrast { color: rgba(234, 115, 23, 0.7); }
 
 .mode-tags {
   display: flex;
@@ -605,9 +605,9 @@ section {
 }
 
 .mode-tag-contrast {
-  background: rgba(239, 68, 68, 0.06);
-  border-color: rgba(239, 68, 68, 0.15);
-  color: rgba(239, 68, 68, 0.7);
+  background: rgba(234, 115, 23, 0.06);
+  border-color: rgba(234, 115, 23, 0.15);
+  color: rgba(234, 115, 23, 0.7);
 }
 
 /* What leaves your device */
@@ -625,11 +625,11 @@ section {
 .mode-what-leaves strong { color: var(--text-primary); }
 
 .mode-what-leaves-contrast {
-  border-color: rgba(239, 68, 68, 0.1);
-  color: rgba(239, 68, 68, 0.6);
+  border-color: rgba(234, 115, 23, 0.1);
+  color: rgba(234, 115, 23, 0.6);
 }
 
-.mode-what-leaves-contrast strong { color: rgba(239, 68, 68, 0.85); }
+.mode-what-leaves-contrast strong { color: rgba(234, 115, 23, 0.85); }
 
 .mode-leaves-icon { flex-shrink: 0; font-size: 0.85rem; }
 
