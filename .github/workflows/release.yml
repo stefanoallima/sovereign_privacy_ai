@@ -96,6 +96,15 @@ jobs:
         working-directory: apps/desktop
         run: pnpm install
 
+      - name: Set version from tag
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # strip leading 'v'
+          # Patch version into tauri.conf.json so installer filename matches the tag
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" apps/desktop/src-tauri/tauri.conf.json
+          echo "Building version $VERSION"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
