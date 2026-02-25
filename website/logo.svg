@@ -1,0 +1,75 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background filter for a subtle inner glow on the shield -->
+    <filter id="glowSubtle" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Intense glow for the output and core -->
+    <filter id="glowIntense" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A78BFA"/> <!-- Light Violet -->
+      <stop offset="100%" stop-color="#4C1D95"/> <!-- Deep Violet -->
+    </linearGradient>
+
+    <linearGradient id="beam" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#8B5CF6"/> <!-- Vibrant Violet -->
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
+
+    <!-- PII Data Gradients -->
+    <linearGradient id="dataRed" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#EF4444" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#EF4444"/>
+    </linearGradient>
+    <linearGradient id="dataAmber" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="dataEmerald" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="transparent"/>
+
+  <!-- The Local Data Input Streams (PII) represented as raw incoming data packages -->
+  <path d="M 140 460 Q 160 360 210 320" stroke="url(#dataRed)" stroke-width="12" stroke-linecap="round" stroke-dasharray="1 22" filter="url(#glowSubtle)"/>
+  <path d="M 256 460 L 256 340" stroke="url(#dataAmber)" stroke-width="14" stroke-linecap="round" stroke-dasharray="1 26" filter="url(#glowSubtle)"/>
+  <path d="M 372 460 Q 352 360 302 320" stroke="url(#dataEmerald)" stroke-width="12" stroke-linecap="round" stroke-dasharray="1 22" filter="url(#glowSubtle)"/>
+
+  <!-- The Privacy Engine (Sovereign Shield) -->
+  <!-- Solid backing to ground the structure and envelope the data locally -->
+  <path d="M 256 120 L 400 200 L 400 360 L 256 440 L 112 360 L 112 200 Z" fill="#0F172A" fill-opacity="0.85"/>
+  
+  <path d="M 256 120 L 400 200 L 400 360 L 256 440 L 112 360 L 112 200 Z" stroke="url(#shieldGrad)" stroke-width="20" stroke-linejoin="round" filter="url(#glowSubtle)"/>
+  
+  <!-- Faceting structural lines showing data routing within the local perimeter -->
+  <path d="M 256 120 L 256 280 M 112 200 L 256 280 M 400 200 L 256 280 M 112 360 L 256 280 M 400 360 L 256 280 M 256 440 L 256 280" stroke="url(#shieldGrad)" stroke-width="6" stroke-opacity="0.6"/>
+
+  <!-- The Anonymized, Clean Output Beam (Data routing to Cloud safely) -->
+  <path d="M 256 120 L 256 44" stroke="url(#beam)" stroke-width="24" stroke-linecap="round" filter="url(#glowIntense)"/>
+  
+  <!-- The Core Processor (Privacy Guard Engine sanitizing the inputs) -->
+  <polygon points="256,240 291,260 291,300 256,320 221,300 221,260" fill="#FFFFFF" filter="url(#glowIntense)"/>
+
+  <!-- Council Agent Nodes at vertices (The multidisciplinary AI experts) -->
+  <circle cx="256" cy="120" r="14" fill="#FFFFFF" filter="url(#glowSubtle)"/> <!-- Top Node Output -->
+  <circle cx="400" cy="200" r="12" fill="#E879F9" filter="url(#glowSubtle)"/> <!-- Top Right / Creative -->
+  <circle cx="400" cy="360" r="12" fill="#818CF8" filter="url(#glowSubtle)"/> <!-- Bot Right / Legal -->
+  <circle cx="256" cy="440" r="12" fill="#4C1D95" filter="url(#glowSubtle)"/> <!-- Bottom Core Route -->
+  <circle cx="112" cy="360" r="12" fill="#FBBF24" filter="url(#glowSubtle)"/> <!-- Bot Left / Finance -->
+  <circle cx="112" cy="200" r="12" fill="#F87171" filter="url(#glowSubtle)"/> <!-- Top Left / Health -->
+</svg>
