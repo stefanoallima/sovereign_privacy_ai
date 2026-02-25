@@ -103,8 +103,10 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"  # strip leading 'v'
-          # Patch version into tauri.conf.json so installer filename matches the tag
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" apps/desktop/src-tauri/tauri.conf.json
+          # Patch version into tauri.conf.json so installer filename matches the tag.
+          # Use perl instead of sed -i because BSD sed (macOS) requires 'sed -i ""' while
+          # GNU sed (Linux/Windows) requires 'sed -i'. perl -i works on all platforms.
+          perl -i -pe "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" apps/desktop/src-tauri/tauri.conf.json
           echo "Building version $VERSION"
 
       - name: Build Tauri app
