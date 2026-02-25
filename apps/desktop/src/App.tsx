@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
-import { useSettingsStore, useAuthStore, useChatStore, useRequireAuth, useCanvasStore } from "@/stores";
+import { useSettingsStore, useChatStore, useCanvasStore } from "@/stores";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ContextPanel } from "@/components/contexts/ContextPanel";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
-import { AuthScreen } from "@/components/auth/AuthScreen";
 import { Drawer } from "@/components/layout/Drawer";
 import { BottomSheet } from "@/components/layout/BottomSheet";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
-import { useSync } from "@/hooks/useSync";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 // Tax Audit is now a persona - TaxAuditLayout removed
 import { DocumentUploadWidget } from "@/components/pii/DocumentUploadWidget";
@@ -45,9 +43,6 @@ function MainApp() {
   const [isSupportOpen, setIsSupportOpen] = useState(false);
 
   const isMobile = useIsMobile();
-
-  // Initialize sync
-  useSync();
 
   // Set up global shortcut listener for voice (Ctrl+Space)
   useGlobalShortcut();
@@ -262,15 +257,7 @@ function MainApp() {
 }
 
 function App() {
-  const { initialize: initAuth, isInitialized: authInitialized } = useAuthStore();
-  const { isReady, needsAuth } = useRequireAuth();
-
-  // Initialize auth store on mount
-  useEffect(() => {
-    initAuth();
-  }, [initAuth]);
-
-  // Apply theme based on system preference (for auth screen)
+  // Apply theme based on system preference
   useEffect(() => {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     document.documentElement.classList.toggle("dark", prefersDark);
@@ -284,17 +271,6 @@ function App() {
     return () => mediaQuery.removeEventListener("change", handler);
   }, []);
 
-  // Show loading while auth initializes
-  if (!authInitialized || !isReady) {
-    return <LoadingScreen />;
-  }
-
-  // Show auth screen if user needs to sign in
-  if (needsAuth) {
-    return <AuthScreen />;
-  }
-
-  // Show main app
   return <MainApp />;
 }
 
