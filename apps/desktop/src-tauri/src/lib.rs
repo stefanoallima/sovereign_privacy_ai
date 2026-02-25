@@ -133,11 +133,15 @@ pub fn run() {
     // Run migrations
     db::run_migrations(&conn).expect("Failed to run database migrations");
 
-    // Initialize TTS
-    let tts = PiperTts::new().expect("Failed to initialize TTS");
+    // Initialize TTS (non-fatal — voice features degrade gracefully if this fails)
+    let tts = PiperTts::new()
+        .map_err(|e| eprintln!("[startup] TTS unavailable: {e}"))
+        .ok();
 
-    // Initialize STT
-    let stt = WhisperStt::new().expect("Failed to initialize STT");
+    // Initialize STT (non-fatal — voice features degrade gracefully if this fails)
+    let stt = WhisperStt::new()
+        .map_err(|e| eprintln!("[startup] STT unavailable: {e}"))
+        .ok();
 
     // Initialize inference backend
     // Use AILOCALMIND_USE_OLLAMA=1 env var to fall back to Ollama (for development)
@@ -178,12 +182,10 @@ pub fn run() {
     // Initialize tax knowledge base
     let tax_knowledge = TaxKnowledgeBase::new();
 
-    // Initialize GLiNER backend for PII detection
+    // Initialize GLiNER backend for PII detection (non-fatal — PII shield degrades gracefully)
     let gliner_backend = GlinerBackend::new()
-        .unwrap_or_else(|e| {
-            eprintln!("Failed to initialize GLiNER backend: {}", e);
-            panic!("Critical: GLiNER backend failed");
-        });
+        .map_err(|e| eprintln!("[startup] GLiNER unavailable: {e}"))
+        .ok();
     let gliner_state = GlinerState(Arc::new(tokio::sync::Mutex::new(gliner_backend)));
 
     // Initialize backend routing state (shares inference backend)

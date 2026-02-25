@@ -4,14 +4,17 @@ use std::sync::Arc;
 use tauri::State;
 use tokio::sync::Mutex;
 
-pub struct GlinerState(pub Arc<Mutex<GlinerBackend>>);
+pub struct GlinerState(pub Arc<Mutex<Option<GlinerBackend>>>);
+
+const UNAVAILABLE: &str = "GLiNER backend unavailable (failed to initialise on startup)";
 
 /// List all available GLiNER models with download status and local paths.
 #[tauri::command]
 pub async fn list_gliner_models(
     state: State<'_, GlinerState>,
 ) -> Result<Vec<GlinerModelInfoWithStatus>, String> {
-    let backend = state.0.lock().await;
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or(UNAVAILABLE)?;
     Ok(backend.list_models())
 }
 
@@ -21,7 +24,8 @@ pub async fn download_gliner_model(
     state: State<'_, GlinerState>,
     model_id: String,
 ) -> Result<(), String> {
-    let backend = state.0.lock().await;
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or(UNAVAILABLE)?;
     info!("Starting download of GLiNER model: {}", model_id);
     backend.download_model(&model_id).await
 }
@@ -31,7 +35,8 @@ pub async fn download_gliner_model(
 pub async fn get_gliner_download_progress(
     state: State<'_, GlinerState>,
 ) -> Result<u8, String> {
-    let backend = state.0.lock().await;
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or(UNAVAILABLE)?;
     Ok(backend.get_download_progress())
 }
 
@@ -41,7 +46,8 @@ pub async fn delete_gliner_model(
     state: State<'_, GlinerState>,
     model_id: String,
 ) -> Result<(), String> {
-    let backend = state.0.lock().await;
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or(UNAVAILABLE)?;
     info!("Deleting GLiNER model: {}", model_id);
     backend.delete_model(&model_id)
 }
@@ -51,7 +57,8 @@ pub async fn delete_gliner_model(
 pub async fn get_gliner_models_dir(
     state: State<'_, GlinerState>,
 ) -> Result<String, String> {
-    let backend = state.0.lock().await;
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or(UNAVAILABLE)?;
     Ok(backend.get_models_directory())
 }
 
@@ -63,7 +70,8 @@ pub async fn detect_pii_with_gliner(
     confidence_threshold: Option<f32>,
     enabled_labels: Option<Vec<String>>,
 ) -> Result<Vec<DetectedEntity>, String> {
-    let backend = state.0.lock().await;
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or(UNAVAILABLE)?;
     info!("Detecting PII with GLiNER (text length: {} chars)", text.len());
     backend.detect_pii(&text, confidence_threshold, enabled_labels).await
 }

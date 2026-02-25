@@ -58,3 +58,6 @@ ios/
 
 # Internal QA automation
 qa-automation/
+
+# Test results
+test-results/
