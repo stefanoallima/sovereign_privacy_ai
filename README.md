@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <strong>Private AI Council for Privacy Sensitive Minds</strong><br>
-  <em>Run your own Multidisciplinary AI Council. 100% Offline.</em>
+  <strong>Your data is yours. Not theirs.</strong><br>
+  <em>What you type stays on your machine. No training. No ads. No one else&rsquo;s roadmap funded by your questions.</em>
 </p>
 
 <p align="center">
@@ -17,7 +17,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-6c63ff?style=flat-square" alt="License">
-  <img src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square&logo=windows" alt="Platform">
+  <img src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square&logo=windows" alt="Windows">
+  <img src="https://img.shields.io/badge/platform-macOS_Apple_Silicon-000000?style=flat-square&logo=apple" alt="macOS Apple Silicon">
   <img src="https://img.shields.io/badge/tauri-v2-24C8DB?style=flat-square&logo=tauri" alt="Tauri v2">
   <img src="https://img.shields.io/badge/react-v19-61DAFB?style=flat-square&logo=react" alt="React 19">
   <img src="https://img.shields.io/badge/rust-1.75+-DEA584?style=flat-square&logo=rust" alt="Rust">
@@ -27,21 +28,25 @@
 
 ### Why Sovereign AI?
 
-Inspired by the "AI Council" workflows of Andrej Karpathy and Andrew Ng -- where a board of specialized AI agents collaborates to solve complex problems. But there's a catch: running that workflow on ChatGPT, Claude, and Gemini means sending your tax records, health info, and legal documents to five different cloud companies.
+You tell AI things you wouldn't tell your doctor. Your health worries. Your financial anxiety. Your family situation. Every one of those questions leaves your device permanently — and what happens to it next is their decision, not yours.
 
-**Sovereign AI gives you the same council -- on your own hardware.**
+**Three things worth knowing before you use cloud AI for the personal stuff:**
 
-- Deploy a **private board of directors**: @tax-navigator, @legal-advisor, @financial-advisor, @career-coach, @health-coach, @personal-branding, @social-media, @real-estate, @cybersecurity, @immigration, @investment, @negotiation, @digital-twin, @creative -- each with independent privacy rules.
+- **Your data trains their models.** When you describe a health symptom or share a family situation, that text can become training material. Researchers at Google DeepMind demonstrated that prompts fed into large language models can be extracted verbatim — including personal data people thought they were asking in confidence. ([Carlini et al., 2021](https://arxiv.org/abs/2012.07805))
+- **Your questions are a profile of who you are.** Every question you ask tells a cloud AI company what you worry about, what you're going through, and what you need. OpenAI's Terms explicitly reserve the right to use your interactions. ([The Atlantic, 2024](https://www.theatlantic.com/technology/archive/2024/06/openai-startup-competition/678857/))
+- **Free AI has a business model. You're in it.** The most valuable ad targeting is built on what you've confided. You asked about a health scare — now an ad knows you're worried. OpenAI has discussed advertising. Microsoft already added ads to Copilot. ([WSJ](https://www.wsj.com/tech/ai/openai-considers-adding-advertising-to-its-business-5c0f4862), [The Verge](https://www.theverge.com/2024/4/24/24139361/microsoft-copilot-ads-bing-chat))
+
+**Sovereign AI doesn't ask you to stop using AI. It gives you a version you can use without wondering whether you should.**
+
+- **14 private advisors for your life**: @tax-navigator, @legal-advisor, @financial-advisor, @career-coach, @health-coach, @personal-branding, @social-media, @real-estate, @cybersecurity, @immigration, @investment, @negotiation, @digital-twin, @creative -- each with independent privacy rules.
 - Your sensitive data **never leaves your machine** unless you explicitly approve it through the Redaction Dashboard.
-- When cloud AI is needed, only anonymized categorical attributes are sent (e.g., "income bracket: 50k-75k") -- never your actual numbers, names, or documents.
-- Enable **Airplane Mode** and the entire council runs locally. Zero network requests. Zero trust required.
-
-**You shouldn't have to choose between a powerful AI council and your right to privacy.**
+- When cloud AI is needed, only anonymized categorical attributes are sent (e.g., "income bracket: 50k-75k") -- never your actual details.
+- Enable **Local Mode** and everything runs on-device via embedded llama.cpp. Zero network requests. Zero trust required.
 
 <br>
 
 > [!WARNING]
-> **Privacy Notice:** **Cloud mode** is designed for when you need a more powerful AI model that would be impractical to run locally. You can configure any OpenAI-compatible API endpoint in Settings. We default to [Nebius Token Factory](https://tokenfactory.nebius.com) because it is **EU-based** (data centers in Finland and France) and offers a **Zero Data Retention (ZDR)** option. However, **ZDR is NOT enabled by default** -- you must manually activate it in your Nebius account settings. Without ZDR, Nebius stores your prompts and outputs to power speculative decoding (performance optimization). With ZDR enabled, your data is never stored and never used for model training. See the [Nebius Account Setup](#nebius-account-setup) section below. For maximum privacy, use **Airplane Mode** (fully local, zero network requests).
+> **Privacy Notice:** **Cloud mode** is designed for when you need a more powerful AI model that would be impractical to run locally. You can configure any OpenAI-compatible API endpoint in Settings. We default to [Nebius Token Factory](https://tokenfactory.nebius.com) because it is **EU-based** (data centers in Finland and France) and offers a **Zero Data Retention (ZDR)** option. However, **ZDR is NOT enabled by default** -- you must manually activate it in your Nebius account settings. Without ZDR, Nebius stores your prompts and outputs to power speculative decoding (performance optimization). With ZDR enabled, your data is never stored and never used for model training. See the [Nebius Account Setup](#nebius-account-setup) section below. For maximum privacy, use **Local Mode** (fully on-device, zero network requests).
 
 <br>
 
@@ -49,25 +54,21 @@ Inspired by the "AI Council" workflows of Andrej Karpathy and Andrew Ng -- where
 
 ### For users (download the app)
 
-1. Download the latest `.exe` installer from [Releases](https://github.com/your-username/Sovereign AI/releases)
+1. Download the latest installer from [Releases](https://github.com/stefanoallima/sovereign-ai/releases) — `.exe` for Windows, `.dmg` for macOS Apple Silicon
 2. Install and open Sovereign AI
-3. Set up your Nebius account ([see instructions below](#nebius-account-setup))
-4. Enter your API key and endpoint in Sovereign AI Settings
+3. **Cloud mode**: Set up your Nebius account ([see instructions below](#nebius-account-setup)), then enter your API key in Settings
+4. **Local mode**: Go to Settings → Privacy → download a Qwen3 model (built-in, no extra installs needed)
 5. Choose a persona and start chatting
-
-> **Want fully offline mode?** Install [Ollama](https://ollama.ai/), run `ollama pull mistral:7b-instruct-q5_K_M` (one-time ~5 GB download), then enable **Airplane Mode** in Settings. No Nebius account needed.
 
 ### For developers (build from source)
 
-**Prerequisites:** [Node.js](https://nodejs.org/) 22+, [pnpm](https://pnpm.io/) 10+, [Rust](https://rustup.rs/) 1.75+
+**Prerequisites:** [Node.js](https://nodejs.org/) 22+, [pnpm](https://pnpm.io/) 10+, [Rust](https://rustup.rs/) 1.75+, [CMake](https://cmake.org/) 3.15+
 
 ```bash
-git clone https://github.com/your-username/Sovereign AI.git
-cd Sovereign AI/apps/desktop
+git clone https://github.com/stefanoallima/sovereign-ai.git
+cd sovereign-ai/apps/desktop
 
 pnpm install
-cp ../../.env.example ../../.env    # then edit with your API keys
-
 pnpm tauri dev
 ```
 
@@ -121,6 +122,20 @@ Ingest PDF and DOCX files with automatic PII detection. Sensitive fields are mas
 <tr>
 <td>
 
+### &#128737; GLiNER Privacy Shield
+On-device neural PII detection powered by [GLiNER](https://github.com/urchade/GLiNER). Automatically identifies names, phone numbers, emails, addresses, SSNs, and more in your messages before they leave the app. Runs entirely locally via ONNX Runtime -- no cloud required.
+
+</td>
+<td>
+
+### &#128179; PII Vault
+Detected personal data can be saved to your encrypted local vault. Vault entries are automatically substituted with safe placeholders in future messages, so you never accidentally leak the same information twice.
+
+</td>
+</tr>
+<tr>
+<td>
+
 ### &#127758; Dutch Tax Knowledge
 Built-in understanding of Dutch tax concepts: Box 1/2/3, deductions, BSN validation, and more.
 
@@ -142,33 +157,39 @@ The privacy pipeline ensures your sensitive data never reaches cloud LLMs:
 
 ```
                     +-----------------------+
-  Your message ---> |  1. Backend Router    |  Decides: local, cloud, or hybrid
+  Your message ---> |  1. Privacy Shield    |  GLiNER detects PII on-device
+                    |     (GLiNER)         |  Offers to save to PII Vault
                     +-----------------------+
                               |
                               v
                     +-----------------------+
-                    |  2. Attribute Extract  |  Extracts categories only:
+                    |  2. Backend Router    |  Decides: local, cloud, or hybrid
+                    +-----------------------+
+                              |
+                              v
+                    +-----------------------+
+                    |  3. Attribute Extract  |  Extracts categories only:
                     |                       |  income_bracket: "50k-75k"
                     |                       |  employment_type: "employed"
                     +-----------------------+
                               |
                               v
                     +-----------------------+
-                    |  3. Prompt Review     |  YOU see the sanitized prompt
-                    |     (NEW!)           |  Edit, approve, or cancel
+                    |  4. Prompt Review     |  YOU see the sanitized prompt
+                    |                      |  Edit, approve, or cancel
                     +-----------------------+  before anything is sent
                           |           |
                     [Approve]    [Cancel -> stop, nothing sent]
                           |
                           v
                     +-----------------------+
-                    |  4. Cloud LLM         |  Sees: "User in 50k-75k bracket,
+                    |  5. Cloud LLM         |  Sees: "User in 50k-75k bracket,
                     |     (Nebius API)      |   employed, asking about Box 1"
                     +-----------------------+  Returns: "Your [INCOME] falls in..."
                               |
                               v
                     +-----------------------+
-                    |  5. Re-hydration      |  Fills [INCOME] -> "62,500"
+                    |  6. Re-hydration      |  Fills [INCOME] -> "62,500"
                     |     (local only)      |  Fills [BSN] -> "123456789"
                     +-----------------------+
                               |
@@ -243,7 +264,6 @@ The default mode uses [Nebius Token Factory](https://tokenfactory.nebius.com) as
 3. **Get your API key**
    - Navigate to the API keys section in your account
    - Create a new API key and copy it
-   - See [Authentication docs](https://docs.tokenfactory.nebius.com/api-reference/introduction#authentication) for details
 4. **Configure Sovereign AI**
    - Open Sovereign AI Settings
    - Paste your API key in the **Nebius API Key** field
@@ -257,37 +277,34 @@ The default mode uses [Nebius Token Factory](https://tokenfactory.nebius.com) as
 
 | Model | Strengths | Context |
 |-------|----------|---------|
-| Qwen3 32B Fast | Best balance of speed & quality (default) | 32k |
-| DeepSeek V3 | Strong reasoning | 64k |
-| Llama 3.1 70B | High quality, large context | 128k |
-| Mistral Nemo | Fast, lightweight | 128k |
+| **MiniMax M2.1** (default) | Best balance of speed & quality | 128k |
+| Kimi K2.5 | Strong reasoning, long context | 128k |
+| Qwen3 32B | Fast, high quality | 128k |
 
 > [!NOTE]
-> Model availability may change as Nebius updates their catalog. Check [Nebius Token Factory](https://tokenfactory.nebius.com) for the latest list.
+> Model availability may change as Nebius updates their catalog. Check [Nebius Token Factory](https://tokenfactory.nebius.com) for the latest list. You can also add any OpenAI-compatible model via Settings → Custom Models.
 
-### Airplane Mode (fully offline) -- Ollama
+### Local Mode (fully offline) -- Embedded llama.cpp
 
-For maximum privacy, enable **Airplane Mode** in Settings. This routes all AI requests through [Ollama](https://ollama.ai/), running entirely on your machine with **zero network requests**.
+For maximum privacy, switch to **Local Mode** in Settings. This routes all AI requests through the **embedded llama.cpp engine** -- running entirely on your machine with **zero network requests and no extra installs**.
 
 **Setup (one-time):**
 
-1. Install [Ollama](https://ollama.ai/) (free, ~100 MB)
-2. Open a terminal and download a model:
-   ```bash
-   ollama pull mistral:7b-instruct-q5_K_M
-   ```
-3. Enable **Airplane Mode** in Sovereign AI Settings
+1. Open Sovereign AI → Settings → Privacy
+2. Select a Qwen3 model to download (~1–5 GB depending on size)
+3. Switch to **Local Mode** in the model selector
 
-**Recommended local model:**
+**Available local models:**
 
 | Model | Size | RAM needed | Best for |
 |-------|------|-----------|----------|
-| **Mistral 7B** (default) | ~5 GB | 8 GB+ | General chat, privacy pipeline |
+| **Qwen3 1.7B** (default) | ~1.5 GB | 4 GB+ | Fast local chat, privacy pipeline |
+| Qwen3 4B | ~3 GB | 6 GB+ | Better quality, still fast |
+| Qwen3 8B | ~5 GB | 8 GB+ | High quality local inference |
+| Qwen3 0.6B | ~600 MB | 2 GB+ | Ultra-light, older hardware |
 
 > [!IMPORTANT]
-> **Local models are NOT bundled with the app.** You must install Ollama and download models separately. Each model is a 3-8 GB download. The app ships with Mistral 7B as the recommended default because it offers the best balance of quality and resource usage for the privacy/anonymization pipeline.
->
-> Advanced users can add more models via `ollama pull <model-name>` -- they will appear automatically in the model selector. See the [Ollama model library](https://ollama.com/library) for options.
+> Local models are downloaded on demand from HuggingFace. No models are bundled in the installer. The download happens once and models are stored locally in your app data directory.
 
 ### When to use which mode
 
@@ -295,8 +312,8 @@ For maximum privacy, enable **Airplane Mode** in Settings. This routes all AI re
 |----------|-----------------|
 | General questions, no sensitive data | Cloud (faster, smarter) |
 | Tax questions with personal financial data | Hybrid (anonymize + cloud) |
-| Sensitive personal/health topics | Airplane (fully local) |
-| No internet connection | Airplane |
+| Sensitive personal/health topics | Local (fully on-device) |
+| No internet connection | Local |
 | Maximum speed, large documents | Cloud |
 
 <br>
@@ -342,12 +359,12 @@ For maximum privacy, enable **Airplane Mode** in Settings. This routes all AI re
 |-------|-----------|---------|
 | Desktop Shell | **Tauri 2** | Native window, IPC, system integration |
 | Frontend | **React 19** + TypeScript | Chat UI, persona config, privacy controls |
-| Backend | **Rust** | Encryption, PII processing, Ollama client |
+| Backend | **Rust** | Encryption, PII processing, local inference |
 | State | **Zustand** + **Dexie** (IndexedDB) | App state, persistent chat history |
 | Styling | **TailwindCSS v4** | Utility-first responsive design |
-| AI (cloud) | **Nebius AI Studio** | Cloud inference (zero data retention) |
-| AI (local) | **Ollama** | On-device inference (requires separate install) |
-| Voice | **LiveKit** | Real-time voice interaction |
+| AI (cloud) | **Nebius Token Factory** | Cloud inference (zero data retention, pay-per-token) |
+| AI (local) | **llama.cpp** (embedded) | On-device inference, no extra install |
+| PII Detection | **GLiNER** via ONNX Runtime | Neural named-entity recognition, fully local |
 | Encryption | **ChaCha20-Poly1305** | AEAD encryption for all PII |
 
 <br>
@@ -360,18 +377,24 @@ apps/desktop/
     components/
       chat/                    #   Chat window, message bubbles, prompt review, sidebar
       personas/                #   Persona config, LLM backend editor
+      pii/                     #   PII Vault, GLiNER confirmation panel, privacy indicator
       privacy/                 #   PII profile editor, privacy status
       settings/                #   App & privacy settings
-    hooks/                     #   useChat, usePrivacyChat, useVoice
+    hooks/                     #   useChat, usePrivacyChat
     services/                  #   TypeScript service layer
-    stores/                    #   Zustand (chat, settings, personas, profiles)
+    stores/                    #   Zustand (chat, settings, personas, profiles, piiVault)
     types/                     #   TypeScript type definitions
   src-tauri/                   # Rust backend
     src/
       lib.rs                   #   Tauri app setup & command registration
       db.rs                    #   SQLite database
       crypto.rs                #   ChaCha20-Poly1305 encryption
-      ollama.rs                #   Ollama HTTP client
+      ollama.rs                #   Ollama HTTP client (fallback)
+      inference.rs             #   LocalInference trait (backend abstraction)
+      llama_backend.rs         #   Embedded llama.cpp backend
+      inference_commands.rs    #   Tauri commands for local inference
+      gliner.rs                #   GLiNER model management & inference
+      gliner_commands.rs       #   Tauri commands for PII detection
       anonymization.rs         #   PII detection & replacement
       attribute_extraction.rs  #   Categorical attribute extraction
       rehydration.rs           #   Template filling with real values
@@ -403,5 +426,5 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  <sub>Built with &#128156; for people who refuse to trade privacy for intelligence</sub>
+  <sub>Built with &#128156; for people who refuse to trade their data for intelligence</sub>
 </p>
