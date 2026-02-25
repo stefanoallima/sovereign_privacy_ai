@@ -40,5 +40,12 @@
       "icons/icon.ico"
     ]
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/stefanoallima/sovereign_privacy_ai/releases/latest/download/latest.json"
+      ]
+    }
+  }
 }

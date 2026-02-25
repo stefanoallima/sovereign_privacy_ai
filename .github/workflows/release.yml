@@ -113,6 +113,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # aarch64-apple-darwin minimum is 11.0 (Apple Silicon launched with macOS 11)
           MACOSX_DEPLOYMENT_TARGET: "11.0"
+          # Signing key for auto-updater (set in GitHub repo secrets)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
@@ -121,6 +124,8 @@ jobs:
             Download Sovereign AI for your platform:
             - **Windows**: `.exe` installer
             - **macOS (Apple Silicon)**: `.dmg` for M1/M2/M3
+            - **macOS (Intel)**: `.dmg` for Intel Macs
           releaseDraft: false
           prerelease: false
+          updaterJsonKeepUniversal: true
           args: --target ${{ matrix.target }}

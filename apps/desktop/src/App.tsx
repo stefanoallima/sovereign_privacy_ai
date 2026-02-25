@@ -16,6 +16,7 @@ import { useProfileStore } from "@/stores/profiles";
 import { useWizardStore } from "@/stores/wizard";
 import { SetupWizard } from "@/components/wizard/SetupWizard";
 import { SupportChat } from "@/components/support/SupportChat";
+import { UpdateNotification } from "@/components/updater/UpdateNotification";
 import { useAppTour } from "@/hooks/useAppTour";
 import "@/styles/tour.css";
 
@@ -252,6 +253,9 @@ function MainApp() {
           </div>
         </div>
       )}
+
+      {/* Auto-update notification */}
+      <UpdateNotification />
     </>
   );
 }
