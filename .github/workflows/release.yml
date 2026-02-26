@@ -58,16 +58,19 @@ jobs:
             # cmake crate 0.1.57 emits --target=arm64-apple-macosx (unversioned); with Apple
             # clang 16+ that unversioned triple overrides -mmacosx-version-min and leaves OS
             # as "unknown", making std::filesystem appear unavailable.
-            # Fix: append a versioned triple via CFLAGS/CXXFLAGS so it wins over cmake's one.
+            # Fix: append a versioned triple via global CFLAGS/CXXFLAGS.
+            # Global CFLAGS is safe here because the runner IS arm64 (host == target arch),
+            # so host-compiled build scripts and proc-macros also compile as arm64 correctly.
             echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
             echo "CFLAGS=--target=arm64-apple-macos11.0 -mmacosx-version-min=11.0" >> $GITHUB_ENV
             echo "CXXFLAGS=--target=arm64-apple-macos11.0 -mmacosx-version-min=11.0" >> $GITHUB_ENV
           else
-            # Intel x86_64 — runners are Apple Silicon but we cross-compile for x86_64.
-            # Do NOT set arm64 CFLAGS here; let cc/cmake infer the correct x86_64 triple.
+            # Intel x86_64 cross-compile from an ARM64 runner.
+            # Do NOT set global CFLAGS/CXXFLAGS: they would bleed into host-arch (arm64)
+            # builds for proc-macros and build scripts, producing arm64/x86_64 arch mismatches.
+            # The cc and cmake crates honour the cargo TARGET env var and add the correct triple
+            # automatically, so no extra flags are needed.
             echo "MACOSX_DEPLOYMENT_TARGET=10.13" >> $GITHUB_ENV
-            echo "CFLAGS=--target=x86_64-apple-macos10.13 -mmacosx-version-min=10.13" >> $GITHUB_ENV
-            echo "CXXFLAGS=--target=x86_64-apple-macos10.13 -mmacosx-version-min=10.13" >> $GITHUB_ENV
           fi
 
           # Use a short target dir to keep paths manageable
