@@ -66,11 +66,22 @@ jobs:
             echo "CXXFLAGS=--target=arm64-apple-macos11.0 -mmacosx-version-min=11.0" >> $GITHUB_ENV
           else
             # Intel x86_64 cross-compile from an ARM64 runner.
-            # Do NOT set global CFLAGS/CXXFLAGS: they would bleed into host-arch (arm64)
-            # builds for proc-macros and build scripts, producing arm64/x86_64 arch mismatches.
-            # The cc and cmake crates honour the cargo TARGET env var and add the correct triple
-            # automatically, so no extra flags are needed.
-            echo "MACOSX_DEPLOYMENT_TARGET=10.13" >> $GITHUB_ENV
+            # llama.cpp's ggml-backend-reg.cpp uses std::filesystem which requires macOS 10.15+.
+            # clang auto-adds --target=x86_64-apple-macosx (unversioned) when cross-compiling,
+            # which makes the OS version "unknown" and std::filesystem appear unavailable.
+            # Fix: inject the versioned triple via target-specific env vars only (to avoid
+            # contaminating host arm64 builds for proc-macros / build scripts).
+            #
+            #  • CFLAGS_x86_64_apple_darwin  – picked up by cc crate for cc-based crates (ring,
+            #                                  zstd, onig, etc.); does NOT affect host builds.
+            #  • CMAKE_C/CXX_FLAGS           – cmake crate reads these and passes them as
+            #                                  -DCMAKE_C_FLAGS to cmake (llama-cpp-sys-2).
+            TARGET_FLAGS="-target x86_64-apple-macos10.15 -mmacosx-version-min=10.15"
+            echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
+            echo "CFLAGS_x86_64_apple_darwin=$TARGET_FLAGS" >> $GITHUB_ENV
+            echo "CXXFLAGS_x86_64_apple_darwin=$TARGET_FLAGS" >> $GITHUB_ENV
+            echo "CMAKE_C_FLAGS=$TARGET_FLAGS" >> $GITHUB_ENV
+            echo "CMAKE_CXX_FLAGS=$TARGET_FLAGS" >> $GITHUB_ENV
           fi
 
           # Use a short target dir to keep paths manageable
