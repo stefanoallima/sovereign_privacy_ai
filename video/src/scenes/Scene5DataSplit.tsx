@@ -20,12 +20,14 @@ export const Scene5DataSplit: React.FC = () => {
   const frame = useCurrentFrame();
 
   const dividerHeight = interpolate(frame, [10, 40], [0, 1080], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
   const dividerGlow = 4 + Math.sin(frame * 0.15) * 3;
 
   const labelOpacity = interpolate(frame, [20, 40], [0, 1], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
@@ -65,9 +67,11 @@ export const Scene5DataSplit: React.FC = () => {
         </div>
         {LEFT_DATA.map((line, i) => {
           const lineOpacity = interpolate(frame, [40 + i * 15, 55 + i * 15], [0, 1], {
+            extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
           const lineX = interpolate(frame, [40 + i * 15, 55 + i * 15], [-20, 0], {
+            extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
           return (
@@ -128,9 +132,11 @@ export const Scene5DataSplit: React.FC = () => {
         </div>
         {RIGHT_DATA.map((line, i) => {
           const lineOpacity = interpolate(frame, [40 + i * 15, 55 + i * 15], [0, 1], {
+            extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
           const lineX = interpolate(frame, [40 + i * 15, 55 + i * 15], [20, 0], {
+            extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
           return (
@@ -162,7 +168,7 @@ export const Scene5DataSplit: React.FC = () => {
           fontSize: 28,
           fontWeight: 700,
           color: COLORS.textPrimary,
-          opacity: interpolate(frame, [120, 150], [0, 1], { extrapolateRight: "clamp" }),
+          opacity: interpolate(frame, [120, 150], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
         }}
       >
         Powerful models get the context.{" "}

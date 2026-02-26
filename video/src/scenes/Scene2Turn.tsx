@@ -9,6 +9,7 @@ export const Scene2Turn: React.FC = () => {
   const { fps } = useVideoConfig();
 
   const flashOpacity = interpolate(frame, [0, 3, 8], [1, 0.6, 0], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 

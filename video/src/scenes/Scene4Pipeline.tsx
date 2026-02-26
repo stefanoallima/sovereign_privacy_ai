@@ -22,6 +22,15 @@ const NODES: {
 
 const PATH_D = "M 250 352 L 530 352 L 810 352 L 1050 592 L 770 592 L 490 592";
 
+const PATH_POINTS = [
+  { x: 250, y: 352 },
+  { x: 530, y: 352 },
+  { x: 810, y: 352 },
+  { x: 1050, y: 592 },
+  { x: 770, y: 592 },
+  { x: 490, y: 592 },
+];
+
 // Utility: interpolate a point along a polyline by [0,1] progress
 function getPointAlongPolyline(
   points: { x: number; y: number }[],
@@ -66,18 +75,10 @@ export const Scene4Pipeline: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  const pathLength = 1100;
+  const pathLength = 1500;
   const dashOffset = pathLength * (1 - lineProgress);
 
-  const pathPoints = [
-    { x: 250, y: 352 },
-    { x: 530, y: 352 },
-    { x: 810, y: 352 },
-    { x: 1050, y: 592 },
-    { x: 770, y: 592 },
-    { x: 490, y: 592 },
-  ];
-  const particleXY = getPointAlongPolyline(pathPoints, particleProgress);
+  const particleXY = getPointAlongPolyline(PATH_POINTS, particleProgress);
 
   const redactionProgress = interpolate(frame, [155, 175], [0, 1], {
     extrapolateLeft: "clamp",

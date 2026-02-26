@@ -10,9 +10,9 @@ export const Scene8CTA: React.FC = () => {
 
   const logoScale = spring({ frame: Math.max(0, frame - 10), fps, config: { stiffness: 50, damping: 14 } });
 
-  const btn1Opacity = interpolate(frame, [50, 70], [0, 1], { extrapolateRight: "clamp" });
-  const btn2Opacity = interpolate(frame, [65, 85], [0, 1], { extrapolateRight: "clamp" });
-  const tagOpacity  = interpolate(frame, [80, 100], [0, 1], { extrapolateRight: "clamp" });
+  const btn1Opacity = interpolate(frame, [50, 70], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const btn2Opacity = interpolate(frame, [65, 85], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const tagOpacity  = interpolate(frame, [80, 100], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const bgScale = interpolate(frame, [0, 300], [1.04, 1], { extrapolateRight: "clamp" });
 

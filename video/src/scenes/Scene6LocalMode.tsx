@@ -6,9 +6,9 @@ import { COLORS } from "../constants/colors";
 export const Scene6LocalMode: React.FC = () => {
   const frame = useCurrentFrame();
 
-  const wifiOpacity = interpolate(frame, [60, 80], [0, 1], { extrapolateRight: "clamp" });
+  const wifiOpacity = interpolate(frame, [60, 80], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const tokenCount = Math.floor(interpolate(frame, [90, 230], [0, 40], { extrapolateRight: "clamp" }));
+  const tokenCount = Math.floor(interpolate(frame, [90, 230], [0, 40], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
   const TOKENS = "The privacy pipeline protects your identity by running GLiNER locally. Zero network requests. Fully sovereign. All inference happens on your hardware.".split(" ");
 
   return (
@@ -57,7 +57,7 @@ export const Scene6LocalMode: React.FC = () => {
           color: COLORS.textPrimary,
           lineHeight: 1.7,
           fontFamily: "monospace",
-          opacity: interpolate(frame, [88, 95], [0, 1], { extrapolateRight: "clamp" }),
+          opacity: interpolate(frame, [88, 95], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
         }}
       >
         {TOKENS.slice(0, tokenCount).join(" ")}

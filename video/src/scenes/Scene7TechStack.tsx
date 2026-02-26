@@ -6,14 +6,14 @@ import { COLORS } from "../constants/colors";
 const BADGES = [
   { label: "Tauri 2",   color: COLORS.tauri  },
   { label: "Rust",      color: COLORS.rust   },
-  { label: "React 19",  color: COLORS.react  },
+  { label: "React 18",  color: COLORS.react  },
   { label: "GLiNER",    color: COLORS.accent },
 ];
 
 export const Scene7TechStack: React.FC = () => {
   const frame = useCurrentFrame();
 
-  const subOpacity = interpolate(frame, [60, 80], [0, 1], { extrapolateRight: "clamp" });
+  const subOpacity = interpolate(frame, [60, 80], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <AbsoluteFill
