@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useWizardStore } from "@/stores/wizard";
 import { useSettingsStore } from "@/stores/settings";
-import { Shield, Zap, Scale, CheckCircle2, Download, Loader2, SkipForward } from "lucide-react";
+import { Shield, Zap, Scale, CheckCircle2, Download, Loader2, SkipForward, Layers } from "lucide-react";
 
 interface GlinerModelStatus {
   id: string;
@@ -15,7 +15,7 @@ const TIERS = [
     id: "gliner-small",
     label: "Fast",
     tagline: "Quick & lightweight",
-    description: "Catches the most common personal details — names, emails, phone numbers. Runs quickly on any machine.",
+    description: "Catches the most common personal details — names, emails, phone numbers. Fast on any machine. May miss specialised identifiers such as SSNs or tax IDs — Layer 2 (LLM extraction) provides the safety net.",
     icon: Zap,
     iconColor: "text-amber-500",
     borderColor: "border-amber-200 dark:border-amber-800",
@@ -152,13 +152,37 @@ export function PrivacyGuardStep() {
         </div>
         <h2 className="text-2xl font-bold mb-2">Privacy Shield</h2>
         <p className="text-[hsl(var(--muted-foreground))] max-w-sm mx-auto text-sm leading-relaxed">
-          An on-device AI scanner spots personal details in your messages before they leave your device — names, emails, phone numbers and more get replaced with safe placeholders automatically.
+          In <strong>Smart Shield mode</strong>, your messages pass through two protection layers before anything reaches the cloud. This is <strong>Layer 1</strong>: an on-device AI scanner that spots and replaces personal details — names, emails, phone numbers and more — automatically.
         </p>
       </div>
 
-      {/* How it works */}
+      {/* Two layers of protection */}
+      <div className="rounded-xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] p-4 mb-4 text-sm">
+        <p className="font-medium mb-2.5 flex items-center gap-1.5">
+          <Layers className="h-4 w-4 text-[hsl(var(--primary))]" />
+          Two layers of protection
+        </p>
+        <div className="space-y-2.5">
+          <div className="flex gap-3 items-start">
+            <span className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-bold flex items-center justify-center">1</span>
+            <div>
+              <p className="font-medium text-xs">GLiNER scanner <span className="font-normal text-[hsl(var(--muted-foreground))]">— set up below</span></p>
+              <p className="text-[hsl(var(--muted-foreground))] text-xs leading-relaxed">On-device neural model. Detects names, emails, phones, addresses and more. The Fast tier may miss specialised identifiers like SSNs.</p>
+            </div>
+          </div>
+          <div className="flex gap-3 items-start">
+            <span className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[10px] font-bold flex items-center justify-center">2</span>
+            <div>
+              <p className="font-medium text-xs">LLM extraction <span className="font-normal text-[hsl(var(--muted-foreground))]">— always active</span></p>
+              <p className="text-[hsl(var(--muted-foreground))] text-xs leading-relaxed">Your local model converts raw values to safe categories (e.g. exact income → <em>[INCOME_BRACKET]</em>) before any cloud request. Acts as a safety net even when Layer 1 is skipped.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* How it works — Smart Shield scenario */}
       <div className="rounded-xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] p-4 mb-6 text-sm">
-        <p className="font-medium mb-2">How it protects you</p>
+        <p className="font-medium mb-2">How Smart Shield protects you</p>
         <div className="space-y-1.5 text-[hsl(var(--muted-foreground))]">
           <div className="flex gap-2">
             <span className="text-[hsl(var(--primary))] font-bold">1.</span>
@@ -166,11 +190,11 @@ export function PrivacyGuardStep() {
           </div>
           <div className="flex gap-2">
             <span className="text-[hsl(var(--primary))] font-bold">2.</span>
-            <span>Scanner detects PII on-device — nothing sent yet</span>
+            <span>Layer 1 (GLiNER) scans on-device — nothing sent yet</span>
           </div>
           <div className="flex gap-2">
             <span className="text-[hsl(var(--primary))] font-bold">3.</span>
-            <span>Cloud receives: <em>"My email is [EMAIL]"</em></span>
+            <span>The AI cloud provider will receive: <em>"My email is [EMAIL]"</em></span>
           </div>
           <div className="flex gap-2">
             <span className="text-[hsl(var(--primary))] font-bold">4.</span>
