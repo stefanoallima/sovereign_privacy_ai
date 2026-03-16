@@ -163,10 +163,10 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
     <div className="w-full max-w-2xl">
       {/* Upload Area */}
       {step === UploadStep.IDLE && (
-        <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 dark:bg-gray-800 dark:border-gray-600 p-8 text-center">
+        <div className="rounded-lg border-2 border-dashed border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)] p-8 text-center">
           <div className="flex justify-center">
             <svg
-              className="h-12 w-12 text-gray-400"
+              className="h-12 w-12 text-[hsl(var(--foreground-subtle))]"
               stroke="currentColor"
               fill="none"
               viewBox="0 0 48 48"
@@ -179,13 +179,13 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
               />
             </svg>
           </div>
-          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">Upload Document with PII</h3>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <h3 className="mt-4 text-lg font-medium text-[hsl(var(--foreground))]">Upload Document with PII</h3>
+          <p className="mt-2 text-sm text-[hsl(var(--foreground-muted))]">
             PDF, DOCX, or TXT files containing personal information (tax, medical, financial, identity documents)
           </p>
           <button
             onClick={handleFileSelect}
-            className="mt-6 inline-block cursor-pointer rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors"
+            className="mt-6 inline-block cursor-pointer rounded bg-[hsl(var(--primary))] px-4 py-2 font-medium text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary)/0.85)] transition-colors"
           >
             Choose File
           </button>
@@ -194,11 +194,11 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
 
       {/* Loading State */}
       {(step === UploadStep.UPLOADING || step === UploadStep.EXTRACTING || step === UploadStep.ANONYMIZING) && (
-        <div className="rounded-lg bg-blue-50 p-6 text-center">
+        <div className="rounded-lg bg-[hsl(var(--primary)/0.05)] p-6 text-center">
           <div className="flex justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[hsl(var(--primary)/0.2)] border-t-[hsl(var(--primary))]"></div>
           </div>
-          <p className="mt-4 font-medium text-blue-900">
+          <p className="mt-4 font-medium text-[hsl(var(--primary))]">
             {step === UploadStep.UPLOADING && 'Uploading...'}
             {step === UploadStep.EXTRACTING && 'Extracting information...'}
             {step === UploadStep.ANONYMIZING && 'Anonymizing data...'}
@@ -243,7 +243,7 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
 
           <button
             onClick={handleReset}
-            className="w-full rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
+            className="w-full rounded bg-[hsl(var(--primary))] px-4 py-2 font-medium text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary)/0.85)]"
           >
             Upload Another Document
           </button>
@@ -258,7 +258,7 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
           </div>
           <button
             onClick={handleReset}
-            className="w-full rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
+            className="w-full rounded bg-[hsl(var(--primary))] px-4 py-2 font-medium text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary)/0.85)]"
           >
             Try Again
           </button>

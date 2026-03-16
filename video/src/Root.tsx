@@ -1,10 +1,28 @@
 import React from "react";
-import { Composition } from "remotion";
+import { Composition, registerRoot } from "remotion";
 import { PromoVideo } from "./compositions/PromoVideo";
+import { StylePreview } from "./compositions/StylePreview";
+import { AppDemo } from "./compositions/AppDemo";
 
-export const RemotionRoot: React.FC = () => {
+const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Composition
+        id="StylePreview"
+        component={StylePreview}
+        durationInFrames={540}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
+      <Composition
+        id="AppDemo"
+        component={AppDemo}
+        durationInFrames={240}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
       <Composition
         id="PromoVideo"
         component={PromoVideo}
@@ -16,3 +34,5 @@ export const RemotionRoot: React.FC = () => {
     </>
   );
 };
+
+registerRoot(RemotionRoot);

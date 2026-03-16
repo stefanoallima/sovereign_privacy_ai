@@ -20,7 +20,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--foreground)/0.15)]">
       <div className="w-full max-w-4xl rounded-lg bg-[hsl(var(--card))] shadow-xl flex h-[80vh] overflow-hidden">
         {/* Sidebar Navigation */}
         <div className="w-64 border-r border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)] flex flex-col">

@@ -49,6 +49,7 @@ export interface AppSettings {
   airplaneModeModel: string;
 
   // Cloud trust
+  cloudTrustLevel: "trusted" | "partial" | "minimal" | null;
   skipCloudReview: boolean; // Skip per-message privacy review when trusting the cloud provider
 
   // UI

@@ -18,7 +18,7 @@ function LevelBar({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] font-medium text-[hsl(var(--muted-foreground))] w-[72px] text-right shrink-0">
+      <span className="text-[11px] font-medium text-[hsl(var(--muted-foreground))] w-[72px] text-right shrink-0">
         {label}
       </span>
       <div className="flex gap-0.5 flex-1">
@@ -47,7 +47,7 @@ const PRIVACY_OPTIONS = [
     privacy: 5,
     intelligence: 2,
     privacyColor: "bg-green-500",
-    intelligenceColor: "bg-blue-500",
+    intelligenceColor: "bg-[hsl(var(--primary))]",
     selectable: true,
     fallback: "Everything stays on your device — your conversations, your data, your AI. No internet connection is needed, and no data ever leaves your computer. The trade-off is that local models are smaller and less capable than cloud AI, but your privacy is absolute.",
     prompt: "The user chose Local Only mode — everything runs locally with no cloud. Give a brief encouraging comment about their privacy choice and mention the trade-off with intelligence.",
@@ -61,7 +61,7 @@ const PRIVACY_OPTIONS = [
     privacy: 4,
     intelligence: 4,
     privacyColor: "bg-green-500",
-    intelligenceColor: "bg-blue-500",
+    intelligenceColor: "bg-[hsl(var(--primary))]",
     selectable: true,
     fallback: "The best of both worlds — before your prompt leaves your device, the local Privacy Guard automatically removes personal details like names, addresses, and financial data. The anonymized prompt is then sent to a powerful cloud AI model for a high-quality response, which is re-enriched locally with your real information. You get strong AI intelligence without exposing your private data.",
     prompt: "The user chose Smart Shield — local anonymization with zero-retention cloud AI. Briefly explain how local PII stripping + cloud intelligence gives the best of both worlds.",
@@ -75,7 +75,7 @@ const PRIVACY_OPTIONS = [
     privacy: 3,
     intelligence: 5,
     privacyColor: "bg-yellow-500",
-    intelligenceColor: "bg-blue-500",
+    intelligenceColor: "bg-[hsl(var(--primary))]",
     selectable: true,
     fallback: "You'll get the fastest and most capable AI responses by connecting directly to a cloud provider. With zero data retention enabled, your prompts are processed and immediately discarded — never stored, never used for training. Make sure to enable zero retention in your provider's settings.",
     prompt: "The user chose Performance mode — direct cloud AI with zero retention. Give a brief encouraging comment and remind them to enable zero data retention.",
@@ -89,7 +89,7 @@ const PRIVACY_OPTIONS = [
     privacy: 1,
     intelligence: 5,
     privacyColor: "bg-red-500",
-    intelligenceColor: "bg-blue-500",
+    intelligenceColor: "bg-[hsl(var(--primary))]",
     selectable: false,
     fallback: "",
     prompt: "",
@@ -156,7 +156,7 @@ export function PrivacyProfileStep() {
               <h3 className={`font-semibold text-sm mb-0.5 pr-6 ${disabled ? "text-[hsl(var(--muted-foreground))]" : ""}`}>
                 {option.title}
               </h3>
-              <p className={`text-[10px] font-medium mb-3 ${disabled ? "text-red-400" : "text-[hsl(var(--muted-foreground))]"}`}>
+              <p className={`text-[11px] font-medium mb-3 ${disabled ? "text-red-400" : "text-[hsl(var(--muted-foreground))]"}`}>
                 {option.subtitle}
               </p>
 
@@ -180,7 +180,7 @@ export function PrivacyProfileStep() {
               </p>
 
               {/* Example */}
-              <p className={`text-[10px] leading-relaxed ${disabled ? "text-red-400/80 font-medium" : "italic text-[hsl(var(--muted-foreground)/0.6)]"}`}>
+              <p className={`text-[11px] leading-relaxed ${disabled ? "text-red-400/80 font-medium" : "italic text-[hsl(var(--muted-foreground)/0.6)]"}`}>
                 {option.example}
               </p>
             </button>

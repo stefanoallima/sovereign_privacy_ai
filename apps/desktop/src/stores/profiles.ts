@@ -44,9 +44,12 @@ const people: Person[] = [
     },
 
     fetchPII: async (personId: string) => {
-        // get_pii_for_person Rust command not yet registered — return empty until wired up
+        // get_pii_for_person Rust command not yet registered — preserve existing in-memory values
         set(state => ({
-            piiValues: { ...state.piiValues, [personId]: [] }
+            piiValues: {
+                ...state.piiValues,
+                [personId]: state.piiValues[personId] ?? []
+            }
         }));
     },
 

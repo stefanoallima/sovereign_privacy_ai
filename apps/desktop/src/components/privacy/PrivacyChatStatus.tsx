@@ -43,58 +43,58 @@ const MODE_CONFIG: Record<
   idle: {
     icon: <Shield size={14} />,
     label: 'Ready',
-    color: 'text-gray-500 dark:text-gray-400',
-    bgColor: 'bg-gray-500/10 dark:bg-gray-800/50',
-    borderColor: 'border-gray-500/20',
+    color: 'text-[hsl(var(--muted-foreground))]',
+    bgColor: 'bg-[hsl(var(--muted)/0.5)]',
+    borderColor: 'border-[hsl(var(--border)/0.5)]',
   },
   processing: {
     icon: <Loader2 size={14} className="animate-spin" />,
     label: 'Processing',
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-500/10 dark:bg-blue-900/30',
-    borderColor: 'border-blue-500/20',
+    color: 'text-[hsl(var(--primary))]',
+    bgColor: 'bg-[hsl(var(--primary)/0.1)]',
+    borderColor: 'border-[hsl(var(--primary)/0.2)]',
   },
   local: {
     icon: <Lock size={14} />,
     label: 'Local Only',
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-500/10 dark:bg-green-900/30',
-    borderColor: 'border-green-500/20',
+    color: 'text-[hsl(var(--status-safe))]',
+    bgColor: 'bg-[hsl(var(--status-safe-bg))]',
+    borderColor: 'border-[hsl(var(--status-safe-border))]',
   },
   attributes_only: {
     icon: <ShieldCheck size={14} />,
     label: 'Attributes Only',
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-500/10 dark:bg-green-900/30',
-    borderColor: 'border-green-500/20',
+    color: 'text-[hsl(var(--status-safe))]',
+    bgColor: 'bg-[hsl(var(--status-safe-bg))]',
+    borderColor: 'border-[hsl(var(--status-safe-border))]',
   },
   anonymized: {
     icon: <ShieldCheck size={14} />,
     label: 'Anonymized',
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-500/10 dark:bg-blue-900/30',
-    borderColor: 'border-blue-500/20',
+    color: 'text-[hsl(var(--primary))]',
+    bgColor: 'bg-[hsl(var(--primary)/0.1)]',
+    borderColor: 'border-[hsl(var(--primary)/0.2)]',
   },
   blocked: {
     icon: <Ban size={14} />,
     label: 'Blocked',
-    color: 'text-red-600 dark:text-red-400',
-    bgColor: 'bg-red-500/10 dark:bg-red-900/30',
-    borderColor: 'border-red-500/20',
+    color: 'text-[hsl(var(--status-danger))]',
+    bgColor: 'bg-[hsl(var(--status-danger-bg))]',
+    borderColor: 'border-[hsl(var(--status-danger-border))]',
   },
   direct: {
     icon: <Zap size={14} />,
     label: 'Direct',
-    color: 'text-amber-600 dark:text-amber-400',
-    bgColor: 'bg-amber-500/10 dark:bg-amber-900/30',
-    borderColor: 'border-amber-500/20',
+    color: 'text-[hsl(var(--status-caution))]',
+    bgColor: 'bg-[hsl(var(--status-caution-bg))]',
+    borderColor: 'border-[hsl(var(--status-caution-border))]',
   },
   pending_review: {
     icon: <Shield size={14} />,
     label: 'Review',
-    color: 'text-amber-600 dark:text-amber-400',
-    bgColor: 'bg-amber-500/10 dark:bg-amber-900/30',
-    borderColor: 'border-amber-500/20',
+    color: 'text-[hsl(var(--status-caution))]',
+    bgColor: 'bg-[hsl(var(--status-caution-bg))]',
+    borderColor: 'border-[hsl(var(--status-caution-border))]',
   },
 };
 
@@ -113,7 +113,7 @@ export const PrivacyChatStatus: React.FC<PrivacyChatStatusProps> = ({
     return (
       <button
         onClick={onClick}
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${config.bgColor} ${config.color} border ${config.borderColor} transition-all hover:opacity-80 ${className}`}
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${config.bgColor} ${config.color} border ${config.borderColor} transition-colors hover:opacity-80 ${className}`}
         title={status.explanation}
       >
         {config.icon}
@@ -127,16 +127,16 @@ export const PrivacyChatStatus: React.FC<PrivacyChatStatusProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold ${config.bgColor} ${config.color} border ${config.borderColor} transition-all ${
+      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold ${config.bgColor} ${config.color} border ${config.borderColor} transition-colors ${
         onClick ? 'cursor-pointer hover:opacity-80' : ''
       } ${className}`}
       title={status.explanation}
     >
       {config.icon}
-      <span className="uppercase tracking-wider text-[10px]">{status.label}</span>
+      <span className="uppercase tracking-wider text-[11px]">{status.label}</span>
 
       {status.attributesCount !== undefined && status.attributesCount > 0 && (
-        <span className="opacity-60 text-[9px]">
+        <span className="opacity-60 text-[11px]">
           ({status.attributesCount} attrs)
         </span>
       )}
@@ -153,7 +153,7 @@ export const PrivacyChatStatus: React.FC<PrivacyChatStatusProps> = ({
             e.stopPropagation();
             alert(status.explanation);
           }}
-          className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10"
+          className="p-0.5 rounded hover:bg-[hsl(var(--foreground)/0.08)]"
         >
           <Info size={12} className="opacity-50" />
         </button>
@@ -210,7 +210,7 @@ export const PrivacyStatusBanner: React.FC<{
           <span className={`text-xs font-semibold uppercase tracking-wider ${config.color}`}>
             {status.label}
           </span>
-          <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">
+          <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-0.5">
             {status.explanation}
           </p>
         </div>

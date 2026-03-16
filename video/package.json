@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "remotion studio",
+    "start": "remotion studio src/Root.tsx",
     "render": "remotion render src/Root.tsx PromoVideo out/promo.mp4 --codec=h264"
   },
   "dependencies": {

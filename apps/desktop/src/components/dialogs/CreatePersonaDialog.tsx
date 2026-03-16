@@ -45,7 +45,7 @@ export function CreatePersonaDialog({ isOpen, onClose }: CreatePersonaDialogProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--foreground)/0.15)]">
       <div className="w-full max-w-lg rounded-lg bg-[hsl(var(--card))] shadow-xl">
         <form onSubmit={handleSubmit}>
           {/* Header */}

@@ -147,14 +147,14 @@ export function PromptReviewPanel({
                   <div key={i} className={`text-[11px] rounded-lg px-2.5 py-1.5 ${m.role === 'user'
                     ? 'bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--foreground-muted))]'
                     : 'bg-[hsl(var(--secondary)/0.5)] text-[hsl(var(--muted-foreground))]'}`}>
-                    <span className="font-semibold uppercase tracking-wider text-[9px] opacity-60 mr-1.5">
+                    <span className="font-semibold uppercase tracking-wider text-[11px] opacity-60 mr-1.5">
                       {m.role === 'user' ? 'You' : 'AI'}
                     </span>
                     {m.content.slice(0, 120)}{m.content.length > 120 ? '…' : ''}
                   </div>
                 ))}
                 {historyMessages.length > 6 && (
-                  <p className="text-[10px] text-center text-[hsl(var(--muted-foreground)/0.5)] pt-1">
+                  <p className="text-[11px] text-center text-[hsl(var(--muted-foreground)/0.5)] pt-1">
                     + {historyMessages.length - 6} earlier messages
                   </p>
                 )}
@@ -190,28 +190,28 @@ export function PromptReviewPanel({
         {/* Info badges */}
         <div className="flex items-center gap-3 flex-wrap">
           {attributesCount != null && attributesCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-medium">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[11px] font-medium">
               {attributesCount} attribute{attributesCount !== 1 ? 's' : ''} extracted
             </span>
           )}
           {contentMode === 'attributes_only' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-medium">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[11px] font-medium">
               No PII in prompt
             </span>
           )}
           {reductionPercent > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-medium">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] text-[11px] font-medium">
               {reductionPercent}% reduced
             </span>
           )}
           {privacyInfo && (
-            <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{privacyInfo}</span>
+            <span className="text-[11px] text-[hsl(var(--muted-foreground))]">{privacyInfo}</span>
           )}
         </div>
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-1">
-          <span className="text-[10px] text-[hsl(var(--muted-foreground)/0.5)]">
+          <span className="text-[11px] text-[hsl(var(--muted-foreground)/0.5)]">
             Ctrl+Enter to approve · Esc to cancel
           </span>
           <div className="flex items-center gap-2">
@@ -289,7 +289,7 @@ function ContextToggleRow({
             included ? 'bg-green-500' : 'bg-[hsl(var(--border))]'
           } ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
         >
-          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-[hsl(var(--card))] shadow transition-transform ${
             included ? 'translate-x-4' : 'translate-x-0.5'
           }`} />
         </button>

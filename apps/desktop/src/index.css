@@ -2,105 +2,129 @@
 @plugin "@tailwindcss/typography";
 
 /* ─── Design Tokens ───────────────────────────────────────────────────────── */
+/* Palette: "Sovereign Vault" — deep slate + warm gold                        */
+/* Evokes trust, authority, and personal warmth. No AI-slop cyan/violet.      */
 :root {
-  /* Depth layers — Minimal light */
-  --background: 0 0% 100%;            /* true white */
-  --surface-1:  0 0% 100%;            /* panels — no depth distinction */
-  --surface-2:  220 14% 96%;          /* #f2f3f5 — cards, inputs, bubbles */
-  --surface-3:  220 14% 92%;          /* hover targets */
+  /* Depth layers — warm cream tones */
+  --background: 40 20% 98%;           /* warm off-white */
+  --surface-1:  40 15% 96%;           /* panels — slight warmth */
+  --surface-2:  38 12% 93%;           /* cards, inputs, bubbles */
+  --surface-3:  38 10% 89%;           /* hover targets */
 
-  /* Foreground */
-  --foreground:        222 10% 10%;   /* #1a1a1a */
-  --foreground-muted:  220 6% 33%;    /* #555 */
-  --foreground-subtle: 220 4% 60%;    /* #999 */
+  /* Foreground — warm near-blacks */
+  --foreground:        225 15% 12%;
+  --foreground-muted:  220 8% 35%;
+  --foreground-subtle: 218 5% 55%;
 
   /* Aliases */
-  --card:              0 0% 100%;
-  --card-foreground:   222 10% 10%;
-  --popover:           0 0% 100%;
-  --popover-foreground:222 10% 10%;
+  --card:              40 18% 99%;
+  --card-foreground:   225 15% 12%;
+  --popover:           40 15% 98%;
+  --popover-foreground:225 15% 12%;
 
-  /* Primary — Sovereign Cyan (readable on white) */
-  --primary:           199 100% 36%;  /* #0077b6 */
-  --primary-foreground:0 0% 100%;
+  /* Primary — Deep Slate Blue (trust, not tech-cyan) */
+  --primary:           215 45% 35%;
+  --primary-foreground:40 20% 98%;
 
   /* Secondary */
-  --secondary:         220 14% 96%;
-  --secondary-foreground:222 10% 10%;
+  --secondary:         38 12% 94%;
+  --secondary-foreground:225 15% 12%;
 
-  /* Violet — Obsidian purple */
-  --violet:            255 55% 57%;   /* #6e56cf */
-  --violet-muted:      255 40% 80%;
+  /* Accent (gold) — keeping --violet name for existing refs */
+  --violet:            42 72% 48%;    /* sovereign gold */
+  --violet-muted:      42 40% 75%;
+
+  /* Semantic status colors */
+  --status-safe:       152 45% 38%;
+  --status-safe-bg:    152 40% 95%;
+  --status-safe-border:152 35% 85%;
+  --status-caution:    38 75% 45%;
+  --status-caution-bg: 40 60% 95%;
+  --status-caution-border: 40 50% 85%;
+  --status-danger:     4 65% 48%;
+  --status-danger-bg:  4 50% 96%;
+  --status-danger-border: 4 45% 88%;
 
   /* Muted */
-  --muted:             220 14% 96%;
-  --muted-foreground:  220 6% 40%;
+  --muted:             38 10% 94%;
+  --muted-foreground:  220 6% 42%;
 
   /* Accent */
-  --accent:            220 14% 93%;
-  --accent-foreground: 222 10% 10%;
+  --accent:            38 10% 91%;
+  --accent-foreground: 225 15% 12%;
 
   /* Destructive */
-  --destructive:       4 70% 45%;
-  --destructive-foreground: 0 0% 100%;
+  --destructive:       4 65% 45%;
+  --destructive-foreground: 40 20% 98%;
 
-  /* Borders — hairline */
-  --border: 220 13% 91%;
-  --input:  220 13% 91%;
-  --ring:   255 55% 57%;              /* violet focus ring */
+  /* Borders — warm hairline */
+  --border: 38 10% 88%;
+  --input:  38 10% 88%;
+  --ring:   215 45% 35%;              /* slate focus ring */
 
-  /* Radius — tighter than before */
+  /* Radius */
   --radius: 0.375rem;
 
   /* Easing */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out:   cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Shadows — flat, no glows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow:    0 2px 6px -1px rgb(0 0 0 / 0.07), 0 1px 3px -1px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 10px -2px rgb(0 0 0 / 0.08), 0 2px 5px -2px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 20px -4px rgb(0 0 0 / 0.09), 0 4px 8px -4px rgb(0 0 0 / 0.05);
-  --shadow-glow-cyan:   none;
-  --shadow-glow-violet: none;
+  /* Shadows — warm-tinted, no glows */
+  --shadow-sm: 0 1px 2px 0 rgb(30 20 10 / 0.05);
+  --shadow:    0 2px 6px -1px rgb(30 20 10 / 0.07), 0 1px 3px -1px rgb(30 20 10 / 0.04);
+  --shadow-md: 0 4px 10px -2px rgb(30 20 10 / 0.08), 0 2px 5px -2px rgb(30 20 10 / 0.04);
+  --shadow-lg: 0 10px 20px -4px rgb(30 20 10 / 0.10), 0 4px 8px -4px rgb(30 20 10 / 0.05);
+  --shadow-glow-primary: none;
+  --shadow-glow-accent:  none;
 
   /* Glass */
-  --glass-border: 0 0 0 / 0.06;
+  --glass-border: 30 20 10 / 0.10;
 }
 
-/* Dark mode */
+/* Dark mode — warm navy, not cold blue-gray */
 .dark {
-  --background: 220 14% 16%;
-  --surface-1: 220 13% 20%;
-  --surface-2: 220 13% 24%;
-  --foreground: 220 10% 93%;
-  --foreground-muted: 220 8% 74%;
-  --foreground-subtle: 220 8% 54%;
-  --card: 220 13% 20%;
-  --card-foreground: 220 10% 93%;
-  --popover: 220 13% 22%;
-  --popover-foreground: 220 10% 93%;
-  --primary: 199 89% 58%;
-  --primary-foreground: 220 14% 16%;
-  --secondary: 220 13% 27%;
-  --secondary-foreground: 220 10% 93%;
-  --violet: 267 84% 71%;
-  --violet-muted: 267 50% 45%;
-  --muted: 220 13% 24%;
-  --muted-foreground: 220 8% 64%;
-  --accent: 220 13% 28%;
-  --accent-foreground: 220 10% 93%;
-  --destructive: 0 70% 55%;
-  --destructive-foreground: 220 10% 93%;
-  --border: 220 13% 30%;
-  --input: 220 13% 27%;
-  --ring: 199 89% 58%;
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.25);
-  --shadow: 0 4px 8px -2px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.25);
-  --shadow-md: 0 8px 16px -4px rgb(0 0 0 / 0.4), 0 4px 8px -4px rgb(0 0 0 / 0.25);
-  --shadow-lg: 0 20px 32px -8px rgb(0 0 0 / 0.5), 0 8px 16px -8px rgb(0 0 0 / 0.35);
-  --shadow-glow-cyan: 0 0 20px -4px hsl(199 89% 58% / 0.35);
-  --shadow-glow-violet: 0 0 20px -4px hsl(267 84% 71% / 0.3);
+  --background: 225 18% 11%;
+  --surface-1: 225 15% 15%;
+  --surface-2: 225 13% 19%;
+  --foreground: 38 10% 92%;
+  --foreground-muted: 38 5% 72%;
+  --foreground-subtle: 220 5% 50%;
+  --card: 225 14% 15%;
+  --card-foreground: 38 10% 92%;
+  --popover: 225 14% 17%;
+  --popover-foreground: 38 10% 92%;
+  --primary: 215 50% 58%;
+  --primary-foreground: 225 18% 11%;
+  --secondary: 225 13% 22%;
+  --secondary-foreground: 38 10% 92%;
+  --violet: 42 78% 58%;              /* brighter gold for dark mode */
+  --violet-muted: 42 35% 38%;
+
+  /* Semantic status colors — dark mode */
+  --status-safe:       152 40% 55%;
+  --status-safe-bg:    152 25% 16%;
+  --status-safe-border:152 20% 25%;
+  --status-caution:    38 70% 58%;
+  --status-caution-bg: 40 30% 16%;
+  --status-caution-border: 40 25% 25%;
+  --status-danger:     4 60% 58%;
+  --status-danger-bg:  4 30% 15%;
+  --status-danger-border: 4 25% 25%;
+  --muted: 225 12% 20%;
+  --muted-foreground: 220 6% 58%;
+  --accent: 225 12% 24%;
+  --accent-foreground: 38 10% 92%;
+  --destructive: 0 65% 55%;
+  --destructive-foreground: 38 10% 92%;
+  --border: 225 13% 22%;
+  --input: 225 13% 20%;
+  --ring: 215 50% 58%;
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.3);
+  --shadow: 0 4px 8px -2px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 8px 16px -4px rgb(0 0 0 / 0.45), 0 4px 8px -4px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 20px 32px -8px rgb(0 0 0 / 0.55), 0 8px 16px -8px rgb(0 0 0 / 0.4);
+  --shadow-glow-primary: 0 0 20px -4px hsl(215 50% 58% / 0.2);
+  --shadow-glow-accent:  0 0 20px -4px hsl(42 78% 58% / 0.15);
   --glass-border: 255 255 255 / 0.06;
 }
 
@@ -243,7 +267,7 @@ html, body {
 }
 
 .hover-lift:hover {
-  transform: none;
+  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
@@ -262,29 +286,17 @@ html, body {
   text-wrap: balance;
 }
 
-/* Sovereign gradient text (violet→cyan) */
+/* Brand text — solid gold, not gradient (gradient text = AI slop) */
 .text-sovereign {
-  background: linear-gradient(135deg, hsl(var(--violet)) 0%, hsl(var(--primary)) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: hsl(var(--violet));
+  font-weight: 700;
 }
 
-/* Keep original for backwards compat */
+/* Brand accent text */
 .text-gradient {
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280 60% 55%) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Glow effects */
-.glow-cyan  { box-shadow: none; }
-.glow-violet { box-shadow: none; }
-
-/* Dot pattern for empty states */
-.pattern-dots {
-  background-image: none;
+  color: hsl(var(--primary));
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 /* Selection color */
@@ -296,16 +308,23 @@ html, body {
 /* Input placeholder styling */
 input::placeholder,
 textarea::placeholder {
-  color: hsl(var(--muted-foreground) / 0.5);
+  color: hsl(var(--muted-foreground) / 0.65);
 }
 
-/* Smooth transitions globally */
+/* Smooth transitions — specific properties only (never transition: all) */
 button,
-a,
+a {
+  transition: color 0.2s cubic-bezier(0.2, 0, 0, 1),
+              background-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+              border-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+              opacity 0.2s cubic-bezier(0.2, 0, 0, 1),
+              transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
 input,
 textarea,
 select {
-  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  transition: border-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+              box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* Better focus for inputs */
@@ -379,4 +398,143 @@ select:focus {
     width: 0;
     height: 0;
   }
+}
+
+/* ─── Reduced Motion ─────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Privacy-Mode Background Tinting ─────────────────────────────────────── */
+/* Makes the core value proposition architectural — you FEEL the privacy level */
+.privacy-tint-local {
+  background-color: hsl(152 25% 97%);  /* warm sage tint — protected */
+}
+.privacy-tint-hybrid {
+  background-color: hsl(var(--background)); /* neutral — balanced */
+}
+.privacy-tint-cloud {
+  background-color: hsl(25 30% 97%);  /* warm rose tint — exposed */
+}
+
+.dark .privacy-tint-local {
+  background-color: hsl(152 15% 12%);
+}
+.dark .privacy-tint-hybrid {
+  background-color: hsl(var(--background));
+}
+.dark .privacy-tint-cloud {
+  background-color: hsl(15 15% 12%);
+}
+
+/* ─── Stagger Entrance ──────────────────────────────────────────────────────── */
+/* Apply to children of a container for choreographed reveals                   */
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.stagger-children > * {
+  opacity: 0;
+  animation: stagger-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+
+/* ─── Privacy Pill Active Accents ────────────────────────────────────────────── */
+/* Left-edge colored bar on active privacy pill for bold visual anchoring        */
+.privacy-pill-active {
+  position: relative;
+  overflow: hidden;
+}
+.privacy-pill-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+/* ─── Shield Emblem ──────────────────────────────────────────────────────────── */
+@keyframes emblem-enter {
+  0%   { opacity: 0; transform: scale(0.7) rotate(-8deg); }
+  60%  { opacity: 1; transform: scale(1.04) rotate(1deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+.animate-emblem-enter {
+  animation: emblem-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Display Heading ────────────────────────────────────────────────────────── */
+.heading-display {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+/* ─── Tour Popover (driver.js) ───────────────────────────────────────────────── */
+.sovereign-tour-popover {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-lg) !important;
+  max-width: 320px !important;
+}
+.sovereign-tour-popover .driver-popover-title {
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  letter-spacing: -0.02em !important;
+  color: hsl(var(--foreground)) !important;
+}
+.sovereign-tour-popover .driver-popover-description {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+.sovereign-tour-popover .driver-popover-progress-text {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 11px !important;
+}
+.sovereign-tour-popover .driver-popover-next-btn,
+.sovereign-tour-popover .driver-popover-prev-btn {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  padding: 6px 14px !important;
+  text-shadow: none !important;
+}
+.sovereign-tour-popover .driver-popover-prev-btn {
+  background: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.sovereign-tour-popover .driver-popover-close-btn {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.sovereign-tour-popover .driver-popover-arrow-side-top {
+  border-bottom-color: hsl(var(--card)) !important;
+}
+.sovereign-tour-popover .driver-popover-arrow-side-bottom {
+  border-top-color: hsl(var(--card)) !important;
+}
+.sovereign-tour-popover .driver-popover-arrow-side-left {
+  border-right-color: hsl(var(--card)) !important;
+}
+.sovereign-tour-popover .driver-popover-arrow-side-right {
+  border-left-color: hsl(var(--card)) !important;
 }

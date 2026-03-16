@@ -97,7 +97,7 @@ export function BottomSheet({
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-[hsl(var(--foreground)/0.25)] animate-fade-in"
         onClick={onClose}
       />
 

@@ -71,10 +71,10 @@ const CATEGORY_LABELS: Record<PIICategory, string> = {
 };
 
 const CATEGORY_COLORS: Record<PIICategory, string> = {
-  personal: 'text-blue-600 bg-blue-500/10',
+  personal: 'text-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.1)]',
   contact: 'text-green-600 bg-green-500/10',
   financial: 'text-amber-600 bg-amber-500/10',
-  tax: 'text-purple-600 bg-purple-500/10',
+  tax: 'text-[hsl(var(--violet))] bg-[hsl(var(--violet)/0.1)]',
   third_party: 'text-slate-600 bg-slate-500/10',
   custom: 'text-pink-600 bg-pink-500/10',
 };
@@ -150,7 +150,7 @@ const PIIFieldInput: React.FC<{
                 if (e.key === 'Escape') handleCancel();
               }}
               placeholder={field.description || `Enter ${field.label.toLowerCase()}`}
-              className="flex-1 px-2 py-1 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)]"
+              className="flex-1 px-2 py-1 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)]"
               autoFocus
             />
             <button
@@ -351,7 +351,7 @@ const CustomRedactSection: React.FC<{
               Company Name,Acme Corp<br />
               Partner BSN,123456789
             </p>
-            <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 opacity-70">
+            <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1 opacity-70">
               Same-length replacements are auto-generated for each term.
             </p>
           </div>
@@ -364,12 +364,12 @@ const CustomRedactSection: React.FC<{
               onChange={(e) => setQuickInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
               placeholder="label,string_to_redact"
-              className="flex-1 px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+              className="flex-1 px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
             />
             <button
               onClick={handleQuickAdd}
               disabled={!quickInput.includes(',')}
-              className="px-3 py-2 text-sm font-medium bg-[hsl(var(--primary))] text-white rounded-lg hover:bg-[hsl(var(--primary)/0.9)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-2 text-sm font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:bg-[hsl(var(--primary)/0.9)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus size={14} />
             </button>
@@ -381,7 +381,7 @@ const CustomRedactSection: React.FC<{
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono resize-y"
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono resize-y"
             />
             <div className="flex items-center gap-2">
               <button
@@ -497,7 +497,7 @@ const ProfileSelector: React.FC<{
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 bg-[hsl(var(--secondary)/0.5)] hover:bg-[hsl(var(--secondary))] rounded-xl transition-colors w-full"
       >
-        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(162_78%_50%)] flex items-center justify-center text-white font-bold text-sm">
+        <div className="h-8 w-8 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center text-[hsl(var(--primary-foreground))] font-bold text-sm">
           {activeProfile?.name.charAt(0) || '?'}
         </div>
         <div className="flex-1 text-left">
@@ -530,7 +530,7 @@ const ProfileSelector: React.FC<{
                   }}
                   className="flex-1 flex items-center gap-2 text-left"
                 >
-                  <div className="h-6 w-6 rounded-md bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(162_78%_50%)] flex items-center justify-center text-white font-bold text-xs">
+                  <div className="h-6 w-6 rounded-md bg-[hsl(var(--primary))] flex items-center justify-center text-[hsl(var(--primary-foreground))] font-bold text-xs">
                     {profile.name.charAt(0)}
                   </div>
                   <span className="text-sm font-medium">{profile.name}</span>
@@ -631,7 +631,7 @@ export const PIIProfileEditor: React.FC<PIIProfileEditorProps> = ({
       className={`bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl shadow-xl overflow-hidden ${className}`}
     >
       {/* Header */}
-      <div className="bg-gradient-to-r from-[hsl(var(--primary)/0.1)] to-[hsl(162_78%_55%/0.1)] px-5 py-4 border-b border-[hsl(var(--border)/0.3)]">
+      <div className="bg-[hsl(var(--primary)/0.1)] px-5 py-4 border-b border-[hsl(var(--border)/0.3)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-green-500/10 text-green-600">
@@ -681,7 +681,7 @@ export const PIIProfileEditor: React.FC<PIIProfileEditorProps> = ({
               value={newProfileName}
               onChange={(e) => setNewProfileName(e.target.value)}
               placeholder="Profile name"
-              className="w-full px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)]"
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)]"
               autoFocus
             />
             <input
@@ -689,13 +689,13 @@ export const PIIProfileEditor: React.FC<PIIProfileEditorProps> = ({
               value={newProfileDesc}
               onChange={(e) => setNewProfileDesc(e.target.value)}
               placeholder="Description (optional)"
-              className="w-full px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)]"
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)]"
             />
             <div className="flex gap-2">
               <button
                 onClick={handleCreateProfile}
                 disabled={!newProfileName.trim()}
-                className="flex-1 px-3 py-2 text-sm font-medium bg-[hsl(var(--primary))] text-white rounded-lg hover:bg-[hsl(var(--primary)/0.9)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-3 py-2 text-sm font-medium bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:bg-[hsl(var(--primary)/0.9)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create Profile
               </button>
@@ -764,7 +764,7 @@ export const PIIProfileEditor: React.FC<PIIProfileEditorProps> = ({
 
       {/* Footer */}
       <div className="px-5 py-3 bg-[hsl(var(--secondary)/0.1)] border-t border-[hsl(var(--border)/0.3)]">
-        <p className="text-[10px] text-[hsl(var(--muted-foreground))] text-center opacity-60">
+        <p className="text-[11px] text-[hsl(var(--muted-foreground))] text-center opacity-60">
           Data encrypted with ChaCha20-Poly1305 and stored locally
         </p>
       </div>

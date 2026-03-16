@@ -33,12 +33,12 @@ export function WizardChat() {
     <div className="flex flex-col h-full rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.5)] backdrop-blur-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-[hsl(var(--border)/0.3)]">
-        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(162_78%_50%)] flex items-center justify-center">
-          <Bot className="h-4 w-4 text-white" />
+        <div className="h-7 w-7 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center">
+          <Bot className="h-4 w-4 text-[hsl(var(--primary-foreground))]" />
         </div>
         <div>
           <p className="text-sm font-medium">Sovereign AI Setup Assistant</p>
-          <p className="text-[10px] text-[hsl(var(--muted-foreground))]">Supporting better informed choices — runs entirely on your device</p>
+          <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Supporting better informed choices — runs entirely on your device</p>
         </div>
       </div>
 
@@ -52,7 +52,7 @@ export function WizardChat() {
             <p className="text-sm text-[hsl(var(--muted-foreground))]">
               Make a selection and I'll help you understand the trade-offs, or ask me any question about your setup.
             </p>
-            <p className="text-[10px] text-[hsl(var(--muted-foreground)/0.5)] mt-2">
+            <p className="text-[11px] text-[hsl(var(--muted-foreground)/0.5)] mt-2">
               Powered by a local AI model — no data leaves your device
             </p>
           </div>
@@ -63,8 +63,8 @@ export function WizardChat() {
             className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             {msg.role === "assistant" && (
-              <div className="flex-shrink-0 h-6 w-6 rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(162_78%_50%)] flex items-center justify-center mt-0.5">
-                <Bot className="h-3.5 w-3.5 text-white" />
+              <div className="flex-shrink-0 h-6 w-6 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center mt-0.5">
+                <Bot className="h-3.5 w-3.5 text-[hsl(var(--primary-foreground))]" />
               </div>
             )}
             <div
@@ -80,8 +80,8 @@ export function WizardChat() {
         ))}
         {isAiLoading && (
           <div className="flex gap-2 items-start">
-            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(162_78%_50%)] flex items-center justify-center mt-0.5">
-              <Bot className="h-3.5 w-3.5 text-white" />
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center mt-0.5">
+              <Bot className="h-3.5 w-3.5 text-[hsl(var(--primary-foreground))]" />
             </div>
             <div className="rounded-xl px-3 py-2 bg-[hsl(var(--secondary))]">
               <Loader2 className="h-4 w-4 animate-spin text-[hsl(var(--muted-foreground))]" />

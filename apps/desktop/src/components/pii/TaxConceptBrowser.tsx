@@ -56,7 +56,7 @@ export const TaxConceptBrowser: React.FC<TaxConceptBrowserProps> = ({ onConceptS
     <div className="grid gap-4 lg:grid-cols-3">
       {/* Concepts List */}
       <div className="space-y-3">
-        <h3 className="font-medium text-gray-900">Tax Concepts</h3>
+        <h3 className="font-medium text-[hsl(var(--foreground))]">Tax Concepts</h3>
         <div className="max-h-96 space-y-1 overflow-y-auto">
           {concepts.map(concept => (
             <button
@@ -67,13 +67,13 @@ export const TaxConceptBrowser: React.FC<TaxConceptBrowserProps> = ({ onConceptS
               }}
               className={`w-full rounded-lg p-2 text-left text-sm transition-colors ${
                 selectedConcept?.term === concept.term
-                  ? 'bg-blue-100 text-blue-900'
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  ? 'bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]'
+                  : 'bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary)/0.8)]'
               }`}
             >
               <div className="font-medium">{concept.term}</div>
               {concept.english_term && (
-                <div className="text-xs text-gray-600">{concept.english_term}</div>
+                <div className="text-xs text-[hsl(var(--foreground-muted))]">{concept.english_term}</div>
               )}
             </button>
           ))}
@@ -83,19 +83,19 @@ export const TaxConceptBrowser: React.FC<TaxConceptBrowserProps> = ({ onConceptS
       {/* Content Area */}
       <div className="lg:col-span-2 space-y-4">
         {/* Analyze Request Section */}
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <h3 className="mb-3 font-medium text-gray-900">Analyze Accountant Request</h3>
+        <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
+          <h3 className="mb-3 font-medium text-[hsl(var(--foreground))]">Analyze Accountant Request</h3>
           <textarea
             value={requestText}
             onChange={e => setRequestText(e.target.value)}
             placeholder="Paste accountant's request here..."
-            className="w-full rounded border border-gray-300 p-2 text-sm"
+            className="w-full rounded border border-[hsl(var(--border))] p-2 text-sm"
             rows={3}
           />
           <button
             onClick={handleAnalyzeRequest}
             disabled={loading || !requestText.trim()}
-            className="mt-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="mt-2 rounded bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary)/0.85)] disabled:opacity-50"
           >
             {loading ? 'Analyzing...' : 'Analyze'}
           </button>
@@ -106,16 +106,16 @@ export const TaxConceptBrowser: React.FC<TaxConceptBrowserProps> = ({ onConceptS
 
           {analysis && (
             <div className="mt-3 space-y-2">
-              <div className="rounded bg-blue-50 p-3">
-                <div className="text-sm text-blue-900">{analysis.explanation}</div>
-                <div className="mt-2 text-xs text-blue-600">
+              <div className="rounded bg-[hsl(var(--primary)/0.05)] p-3">
+                <div className="text-sm text-[hsl(var(--primary))]">{analysis.explanation}</div>
+                <div className="mt-2 text-xs text-[hsl(var(--primary))]">
                   Confidence: <span className="font-medium">{analysis.confidence}</span>
                 </div>
               </div>
 
               {analysis.concepts_needed.length > 0 && (
                 <div>
-                  <div className="text-xs font-medium text-gray-700 uppercase">Concepts Found:</div>
+                  <div className="text-xs font-medium text-[hsl(var(--foreground-muted))] uppercase">Concepts Found:</div>
                   <div className="mt-1 space-y-1">
                     {analysis.concepts_needed.map(concept => (
                       <button
@@ -135,36 +135,36 @@ export const TaxConceptBrowser: React.FC<TaxConceptBrowserProps> = ({ onConceptS
 
         {/* Selected Concept Details */}
         {selectedConcept && (
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
             <div className="mb-3">
-              <h3 className="text-xl font-bold text-gray-900">{selectedConcept.term}</h3>
+              <h3 className="text-xl font-bold text-[hsl(var(--foreground))]">{selectedConcept.term}</h3>
               {selectedConcept.english_term && (
-                <div className="text-sm text-gray-600">{selectedConcept.english_term}</div>
+                <div className="text-sm text-[hsl(var(--foreground-muted))]">{selectedConcept.english_term}</div>
               )}
             </div>
 
             <div className="space-y-4">
               {/* Definition */}
               <div>
-                <h4 className="mb-2 text-sm font-medium text-gray-700">Definition</h4>
-                <p className="text-sm text-gray-900">{selectedConcept.definition}</p>
+                <h4 className="mb-2 text-sm font-medium text-[hsl(var(--foreground-muted))]">Definition</h4>
+                <p className="text-sm text-[hsl(var(--foreground))]">{selectedConcept.definition}</p>
               </div>
 
               {/* Why Needed */}
               <div>
-                <h4 className="mb-2 text-sm font-medium text-gray-700">Why It's Needed</h4>
-                <p className="text-sm text-gray-900">{selectedConcept.why_needed}</p>
+                <h4 className="mb-2 text-sm font-medium text-[hsl(var(--foreground-muted))]">Why It's Needed</h4>
+                <p className="text-sm text-[hsl(var(--foreground))]">{selectedConcept.why_needed}</p>
               </div>
 
               {/* Related Boxes */}
               {selectedConcept.related_boxes && selectedConcept.related_boxes.length > 0 && (
                 <div>
-                  <h4 className="mb-2 text-sm font-medium text-gray-700">Related Tax Boxes</h4>
+                  <h4 className="mb-2 text-sm font-medium text-[hsl(var(--foreground-muted))]">Related Tax Boxes</h4>
                   <div className="flex flex-wrap gap-2">
                     {selectedConcept.related_boxes.map(box => (
                       <span
                         key={box}
-                        className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800"
+                        className="inline-flex items-center rounded-full bg-[hsl(var(--primary)/0.1)] px-3 py-1 text-xs font-medium text-[hsl(var(--primary))]"
                       >
                         {box}
                       </span>
@@ -174,7 +174,7 @@ export const TaxConceptBrowser: React.FC<TaxConceptBrowserProps> = ({ onConceptS
               )}
 
               {/* Tax Code Reference */}
-              <div className="rounded bg-gray-50 p-3 text-xs text-gray-600">
+              <div className="rounded bg-[hsl(var(--secondary)/0.5)] p-3 text-xs text-[hsl(var(--foreground-muted))]">
                 Reference: Dutch Income Tax (Inkomstenbelasting) regulations
               </div>
             </div>

@@ -7,16 +7,16 @@ export const TaxAuditLayout: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'analyzer' | 'knowledge'>('analyzer');
 
     return (
-        <div className="flex flex-col h-full bg-gray-50">
-            <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
-                <h1 className="text-xl font-bold text-gray-800">Tax Audit Assistant</h1>
+        <div className="flex flex-col h-full bg-[hsl(var(--secondary)/0.5)]">
+            <div className="bg-[hsl(var(--card))] border-b px-6 py-4 flex items-center justify-between">
+                <h1 className="text-xl font-bold text-[hsl(var(--foreground))]">Tax Audit Assistant</h1>
 
-                <div className="flex bg-gray-100 p-1 rounded-lg">
+                <div className="flex bg-[hsl(var(--secondary))] p-1 rounded-lg">
                     <button
                         onClick={() => setActiveTab('analyzer')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'analyzer'
-                                ? 'bg-white text-purple-700 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-[hsl(var(--card))] text-[hsl(var(--violet))] shadow-sm'
+                                : 'text-[hsl(var(--foreground-muted))] hover:text-[hsl(var(--foreground))]'
                             }`}
                     >
                         <FileSearch size={16} />
@@ -26,8 +26,8 @@ export const TaxAuditLayout: React.FC = () => {
                     <button
                         onClick={() => setActiveTab('knowledge')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'knowledge'
-                                ? 'bg-white text-blue-700 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-[hsl(var(--card))] text-[hsl(var(--primary))] shadow-sm'
+                                : 'text-[hsl(var(--foreground-muted))] hover:text-[hsl(var(--foreground))]'
                             }`}
                     >
                         <BookOpen size={16} />

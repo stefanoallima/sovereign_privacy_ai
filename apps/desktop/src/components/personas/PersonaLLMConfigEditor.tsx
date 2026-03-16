@@ -153,24 +153,24 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">LLM Backend Configuration</h3>
-        <p className="mt-1 text-sm text-gray-600">
+        <h3 className="text-lg font-semibold text-[hsl(var(--foreground))]">LLM Backend Configuration</h3>
+        <p className="mt-1 text-sm text-[hsl(var(--foreground-muted))]">
           Choose where your requests are processed and how PII is handled
         </p>
       </div>
 
       {/* Privacy Badge */}
-      <div className="flex items-center gap-3 rounded-lg bg-blue-50 p-3 border border-blue-200">
+      <div className="flex items-center gap-3 rounded-lg bg-[hsl(var(--primary)/0.05)] p-3 border border-[hsl(var(--primary)/0.2)]">
         <span className="text-2xl">{privacyBadge.emoji}</span>
         <div>
-          <div className="font-medium text-blue-900 capitalize">{privacyBadge.level} Privacy</div>
-          <div className="text-sm text-blue-700">{privacyBadge.description}</div>
+          <div className="font-medium text-[hsl(var(--primary))] capitalize">{privacyBadge.level} Privacy</div>
+          <div className="text-sm text-[hsl(var(--primary))]">{privacyBadge.description}</div>
         </div>
       </div>
 
       {/* Backend Selection */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700">Backend Service</label>
+        <label className="block text-sm font-medium text-[hsl(var(--foreground-muted))]">Backend Service</label>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {BACKEND_OPTIONS.map((option) => (
             <button
@@ -178,20 +178,20 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
               onClick={() => handleBackendChange(option.value)}
               className={`relative rounded-lg border-2 p-4 text-left transition-all ${
                 config.preferred_backend === option.value
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
+                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.05)]'
+                  : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--border)/0.8)]'
               }`}
             >
-              <div className="font-medium text-gray-900">{option.label}</div>
-              <div className="mt-1 text-sm text-gray-600">{option.description}</div>
+              <div className="font-medium text-[hsl(var(--foreground))]">{option.label}</div>
+              <div className="mt-1 text-sm text-[hsl(var(--foreground-muted))]">{option.description}</div>
               <div className="mt-2 flex gap-3 text-xs">
                 <div>
-                  <span className="font-medium text-gray-700">Privacy:</span>{' '}
-                  <span className="text-gray-600">{option.privacy}</span>
+                  <span className="font-medium text-[hsl(var(--foreground-muted))]">Privacy:</span>{' '}
+                  <span className="text-[hsl(var(--foreground-muted))]">{option.privacy}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700">Speed:</span>{' '}
-                  <span className="text-gray-600">{option.speed}</span>
+                  <span className="font-medium text-[hsl(var(--foreground-muted))]">Speed:</span>{' '}
+                  <span className="text-[hsl(var(--foreground-muted))]">{option.speed}</span>
                 </div>
               </div>
             </button>
@@ -201,24 +201,24 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
 
       {/* Anonymization Settings */}
       {config.preferred_backend !== 'nebius' && (
-        <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <div className="space-y-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)] p-4">
           <div className="flex items-start gap-3">
             <input
               type="checkbox"
               id="enable-anonymizer"
               checked={config.enable_local_anonymizer}
               onChange={handleAnonymizationToggle}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
+              className="mt-1 h-4 w-4 rounded border-[hsl(var(--border))] text-[hsl(var(--primary))]"
             />
             <div className="flex-1">
-              <label htmlFor="enable-anonymizer" className="font-medium text-gray-900">
+              <label htmlFor="enable-anonymizer" className="font-medium text-[hsl(var(--foreground))]">
                 Enable Local Anonymization
               </label>
-              <p className="mt-1 text-sm text-gray-600">
+              <p className="mt-1 text-sm text-[hsl(var(--foreground-muted))]">
                 Extract and anonymize PII locally before sending requests to the cloud
               </p>
               {!ollamaAvailable && config.enable_local_anonymizer && (
-                <div className="mt-2 rounded-lg bg-yellow-50 border border-yellow-200 p-2 text-sm text-yellow-800">
+                <div className="mt-2 rounded-lg bg-[hsl(var(--status-caution-bg))] border border-[hsl(var(--status-caution-border))] p-2 text-sm text-[hsl(var(--status-caution))]">
                   Local model is not downloaded. Download the privacy engine in Settings to enable this option.
                 </div>
               )}
@@ -226,17 +226,17 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
           </div>
 
           {config.enable_local_anonymizer && (
-            <div className="space-y-3 border-t border-gray-200 pt-4">
+            <div className="space-y-3 border-t border-[hsl(var(--border))] pt-4">
               {/* Anonymization Mode */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-[hsl(var(--foreground-muted))] mb-3">
                   Anonymization Mode
                 </label>
                 <div className="space-y-2">
                   {(['none', 'optional', 'required'] as AnonymizationMode[]).map((mode) => (
                     <label
                       key={mode}
-                      className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-100 cursor-pointer"
+                      className="flex items-start gap-3 p-3 rounded-lg border border-[hsl(var(--border))] hover:bg-[hsl(var(--secondary))] cursor-pointer"
                     >
                       <input
                         type="radio"
@@ -244,13 +244,13 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
                         value={mode}
                         checked={config.anonymization_mode === mode}
                         onChange={() => handleAnonymizationModeChange(mode)}
-                        className="mt-1 h-4 w-4 text-blue-600"
+                        className="mt-1 h-4 w-4 text-[hsl(var(--primary))]"
                       />
                       <div>
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-[hsl(var(--foreground))]">
                           {ANONYMIZATION_MODE_INFO[mode].label}
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-[hsl(var(--foreground-muted))]">
                           {ANONYMIZATION_MODE_INFO[mode].description}
                         </div>
                       </div>
@@ -262,14 +262,14 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
               {/* Ollama Model Selection */}
               {(config.preferred_backend === 'ollama' || config.preferred_backend === 'hybrid') && (
                 <div>
-                  <label htmlFor="ollama-model" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="ollama-model" className="block text-sm font-medium text-[hsl(var(--foreground-muted))] mb-2">
                     Local Model
                   </label>
                   <select
                     id="ollama-model"
                     value={config.local_ollama_model || ''}
                     onChange={(e) => handleModelChange(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-[hsl(var(--foreground))] focus:border-[hsl(var(--primary))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
                   >
                     <option value="">Select a model...</option>
                     {ollamaModels.map((model) => (
@@ -279,7 +279,7 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
                     ))}
                   </select>
                   {!ollamaAvailable && (
-                    <p className="mt-2 text-sm text-yellow-700">
+                    <p className="mt-2 text-sm text-[hsl(var(--status-caution))]">
                       Local model not downloaded yet
                     </p>
                   )}
@@ -292,9 +292,9 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
 
       {/* Validation Feedback */}
       {!validation.is_valid && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-          <h4 className="font-medium text-red-900">Configuration Issues</h4>
-          <ul className="mt-2 space-y-1 text-sm text-red-700">
+        <div className="rounded-lg bg-[hsl(var(--status-danger-bg))] border border-[hsl(var(--status-danger-border))] p-4">
+          <h4 className="font-medium text-[hsl(var(--status-danger))]">Configuration Issues</h4>
+          <ul className="mt-2 space-y-1 text-sm text-[hsl(var(--status-danger))]">
             {validation.errors.map((error, i) => (
               <li key={i}>• {error}</li>
             ))}
@@ -303,9 +303,9 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
       )}
 
       {validation.warnings.length > 0 && (
-        <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
-          <h4 className="font-medium text-yellow-900">Warnings</h4>
-          <ul className="mt-2 space-y-1 text-sm text-yellow-700">
+        <div className="rounded-lg bg-[hsl(var(--status-caution-bg))] border border-[hsl(var(--status-caution-border))] p-4">
+          <h4 className="font-medium text-[hsl(var(--status-caution))]">Warnings</h4>
+          <ul className="mt-2 space-y-1 text-sm text-[hsl(var(--status-caution))]">
             {validation.warnings.map((warning, i) => (
               <li key={i}>⚠️ {warning}</li>
             ))}
@@ -314,29 +314,29 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
       )}
 
       {validation.is_valid && (
-        <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+        <div className="rounded-lg bg-[hsl(var(--status-safe-bg))] border border-[hsl(var(--status-safe-border))] p-3 text-sm text-[hsl(var(--status-safe))]">
           ✓ Configuration is valid and ready to use
         </div>
       )}
 
       {/* Summary */}
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-        <h4 className="font-medium text-gray-900 mb-2">Configuration Summary</h4>
+      <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)] p-4">
+        <h4 className="font-medium text-[hsl(var(--foreground))] mb-2">Configuration Summary</h4>
         <dl className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <dt className="font-medium text-gray-600">Backend:</dt>
-            <dd className="text-gray-900 capitalize">{config.preferred_backend}</dd>
+            <dt className="font-medium text-[hsl(var(--foreground-muted))]">Backend:</dt>
+            <dd className="text-[hsl(var(--foreground))] capitalize">{config.preferred_backend}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="font-medium text-gray-600">Anonymization:</dt>
-            <dd className="text-gray-900">
+            <dt className="font-medium text-[hsl(var(--foreground-muted))]">Anonymization:</dt>
+            <dd className="text-[hsl(var(--foreground))]">
               {config.enable_local_anonymizer ? 'Enabled' : 'Disabled'} ({config.anonymization_mode})
             </dd>
           </div>
           {config.local_ollama_model && (
             <div className="flex justify-between">
-              <dt className="font-medium text-gray-600">Model:</dt>
-              <dd className="text-gray-900 font-mono text-xs">{config.local_ollama_model}</dd>
+              <dt className="font-medium text-[hsl(var(--foreground-muted))]">Model:</dt>
+              <dd className="text-[hsl(var(--foreground))] font-mono text-xs">{config.local_ollama_model}</dd>
             </div>
           )}
         </dl>

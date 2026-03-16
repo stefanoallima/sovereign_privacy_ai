@@ -116,7 +116,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
           <button
             onClick={handleNewIncognitoChat}
             data-tour="new-incognito"
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--secondary))] hover:bg-purple-500/20 text-[hsl(var(--muted-foreground))] hover:text-purple-400 transition-all active:scale-95"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--secondary))] hover:bg-[hsl(var(--violet)/0.15)] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--violet))] transition-all active:scale-95"
             title="New incognito chat"
           >
             <EyeOff className="h-4 w-4" />
@@ -218,16 +218,16 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
                     />
                   ))
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-8 px-4">
-                    <div className="h-10 w-10 rounded-xl bg-[hsl(var(--muted)/0.5)] flex items-center justify-center mb-3">
-                      <MessageSquare className="h-5 w-5 text-[hsl(var(--muted-foreground)/0.5)]" />
-                    </div>
-                    <p className="text-xs text-[hsl(var(--muted-foreground)/0.7)] text-center">
-                      No conversations yet
+                  <div className="flex flex-col items-start py-6 px-4">
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Ask anything — your conversations are private and encrypted on this device.
                     </p>
-                    <p className="text-[11px] text-[hsl(var(--muted-foreground)/0.5)] text-center mt-1">
-                      Start a new chat to begin
-                    </p>
+                    <button
+                      onClick={handleNewChat}
+                      className="mt-3 text-xs font-medium text-[hsl(var(--primary))] hover:underline underline-offset-2"
+                    >
+                      Start your first chat →
+                    </button>
                   </div>
                 )}
               </div>
@@ -313,7 +313,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
         </button>
         <button
           onClick={onSupportClick}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-orange-500/10 hover:text-orange-500 transition-all group"
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--primary)/0.1)] hover:text-[hsl(var(--primary))] transition-all group"
         >
           <LifeBuoy className="h-4 w-4 group-hover:rotate-45 transition-transform duration-300" />
           <span className="font-medium">Support</span>
@@ -501,10 +501,10 @@ function ConversationItem({
   return (
     <div>
       <div
-        className={`group relative flex items-center rounded-lg transition-all cursor-pointer ${isIncognito ? "border border-dashed border-purple-500/30 " : ""
+        className={`group relative flex items-center rounded-lg transition-all cursor-pointer ${isIncognito ? "border border-dashed border-[hsl(var(--violet)/0.3)] " : ""
           }${isActive
             ? isIncognito
-              ? "bg-purple-500/15 text-[hsl(var(--accent-foreground))] shadow-sm"
+              ? "bg-[hsl(var(--violet)/0.15)] text-[hsl(var(--accent-foreground))] shadow-sm"
               : "bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] font-medium"
             : "text-[hsl(var(--foreground-subtle))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]"
           }`}
@@ -523,7 +523,7 @@ function ConversationItem({
           )}
           {!hasDocs && <span className="w-3 flex-shrink-0" />}
           {isIncognito ? (
-            <EyeOff className={`h-4 w-4 flex-shrink-0 text-purple-400`} />
+            <EyeOff className={`h-4 w-4 flex-shrink-0 text-[hsl(var(--violet))]`} />
           ) : (
             <MessageSquare className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-[hsl(var(--primary))]" : ""}`} />
           )}

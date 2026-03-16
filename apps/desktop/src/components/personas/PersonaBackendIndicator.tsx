@@ -5,10 +5,24 @@
  */
 
 import React from 'react';
+import { Lock, ShieldCheck, Zap } from 'lucide-react';
 import {
   PreferredBackend,
   BACKEND_PRIVACY_INFO,
 } from '@/services/backend-routing-service';
+
+/** Map backend type to a Lucide SVG icon instead of emoji */
+function getBackendIcon(backend: PreferredBackend, size: number = 16) {
+  switch (backend) {
+    case 'ollama':
+      return <Lock size={size} />;
+    case 'hybrid':
+      return <ShieldCheck size={size} />;
+    case 'nebius':
+    default:
+      return <Zap size={size} />;
+  }
+}
 
 interface PersonaBackendIndicatorProps {
   /** Backend type */
@@ -34,9 +48,15 @@ export const PersonaBackendIndicator: React.FC<PersonaBackendIndicatorProps> = (
       className={`inline-flex items-center gap-2 ${className}`}
       title={showTooltip ? privacy.description : undefined}
     >
-      <span className="text-lg">{privacy.emoji}</span>
+      <span className={`${
+        backend === 'ollama' ? 'text-[hsl(var(--status-safe))]' :
+        backend === 'hybrid' ? 'text-[hsl(var(--primary))]' :
+        'text-[hsl(var(--status-caution))]'
+      }`}>
+        {getBackendIcon(backend, 16)}
+      </span>
       {showLabel && (
-        <span className="text-sm font-medium capitalize text-gray-700">
+        <span className="text-sm font-medium capitalize text-[hsl(var(--foreground))]">
           {backend === 'ollama' ? 'Local' : backend === 'hybrid' ? 'Hybrid' : 'Cloud'}
         </span>
       )}
@@ -51,9 +71,9 @@ export const PersonaBackendIndicator: React.FC<PersonaBackendIndicatorProps> = (
     <div className="group relative inline-block">
       {content}
       {/* Tooltip */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden whitespace-nowrap rounded-lg bg-gray-900 px-3 py-1 text-sm text-white group-hover:block z-10">
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden whitespace-nowrap rounded-lg bg-[hsl(var(--foreground))] px-3 py-1 text-sm text-[hsl(var(--background))] group-hover:block z-10">
         {privacy.description}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[hsl(var(--foreground))]"></div>
       </div>
     </div>
   );
@@ -82,11 +102,11 @@ export const PersonaBackendBadge: React.FC<PersonaBackendBadgeProps> = ({
   const getBackgroundColor = () => {
     switch (privacy.level) {
       case 'high':
-        return 'bg-green-100 border-green-200 text-green-900';
+        return 'bg-[hsl(var(--status-safe-bg))] border-[hsl(var(--status-safe-border))] text-[hsl(var(--status-safe))]';
       case 'medium':
-        return 'bg-blue-100 border-blue-200 text-blue-900';
+        return 'bg-[hsl(var(--primary)/0.1)] border-[hsl(var(--primary)/0.2)] text-[hsl(var(--primary))]';
       case 'low':
-        return 'bg-yellow-100 border-yellow-200 text-yellow-900';
+        return 'bg-[hsl(var(--status-caution-bg))] border-[hsl(var(--status-caution-border))] text-[hsl(var(--status-caution))]';
     }
   };
 
@@ -94,11 +114,11 @@ export const PersonaBackendBadge: React.FC<PersonaBackendBadgeProps> = ({
     <div
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium ${getBackgroundColor()} ${className}`}
     >
-      <span>{privacy.emoji}</span>
+      {getBackendIcon(backend, 14)}
       <span className="capitalize">{backend}</span>
       {anonymizationEnabled && (
-        <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-black/10 px-2 py-0.5 text-xs">
-          🔐 Anonymized
+        <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-[hsl(var(--foreground)/0.08)] px-2 py-0.5 text-xs">
+          <ShieldCheck size={11} /> Anonymized
         </span>
       )}
     </div>
@@ -133,25 +153,29 @@ export const PersonaBackendStatus: React.FC<PersonaBackendStatusProps> = ({
   return (
     <div
       className={`rounded-lg border p-3 ${
-        hasWarning ? 'border-yellow-200 bg-yellow-50' : 'border-gray-200 bg-gray-50'
+        hasWarning ? 'border-[hsl(var(--status-caution-border))] bg-[hsl(var(--status-caution-bg))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--secondary))]'
       } ${className}`}
     >
       <div className="flex items-start gap-3">
-        <span className="text-2xl">{privacy.emoji}</span>
+        <span className={`text-2xl ${
+          backend === 'ollama' ? 'text-[hsl(var(--status-safe))]' :
+          backend === 'hybrid' ? 'text-[hsl(var(--primary))]' :
+          'text-[hsl(var(--status-caution))]'
+        }`}>{getBackendIcon(backend, 24)}</span>
         <div className="flex-1">
-          <div className="font-medium text-gray-900 capitalize">
+          <div className="font-medium text-[hsl(var(--foreground))] capitalize">
             {backend} Backend
             {anonymizationEnabled && backend === 'hybrid' && ' (with anonymization)'}
           </div>
-          <p className="mt-1 text-sm text-gray-600">{privacy.description}</p>
+          <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{privacy.description}</p>
 
           {hasWarning && (
-            <div className="mt-2 rounded-lg bg-yellow-100 border border-yellow-300 p-2 text-sm text-yellow-800">
-              <strong>⚠️ Warning:</strong> Ollama service is not running. This backend requires Ollama to be active.
+            <div className="mt-2 rounded-lg bg-[hsl(var(--status-caution-bg))] border border-[hsl(var(--status-caution-border))] p-2 text-sm text-[hsl(var(--status-caution))]">
+              <strong>Warning:</strong> Ollama service is not running. This backend requires Ollama to be active.
             </div>
           )}
 
-          <div className="mt-2 flex gap-4 text-xs text-gray-600">
+          <div className="mt-2 flex gap-4 text-xs text-[hsl(var(--muted-foreground))]">
             <div>
               Cloud:{' '}
               <span className="font-medium">

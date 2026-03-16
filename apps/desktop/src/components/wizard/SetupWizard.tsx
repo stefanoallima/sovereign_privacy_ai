@@ -3,23 +3,25 @@ import { WelcomeStep } from "./steps/WelcomeStep";
 import { PrivacyProfileStep } from "./steps/PrivacyProfileStep";
 import { PrivacyGuardStep } from "./steps/PrivacyGuardStep";
 import { ApiConfigStep } from "./steps/ApiConfigStep";
+import { CloudTrustStep } from "./steps/CloudTrustStep";
 import { PersonaStep } from "./steps/PersonaStep";
 import { SettingsPreview } from "./steps/SettingsPreview";
 import { WizardChat } from "./WizardChat";
 import { ArrowLeft, X } from "lucide-react";
 
-const STEP_LABELS = ["Welcome", "Privacy", "Privacy Shield", "Cloud AI API", "Persona", "Review"];
+// Steps 0-6: Welcome, Privacy, Privacy Shield, Cloud AI API, Cloud Trust, Persona, Review
+const STEP_LABELS = ["Welcome", "Privacy", "Privacy Shield", "Cloud AI API", "Cloud Trust", "Persona", "Review"];
 
 export function SetupWizard() {
   const { currentStep, prevStep, goToStep, choices, wizardCompleted, setShowWizard } = useWizardStore();
 
-  // If user chose maximum privacy, skip API key step (step 3)
-  const skipApiStep = choices.privacyMode === "maximum";
+  // If user chose maximum privacy, skip API key step (3) and Cloud Trust step (4)
+  const skipCloudSteps = choices.privacyMode === "maximum";
 
-  // Map logical steps to actual steps, accounting for skipped API step
+  // Map logical steps to actual steps, accounting for skipped cloud steps
   const getEffectiveStep = () => {
-    if (skipApiStep && currentStep >= 3) {
-      return currentStep + 1;
+    if (skipCloudSteps && currentStep >= 3) {
+      return currentStep + 2; // skip both step 3 (API) and step 4 (Trust)
     }
     return currentStep;
   };
@@ -27,8 +29,8 @@ export function SetupWizard() {
   const effectiveStep = getEffectiveStep();
 
   // Determine which step labels to show
-  const visibleSteps = skipApiStep
-    ? STEP_LABELS.filter((_, i) => i !== 3)
+  const visibleSteps = skipCloudSteps
+    ? STEP_LABELS.filter((_, i) => i !== 3 && i !== 4)
     : STEP_LABELS;
 
   // Convert a visible-step index back to a currentStep value
@@ -47,8 +49,10 @@ export function SetupWizard() {
       case 3:
         return <ApiConfigStep />;
       case 4:
-        return <PersonaStep />;
+        return <CloudTrustStep />;
       case 5:
+        return <PersonaStep />;
+      case 6:
         return <SettingsPreview />;
       default:
         return <SettingsPreview />;
@@ -81,7 +85,7 @@ export function SetupWizard() {
             </button>
           )}
           <h1 className="font-semibold text-lg">
-            {isRevisiting ? "Settings Assistant" : "Setup Wizard"}
+            {isRevisiting ? "Settings" : "Set up your AI"}
           </h1>
         </div>
 
@@ -98,7 +102,7 @@ export function SetupWizard() {
       {/* Progress — clickable steps */}
       <div className="px-6 py-3 flex items-center gap-2">
         {visibleSteps.map((label, i) => {
-          const stepIndex = skipApiStep && i >= 3 ? i + 1 : i;
+          const stepIndex = skipCloudSteps && i >= 3 ? i + 2 : i;
           const isActive = effectiveStep === stepIndex;
           const isCompleted = effectiveStep > stepIndex;
           const navigable = isStepNavigable(stepIndex);
@@ -131,7 +135,7 @@ export function SetupWizard() {
       </div>
       <div className="px-6 pb-2 flex justify-between">
         {visibleSteps.map((label, i) => {
-          const stepIndex = skipApiStep && i >= 3 ? i + 1 : i;
+          const stepIndex = skipCloudSteps && i >= 3 ? i + 2 : i;
           const isActive = effectiveStep === stepIndex;
           const isCompleted = effectiveStep > stepIndex;
 
@@ -145,7 +149,7 @@ export function SetupWizard() {
                   goToStep(visibleIndexToCurrentStep(i));
                 }
               }}
-              className={`text-[10px] uppercase tracking-wider font-medium transition-colors ${
+              className={`text-[11px] uppercase tracking-wider font-medium transition-colors ${
                 isActive
                   ? "text-[hsl(var(--primary))]"
                   : isCompleted

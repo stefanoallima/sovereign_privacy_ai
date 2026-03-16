@@ -85,14 +85,14 @@ export const PersonaKnowledgeTab: React.FC<PersonaKnowledgeTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Info Banner */}
-      <section className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
+      <section className="p-4 bg-[hsl(var(--primary)/0.05)] border border-[hsl(var(--primary)/0.2)] rounded-xl">
         <div className="flex items-start gap-3">
-          <Info size={18} className="text-blue-600 mt-0.5 shrink-0" />
+          <Info size={18} className="text-[hsl(var(--primary))] mt-0.5 shrink-0" />
           <div className="text-sm">
-            <p className="font-medium text-blue-700 dark:text-blue-400">
+            <p className="font-medium text-[hsl(var(--primary))]">
               RAG-Powered Knowledge
             </p>
-            <p className="text-blue-600/80 dark:text-blue-400/80 mt-1">
+            <p className="text-[hsl(var(--primary)/0.8)] mt-1">
               Selected knowledge bases are searched to provide context-aware responses.
               Documents are processed locally and stored in an embedded vector database.
             </p>

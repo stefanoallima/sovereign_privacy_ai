@@ -19,7 +19,7 @@ export function MobileHeader({
   const persona = personas.find((p) => p.id === conversation?.personaId);
 
   return (
-    <header className="flex items-center justify-between h-14 px-4 border-b border-[hsl(var(--border)/0.5)] bg-[hsl(var(--background)/0.95)] backdrop-blur-sm sticky top-0 z-10">
+    <header className="flex items-center justify-between h-14 px-4 border-b border-[hsl(var(--border)/0.5)] bg-[hsl(var(--background))] sticky top-0 z-10">
       {/* Left - Menu Button */}
       <button
         onClick={onMenuClick}
@@ -37,7 +37,7 @@ export function MobileHeader({
           </div>
         ) : (
           <span className="font-medium text-[hsl(var(--muted-foreground))]">
-            AI Private Personal Assistant
+            Sovereign AI
           </span>
         )}
       </div>

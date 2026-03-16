@@ -25,13 +25,13 @@ export const AccountantRequestAnalyzer: React.FC = () => {
     };
 
     return (
-        <div className="h-full flex flex-col p-6 bg-white">
+        <div className="h-full flex flex-col p-6 bg-[hsl(var(--card))]">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <FileSearch className="text-purple-600" />
+                <h2 className="text-2xl font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
+                    <FileSearch className="text-[hsl(var(--violet))]" />
                     Request Analyzer
                 </h2>
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="text-[hsl(var(--foreground-subtle))] text-sm mt-1">
                     Paste the email or message from your accountant below. We'll identify what they need and why.
                 </p>
             </div>
@@ -41,12 +41,12 @@ export const AccountantRequestAnalyzer: React.FC = () => {
                 <div className="flex-1 flex flex-col gap-4">
                     <div className="relative flex-1">
                         <textarea
-                            className="w-full h-full p-4 rounded-xl border border-gray-200 resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-50 text-base"
+                            className="w-full h-full p-4 rounded-xl border border-[hsl(var(--border))] resize-none focus:ring-2 focus:ring-[hsl(var(--ring))] focus:border-transparent bg-[hsl(var(--secondary)/0.5)] text-base"
                             placeholder="e.g., 'Beste, graag ontvang ik de jaaropgaven van 2024 en de definitieve aanslag IB 2023...'"
                             value={requestText}
                             onChange={(e) => setRequestText(e.target.value)}
                         />
-                        <div className="absolute top-4 right-4 text-gray-400">
+                        <div className="absolute top-4 right-4 text-[hsl(var(--foreground-subtle))]">
                             <Mail size={20} />
                         </div>
                     </div>
@@ -56,7 +56,7 @@ export const AccountantRequestAnalyzer: React.FC = () => {
                         disabled={analyzing || !requestText.trim()}
                         className={`
               flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-white transition-all
-              ${analyzing || !requestText.trim() ? 'bg-gray-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'}
+              ${analyzing || !requestText.trim() ? 'bg-[hsl(var(--secondary))] cursor-not-allowed' : 'bg-[hsl(var(--violet))] hover:bg-[hsl(var(--violet)/0.85)] shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'}
             `}
                     >
                         {analyzing ? (
@@ -71,22 +71,22 @@ export const AccountantRequestAnalyzer: React.FC = () => {
                 </div>
 
                 {/* Right: Output */}
-                <div className="flex-1 bg-gray-50 rounded-xl border border-gray-100 p-6 overflow-y-auto">
+                <div className="flex-1 bg-[hsl(var(--secondary)/0.5)] rounded-xl border border-[hsl(var(--border)/0.5)] p-6 overflow-y-auto">
                     {!result ? (
-                        <div className="h-full flex flex-col items-center justify-center text-gray-400 text-center">
+                        <div className="h-full flex flex-col items-center justify-center text-[hsl(var(--foreground-subtle))] text-center">
                             <ArrowRight size={48} className="mb-4 opacity-20" />
                             <p>Analysis results will appear here</p>
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-purple-100">
-                                <h3 className="font-semibold text-gray-800 mb-2">AI Explanation</h3>
-                                <p className="text-gray-600 text-sm leading-relaxed">{result.explanation}</p>
-                                <div className="mt-2 text-xs text-purple-600 font-medium">Confidence: {result.confidence}</div>
+                            <div className="bg-[hsl(var(--card))] p-4 rounded-lg shadow-sm border border-[hsl(var(--violet)/0.2)]">
+                                <h3 className="font-semibold text-[hsl(var(--foreground))] mb-2">AI Explanation</h3>
+                                <p className="text-[hsl(var(--foreground-muted))] text-sm leading-relaxed">{result.explanation}</p>
+                                <div className="mt-2 text-xs text-[hsl(var(--violet))] font-medium">Confidence: {result.confidence}</div>
                             </div>
 
                             <div>
-                                <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                <h3 className="font-semibold text-[hsl(var(--foreground))] mb-3 flex items-center gap-2">
                                     <CheckCircle size={16} className="text-green-500" />
                                     Identified Requirements
                                 </h3>
@@ -106,30 +106,30 @@ export const AccountantRequestAnalyzer: React.FC = () => {
                                         const link = getRetrievalLink(concept.term);
 
                                         return (
-                                            <div key={idx} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:border-purple-200 transition-colors">
+                                            <div key={idx} className="bg-[hsl(var(--card))] p-4 rounded-xl border border-[hsl(var(--border))] shadow-sm hover:border-[hsl(var(--violet)/0.3)] transition-colors">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div>
-                                                        <span className="font-bold text-gray-900 text-lg">{concept.term}</span>
-                                                        {concept.english_term && <span className="ml-2 text-xs text-gray-400 font-medium px-2 py-0.5 bg-gray-100 rounded-full">{concept.english_term}</span>}
+                                                        <span className="font-bold text-[hsl(var(--foreground))] text-lg">{concept.term}</span>
+                                                        {concept.english_term && <span className="ml-2 text-xs text-[hsl(var(--foreground-subtle))] font-medium px-2 py-0.5 bg-[hsl(var(--secondary))] rounded-full">{concept.english_term}</span>}
                                                     </div>
                                                 </div>
-                                                <p className="text-sm text-gray-600 mb-3 leading-relaxed">{concept.definition}</p>
+                                                <p className="text-sm text-[hsl(var(--foreground-muted))] mb-3 leading-relaxed">{concept.definition}</p>
 
                                                 <div className="space-y-2">
-                                                    <div className="text-xs bg-purple-50 text-purple-700 p-2.5 rounded-lg flex items-start gap-2 border border-purple-100/50">
+                                                    <div className="text-xs bg-[hsl(var(--violet)/0.05)] text-[hsl(var(--violet))] p-2.5 rounded-lg flex items-start gap-2 border border-[hsl(var(--violet)/0.2)]/50">
                                                         <AlertCircle size={14} className="mt-0.5 shrink-0" />
                                                         <div>
                                                             <span className="font-semibold">Why needed:</span> {concept.why_needed}
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                                                        <span className="text-xs text-gray-400">Where to get this:</span>
+                                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-[hsl(var(--border)/0.5)]">
+                                                        <span className="text-xs text-[hsl(var(--foreground-subtle))]">Where to get this:</span>
                                                         <a
                                                             href={link.url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-xs font-semibold text-purple-600 hover:text-purple-800 flex items-center gap-1 bg-purple-50 px-3 py-1.5 rounded-full hover:bg-purple-100 transition-colors"
+                                                            className="text-xs font-semibold text-[hsl(var(--violet))] hover:text-[hsl(var(--violet)/0.85)] flex items-center gap-1 bg-[hsl(var(--violet)/0.05)] px-3 py-1.5 rounded-full hover:bg-[hsl(var(--violet)/0.1)] transition-colors"
                                                         >
                                                             {link.label}
                                                             <ArrowRight size={12} />

@@ -169,9 +169,9 @@ function MainApp() {
 
         {/* Document Ingestion Overlay */}
         {isUploadModalOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm animate-fade-in">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[hsl(var(--foreground)/0.15)] animate-fade-in">
             <div className="absolute inset-0" onClick={() => setUploadModalOpen(false)} />
-            <div className="relative w-full bg-[hsl(var(--card))] rounded-3xl shadow-2xl border border-[hsl(var(--border)/0.5)] overflow-hidden">
+            <div className="relative w-full bg-[hsl(var(--card))] rounded-2xl shadow-lg border border-[hsl(var(--border))] overflow-hidden">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-bold">Import PII Document</h2>
@@ -227,9 +227,9 @@ function MainApp() {
 
       {/* Document Ingestion Overlay */}
       {isUploadModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/20 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-[hsl(var(--foreground)/0.15)] animate-fade-in">
           <div className="absolute inset-0" onClick={() => setUploadModalOpen(false)} />
-          <div className="relative w-full max-w-2xl bg-[hsl(var(--card))] rounded-3xl shadow-2xl border border-[hsl(var(--border)/0.5)] overflow-hidden">
+          <div className="relative w-full max-w-2xl bg-[hsl(var(--card))] rounded-2xl shadow-lg border border-[hsl(var(--border))] overflow-hidden">
             <div className="p-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Import PII Document</h2>

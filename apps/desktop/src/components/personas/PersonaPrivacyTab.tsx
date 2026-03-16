@@ -77,9 +77,9 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
           {PRIVACY_MODES.map((mode) => {
             const isSelected = currentBackend === mode.id;
             const colorClasses = {
-              amber: 'border-amber-500 bg-amber-500/10',
-              blue: 'border-blue-500 bg-blue-500/10',
-              green: 'border-green-500 bg-green-500/10',
+              amber: 'border-[hsl(var(--status-caution-border))] bg-[hsl(var(--status-caution-bg))]',
+              blue: 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.1)]',
+              green: 'border-[hsl(var(--status-safe-border))] bg-[hsl(var(--status-safe-bg))]',
             };
 
             return (
@@ -102,10 +102,10 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
                   className={`p-2 rounded-lg ${
                     isSelected
                       ? mode.color === 'green'
-                        ? 'bg-green-500/20 text-green-600'
+                        ? 'bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))]'
                         : mode.color === 'blue'
-                        ? 'bg-blue-500/20 text-blue-600'
-                        : 'bg-amber-500/20 text-amber-600'
+                        ? 'bg-[hsl(var(--primary)/0.2)] text-[hsl(var(--primary))]'
+                        : 'bg-[hsl(var(--status-caution-bg))] text-[hsl(var(--status-caution))]'
                       : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'
                   }`}
                 >
@@ -119,10 +119,10 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${
                         mode.color === 'green'
-                          ? 'bg-green-500/10 text-green-600'
+                          ? 'bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))]'
                           : mode.color === 'blue'
-                          ? 'bg-blue-500/10 text-blue-600'
-                          : 'bg-amber-500/10 text-amber-600'
+                          ? 'bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]'
+                          : 'bg-[hsl(var(--status-caution-bg))] text-[hsl(var(--status-caution))]'
                       }`}
                     >
                       {mode.privacy} Privacy
@@ -137,10 +137,10 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
                     size={20}
                     className={
                       mode.color === 'green'
-                        ? 'text-green-600'
+                        ? 'text-[hsl(var(--status-safe))]'
                         : mode.color === 'blue'
-                        ? 'text-blue-600'
-                        : 'text-amber-600'
+                        ? 'text-[hsl(var(--primary))]'
+                        : 'text-[hsl(var(--status-caution))]'
                     }
                   />
                 )}
@@ -195,14 +195,14 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
       )}
 
       {/* Privacy Shield Info */}
-      <section className="p-4 bg-green-500/5 border border-green-500/20 rounded-xl">
+      <section className="p-4 bg-[hsl(var(--status-safe-bg))] border border-[hsl(var(--status-safe-border))] rounded-xl">
         <div className="flex items-start gap-3">
-          <Info size={18} className="text-green-600 mt-0.5 shrink-0" />
+          <Info size={18} className="text-[hsl(var(--status-safe))] mt-0.5 shrink-0" />
           <div className="text-sm">
-            <p className="font-medium text-green-700 dark:text-green-400">
+            <p className="font-medium text-[hsl(var(--status-safe))]">
               Privacy Shield Active
             </p>
-            <p className="text-green-600/80 dark:text-green-400/80 mt-1">
+            <p className="text-[hsl(var(--status-safe))] mt-1">
               {currentBackend === 'ollama'
                 ? 'All processing happens on your device. No data leaves your computer.'
                 : currentBackend === 'hybrid'
@@ -218,10 +218,10 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-2">
-              <Shield size={16} className="text-green-600" />
+              <Shield size={16} className="text-[hsl(var(--status-safe))]" />
               PII Vault
             </h3>
-            <span className="text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded-full">
+            <span className="text-xs bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))] px-2 py-1 rounded-full">
               Local & Encrypted
             </span>
           </div>

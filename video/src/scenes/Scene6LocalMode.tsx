@@ -9,7 +9,7 @@ export const Scene6LocalMode: React.FC = () => {
   const wifiOpacity = interpolate(frame, [60, 80], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const tokenCount = Math.floor(interpolate(frame, [90, 230], [0, 40], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
-  const TOKENS = "The privacy pipeline protects your identity by running GLiNER locally. Zero network requests. Fully sovereign. All inference happens on your hardware.".split(" ");
+  const TOKENS = "Everything runs on your device. No internet required. Your name, salary, health details — detected and hidden automatically before anything leaves your machine.".split(" ");
 
   return (
     <AbsoluteFill

@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export type CloudTrustLevel = "trusted" | "partial" | "minimal" | null;
+
 export interface WizardChoices {
   privacyMode: "maximum" | "balanced" | "performance" | null;
   apiKeyConfigured: boolean;
@@ -9,6 +11,9 @@ export interface WizardChoices {
   localModelDownloaded: boolean;
   glinerModelId: string | null;
   glinerEnabled: boolean;
+  // Cloud provider trust
+  cloudTrustLevel: CloudTrustLevel;
+  zdrConfirmed: boolean;
 }
 
 interface WizardChatMessage {
@@ -20,6 +25,7 @@ interface WizardStore {
   // Persisted
   wizardCompleted: boolean;
   tourCompleted: boolean;
+  firstSendTourCompleted: boolean;
 
   // Transient
   showWizard: boolean;
@@ -38,6 +44,7 @@ interface WizardStore {
   clearChatMessages: () => void;
   setAiLoading: (loading: boolean) => void;
   setTourCompleted: (completed: boolean) => void;
+  setFirstSendTourCompleted: (completed: boolean) => void;
   completeWizard: () => void;
   resetWizard: () => void;
 }
@@ -48,6 +55,7 @@ export const useWizardStore = create<WizardStore>()(
       // Persisted
       wizardCompleted: false,
       tourCompleted: false,
+      firstSendTourCompleted: false,
 
       // Transient (not persisted)
       showWizard: false,
@@ -60,6 +68,8 @@ export const useWizardStore = create<WizardStore>()(
         localModelDownloaded: false,
         glinerModelId: null,
         glinerEnabled: false,
+        cloudTrustLevel: null,
+        zdrConfirmed: false,
       },
       chatMessages: [],
       isAiLoading: false,
@@ -100,6 +110,9 @@ export const useWizardStore = create<WizardStore>()(
           chatMessages: [],
         }),
 
+      setFirstSendTourCompleted: (completed) =>
+        set({ firstSendTourCompleted: completed }),
+
       resetWizard: () =>
         set({
           showWizard: true,
@@ -112,6 +125,8 @@ export const useWizardStore = create<WizardStore>()(
             localModelDownloaded: false,
             glinerModelId: null,
             glinerEnabled: false,
+            cloudTrustLevel: null,
+            zdrConfirmed: false,
           },
           chatMessages: [],
           isAiLoading: false,
@@ -122,6 +137,7 @@ export const useWizardStore = create<WizardStore>()(
       partialize: (state) => ({
         wizardCompleted: state.wizardCompleted,
         tourCompleted: state.tourCompleted,
+        firstSendTourCompleted: state.firstSendTourCompleted,
       }),
     }
   )

@@ -29,6 +29,8 @@
         <li><a href="#privacy-guard">Privacy Guard</a></li>
         <li><a href="#how-it-works">How It Works</a></li>
         <li><a href="#security">Security</a></li>
+        <li><a href="#opt-out">Opt-Out Costs</a></li>
+        <li><a href="#roadmap">Roadmap</a></li>
         <li><a href="https://github.com/stefanoallima/sovereign_privacy_ai">GitHub</a></li>
       </ul>
     </div>
@@ -821,6 +823,105 @@
           </tr>
         </tbody>
       </table>
+    </div>
+  </section>
+
+  <!-- Opt-Out Trade-offs -->
+  <section id="opt-out" class="section-dark">
+    <div class="container" style="text-align: center;">
+      <div class="section-label">The Hidden Cost</div>
+      <h2 class="section-title">What You Lose When You Opt Out</h2>
+      <p class="section-desc section-desc-center">Every major AI chatbot lets you &ldquo;opt out&rdquo; of data training. But the penalties vary wildly. Here&rsquo;s what actually happens when you choose privacy.</p>
+
+      <div class="optout-grid">
+        <!-- ChatGPT -->
+        <div class="optout-card">
+          <div class="optout-header">
+            <div class="optout-platform">ChatGPT</div>
+            <div class="optout-impact optout-impact-low">LOW IMPACT</div>
+          </div>
+          <p class="optout-verdict">Opting out = minimal impact. You keep chat history, memory features, and full functionality.</p>
+          <ul class="optout-list">
+            <li class="optout-keep">Chat history preserved</li>
+            <li class="optout-keep">Memory features still work</li>
+            <li class="optout-keep">&ldquo;Temporary Chat&rdquo; for extra privacy</li>
+            <li class="optout-neutral">Data retained 30 days for safety only</li>
+          </ul>
+          <div class="optout-bottom">Best choice if you want privacy without losing features.</div>
+        </div>
+
+        <!-- Claude -->
+        <div class="optout-card">
+          <div class="optout-header">
+            <div class="optout-platform">Claude</div>
+            <div class="optout-impact optout-impact-medium">MEDIUM IMPACT</div>
+          </div>
+          <p class="optout-verdict">Opt-out = moderate impact. Main trade-off is shorter data retention window.</p>
+          <ul class="optout-list">
+            <li class="optout-keep">Memory &amp; projects still work</li>
+            <li class="optout-keep">Persistent context regardless of training settings</li>
+            <li class="optout-warn">30-day retention (vs 5 years if you opt in)</li>
+          </ul>
+          <div class="optout-bottom">Good for users who want shorter data retention.</div>
+        </div>
+
+        <!-- Gemini -->
+        <div class="optout-card optout-card-warning">
+          <div class="optout-header">
+            <div class="optout-platform">Gemini</div>
+            <div class="optout-impact optout-impact-high">HIGH IMPACT</div>
+          </div>
+          <p class="optout-verdict">Opting out = <strong>significant penalty</strong>. You lose core features that make the product useful.</p>
+          <ul class="optout-list">
+            <li class="optout-lose">Chat history NOT saved at all</li>
+            <li class="optout-lose">Personal Context / memory DISABLED</li>
+            <li class="optout-lose">Cannot reference past conversations</li>
+            <li class="optout-warn">Data only kept 72 hours</li>
+            <li class="optout-lose">Each conversation exists in isolation</li>
+          </ul>
+          <div class="optout-bottom optout-bottom-warning">Privacy = a &ldquo;dumber&rdquo; product. Only Workspace business accounts avoid this.</div>
+        </div>
+      </div>
+
+      <div class="optout-bridge">
+        <strong>Sovereign AI eliminates this dilemma entirely.</strong> Your data never leaves your machine &mdash; so there&rsquo;s nothing to opt out of. Full features, full privacy, zero trade-offs.
+      </div>
+    </div>
+  </section>
+
+  <!-- Roadmap / Coming Soon -->
+  <section id="roadmap">
+    <div class="container" style="text-align: center;">
+      <div class="section-label">Coming Soon</div>
+      <h2 class="section-title">You Decide What to Share.<br>The App Works With It Locally.</h2>
+      <p class="section-desc section-desc-center">Sovereign AI never reaches into your accounts or manages your data. <strong>You choose what to share with the app</strong> &mdash; it processes everything on your device using only a local model. Your data, your terms.</p>
+
+      <div class="roadmap-grid">
+        <div class="roadmap-card">
+          <div class="roadmap-icon">&#128172;</div>
+          <h3>Share Your WhatsApp Chats</h3>
+          <p>Export a WhatsApp conversation and drop it into the app. Your local AI reads it, understands context, and helps you &mdash; the chat never leaves your device. You decide which conversations to share, and when.</p>
+          <div class="roadmap-badge">Local model only</div>
+        </div>
+
+        <div class="roadmap-card">
+          <div class="roadmap-icon">&#128193;</div>
+          <h3>Share Your Google Drive Files</h3>
+          <p>Download documents from Google Drive and give them to the app. Your local AI reads and indexes them on your hardware. Google never knows what you asked about your own files.</p>
+          <div class="roadmap-badge">Local model only</div>
+        </div>
+
+        <div class="roadmap-card">
+          <div class="roadmap-icon">&#128241;</div>
+          <h3>Mobile App</h3>
+          <p>Sovereign AI in your pocket. A native mobile app running a local model on-device. Share files, photos, and notes directly from your phone &mdash; your advisors work with what you give them, fully offline.</p>
+          <div class="roadmap-badge">Local model only</div>
+        </div>
+      </div>
+
+      <div class="roadmap-bridge">
+        <strong>Cross-device, same principle.</strong> Whether you&rsquo;re on your desktop or your phone, the app only knows what you choose to share with it. No accounts to connect, no sync services watching your files. You are always in control.
+      </div>
     </div>
   </section>
 

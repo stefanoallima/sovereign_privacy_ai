@@ -243,17 +243,17 @@ export function PrivacySettings() {
     <div className="space-y-6">
       {/* Privacy Engine — Multi-model Section */}
       <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
-        <div className={`p-4 ${hasAnyLocalModel ? 'bg-green-500/10' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
+        <div className={`p-4 ${hasAnyLocalModel ? 'bg-[hsl(var(--status-safe-bg))]' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${hasAnyLocalModel ? 'bg-green-500/20 text-green-600' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
+              <div className={`p-2 rounded-lg ${hasAnyLocalModel ? 'bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))]' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
                 <EngineIcon />
               </div>
               <div>
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   Privacy Engine
                   {hasAnyLocalModel && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-500 text-white">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--status-safe))] text-white">
                       READY
                     </span>
                   )}
@@ -276,11 +276,11 @@ export function PrivacySettings() {
 
         <div className="p-4 border-t border-[hsl(var(--border)/0.5)]">
           {!hasAnyLocalModel && (
-            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 mb-4">
-              <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+            <div className="rounded-lg bg-[hsl(var(--status-caution-bg))] border border-[hsl(var(--status-caution-border))] p-3 mb-4">
+              <p className="text-xs text-[hsl(var(--status-caution))] font-medium">
                 No local model downloaded yet
               </p>
-              <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+              <p className="text-xs text-[hsl(var(--status-caution))] mt-1">
                 Download a model below to enable local AI. We recommend starting with the <strong>1.7B Light</strong> model (~1.1 GB) for the best balance of speed and quality.
               </p>
             </div>
@@ -296,7 +296,7 @@ export function PrivacySettings() {
                   key={model.id}
                   className={`rounded-lg border p-3 transition-colors ${
                     isActive && model.is_downloaded
-                      ? 'border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-900/10'
+                      ? 'border-[hsl(var(--status-safe-border))] bg-[hsl(var(--status-safe-bg))]'
                       : model.is_downloaded
                         ? 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'
                         : 'border-[hsl(var(--border)/0.5)]'
@@ -310,7 +310,7 @@ export function PrivacySettings() {
                           {formatSize(model.size_bytes)}
                         </span>
                         {model.is_downloaded && isActive && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-green-500 text-white">
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--status-safe))] text-white">
                             ACTIVE
                           </span>
                         )}
@@ -320,7 +320,7 @@ export function PrivacySettings() {
                           </span>
                         )}
                         {model.id === 'qwen3-1.7b' && !model.is_downloaded && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600">
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]">
                             RECOMMENDED
                           </span>
                         )}
@@ -336,7 +336,7 @@ export function PrivacySettings() {
                         <span>{model.ctx_size / 1000}K ctx</span>
                       </div>
                       {model.is_downloaded && model.local_path && (
-                        <p className="text-[10px] text-[hsl(var(--muted-foreground)/0.6)] mt-1 font-mono truncate">
+                        <p className="text-[11px] text-[hsl(var(--muted-foreground)/0.6)] mt-1 font-mono truncate">
                           {model.local_path}
                         </p>
                       )}
@@ -355,7 +355,7 @@ export function PrivacySettings() {
                       {model.is_downloaded && !isActive && (
                         <button
                           onClick={() => handleSelectLocal(model.id)}
-                          className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-600 text-xs font-medium hover:bg-green-500/20 transition-colors"
+                          className="px-3 py-1.5 rounded-lg bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))] text-xs font-medium hover:opacity-80 transition-colors"
                         >
                           Use This
                         </button>
@@ -363,7 +363,7 @@ export function PrivacySettings() {
                       {model.is_downloaded && (
                         <button
                           onClick={() => handleDeleteLocal(model.id)}
-                          className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 text-xs font-medium hover:bg-red-500/20 transition-colors"
+                          className="px-3 py-1.5 rounded-lg bg-[hsl(var(--status-danger-bg))] text-[hsl(var(--status-danger))] text-xs font-medium hover:opacity-80 transition-colors"
                         >
                           Delete
                         </button>
@@ -376,7 +376,7 @@ export function PrivacySettings() {
                     <div className="mt-2 space-y-1">
                       <div className="w-full h-1.5 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-green-500 transition-all duration-500"
+                          className="h-full rounded-full bg-[hsl(var(--status-safe))] transition-all duration-500"
                           style={{ width: `${downloadProgress}%` }}
                         />
                       </div>
@@ -394,17 +394,17 @@ export function PrivacySettings() {
 
       {/* Privacy Guard (GLiNER PII Anonymization) Section */}
       <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
-        <div className={`p-4 ${hasAnyGlinerModel ? 'bg-purple-500/10' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
+        <div className={`p-4 ${hasAnyGlinerModel ? 'bg-[hsl(var(--violet)/0.1)]' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${hasAnyGlinerModel ? 'bg-purple-500/20 text-purple-600' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
+              <div className={`p-2 rounded-lg ${hasAnyGlinerModel ? 'bg-[hsl(var(--violet)/0.2)] text-[hsl(var(--violet))]' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
                 <ShieldIcon />
               </div>
               <div>
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   Privacy Guard (PII Anonymization)
                   {hasAnyGlinerModel && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500 text-white">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--violet))] text-white">
                       ACTIVE
                     </span>
                   )}
@@ -439,7 +439,7 @@ export function PrivacySettings() {
                 key={model.id}
                 className={`rounded-lg border p-3 ${
                   model.is_downloaded
-                    ? 'border-purple-300 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-900/10'
+                    ? 'border-[hsl(var(--violet-muted))] dark:border-[hsl(var(--violet))] bg-[hsl(var(--violet)/0.05)] dark:bg-[hsl(var(--violet)/0.1)]'
                     : 'border-[hsl(var(--border))]'
                 }`}
               >
@@ -451,7 +451,7 @@ export function PrivacySettings() {
                         {formatSize(model.size_bytes)}
                       </span>
                       {model.is_downloaded && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-green-500 text-white">
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--status-safe))] text-white">
                           READY
                         </span>
                       )}
@@ -489,7 +489,7 @@ export function PrivacySettings() {
                     {model.is_downloaded && (
                       <button
                         onClick={() => handleGlinerDelete(model.id)}
-                        className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 text-xs font-medium hover:bg-red-500/20 transition-colors"
+                        className="px-3 py-1.5 rounded-lg bg-[hsl(var(--status-danger-bg))] text-[hsl(var(--status-danger))] text-xs font-medium hover:opacity-80 transition-colors"
                       >
                         Delete
                       </button>
@@ -501,7 +501,7 @@ export function PrivacySettings() {
                   <div className="mt-2 space-y-1">
                     <div className="w-full h-1.5 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-purple-500 transition-all duration-500"
+                        className="h-full rounded-full bg-[hsl(var(--violet))] transition-all duration-500"
                         style={{ width: `${glinerProgress}%` }}
                       />
                     </div>
@@ -566,7 +566,7 @@ export function PrivacySettings() {
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono resize-y"
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono resize-y"
             />
             <div className="flex items-center gap-2 mt-2">
               <button
@@ -577,7 +577,7 @@ export function PrivacySettings() {
                 Import All
               </button>
               {importCount !== null && (
-                <span className="text-xs text-green-600 font-medium">
+                <span className="text-xs text-[hsl(var(--status-safe))] font-medium">
                   {importCount} term{importCount !== 1 ? 's' : ''} imported
                 </span>
               )}
@@ -596,12 +596,12 @@ export function PrivacySettings() {
                 onChange={(e) => setQuickInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
                 placeholder="label,string_to_redact"
-                className="flex-1 px-3 py-2 text-sm bg-white dark:bg-black/20 border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+                className="flex-1 px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
               />
               <button
                 onClick={handleQuickAdd}
                 disabled={!quickInput.includes(',')}
-                className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-600 text-xs font-medium hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 rounded-lg bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))] text-xs font-medium hover:opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add
               </button>
@@ -617,7 +617,7 @@ export function PrivacySettings() {
                 </span>
                 <button
                   onClick={clearCustomRedactTerms}
-                  className="text-xs text-red-500 hover:text-red-600 hover:underline"
+                  className="text-xs text-[hsl(var(--status-danger))] hover:opacity-80 hover:underline"
                 >
                   Clear All
                 </button>
@@ -659,7 +659,7 @@ export function PrivacySettings() {
                           <td className="px-1 py-2">
                             <button
                               onClick={() => removeCustomRedactTerm(index)}
-                              className="p-1 rounded hover:bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="p-1 rounded hover:bg-[hsl(var(--status-danger-bg))] text-[hsl(var(--status-danger))] opacity-0 group-hover:opacity-100 transition-opacity"
                               title="Remove"
                             >
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -704,7 +704,7 @@ export function PrivacySettings() {
           {/* Local Mode Card */}
           <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
             settings.privacyMode === 'local'
-              ? 'border-green-500/50 bg-green-500/5'
+              ? 'border-[hsl(var(--status-safe-border))] bg-[hsl(var(--status-safe-bg))]'
               : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
           }`}>
             <input
@@ -719,10 +719,10 @@ export function PrivacySettings() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">🔒 Local</span>
                 {settings.privacyMode === 'local' && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-green-500 text-white">ACTIVE</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--status-safe))] text-white">ACTIVE</span>
                 )}
                 {!hasAnyLocalModel && (
-                  <span className="text-xs text-amber-600">No model downloaded</span>
+                  <span className="text-xs text-[hsl(var(--status-caution))]">No model downloaded</span>
                 )}
               </div>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
@@ -745,7 +745,7 @@ export function PrivacySettings() {
           {/* Hybrid Mode Card */}
           <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
             settings.privacyMode === 'hybrid'
-              ? 'border-blue-500/50 bg-blue-500/5'
+              ? 'border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.05)]'
               : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
           }`}>
             <input
@@ -759,7 +759,7 @@ export function PrivacySettings() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">🛡️ Hybrid</span>
                 {settings.privacyMode === 'hybrid' && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500 text-white">ACTIVE</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">ACTIVE</span>
                 )}
               </div>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
@@ -782,7 +782,7 @@ export function PrivacySettings() {
           {/* Cloud Mode Card */}
           <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
             settings.privacyMode === 'cloud'
-              ? 'border-amber-500/50 bg-amber-500/5'
+              ? 'border-[hsl(var(--status-caution-border))] bg-[hsl(var(--status-caution-bg))]'
               : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
           }`}>
             <input
@@ -796,7 +796,7 @@ export function PrivacySettings() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">⚡ Cloud</span>
                 {settings.privacyMode === 'cloud' && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500 text-white">ACTIVE</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--status-caution))] text-white">ACTIVE</span>
                 )}
               </div>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">

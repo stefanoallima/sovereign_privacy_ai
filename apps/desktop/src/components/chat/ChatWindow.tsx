@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useChatStore, usePersonasStore, useSettingsStore, useCanvasStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { usePrivacyChat } from "@/hooks/usePrivacyChat";
+import { useFirstSendTour } from "@/hooks/useAppTour";
 import { MessageBubble } from "./MessageBubble";
 import { PromptReviewPanel } from "./PromptReviewPanel";
 import { LivingBrief } from "./LivingBrief";
@@ -9,7 +10,6 @@ import { getNebiusClient } from "@/services/nebius";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Send,
-  Bot,
   AlertTriangle,
   Sparkles,
   FolderKanban,
@@ -120,6 +120,7 @@ export function ChatWindow() {
   const { settings, getEnabledModels, getDefaultModel, isAirplaneModeActive, setPrivacyMode, getActivePrivacyMode } = useSettingsStore();
   const { personas, getPersonaById } = usePersonasStore();
   const { sendMessage, sendMultiPersonaMessage, privacyStatus, pendingReview, approveAndSend, cancelReview } = usePrivacyChat();
+  const { startFirstSendTour } = useFirstSendTour();
   const activeUserProfile = useUserContextStore(selectActiveProfile);
   const customTermsCount = activeUserProfile?.customRedactTerms?.length || 0;
 
@@ -418,13 +419,15 @@ export function ChatWindow() {
   }, []);
 
   const handleSend = async () => {
-    console.log('[handleSend] input:', input?.substring(0, 30), 'conversationId:', currentConversationId, 'isLoading:', isLoading);
     if (!input.trim() || !currentConversationId || isLoading) return;
 
     const message = input.trim();
     const targetPersonas = [...mentionedPersonas]; // Copy before clearing
     setInput("");
     setMentionedPersonas([]);
+
+    // Trigger first-send tour after a short delay so the message appears first
+    setTimeout(() => startFirstSendTour(), 600);
 
     // If multiple personas mentioned, use multi-persona flow
     if (targetPersonas.length > 1) {
@@ -486,16 +489,28 @@ export function ChatWindow() {
   if (!currentConversationId) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center text-center p-8">
-        <div className="mb-8 animate-fade-in">
-          <div className="mx-auto h-20 w-20 rounded-3xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(162_78%_55%)] flex items-center justify-center text-white shadow-xl shadow-[hsl(var(--primary)/0.25)]">
-            <Bot className="h-10 w-10" />
+        {/* Shield Emblem */}
+        <div className="mb-10 animate-emblem-enter">
+          <div className="relative mx-auto h-24 w-24">
+            {/* Outer ring — slow pulse */}
+            <div className="absolute inset-0 rounded-2xl border-2 border-[hsl(var(--primary)/0.15)] animate-[pulse_3s_ease-in-out_infinite]" />
+            {/* Core shield */}
+            <div className="absolute inset-1 rounded-xl bg-[hsl(var(--primary))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary)/0.3)]">
+              <Lock className="h-10 w-10 text-[hsl(var(--primary-foreground))]" strokeWidth={1.8} />
+            </div>
+            {/* Gold corner accent */}
+            <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-[hsl(var(--violet))] shadow-md shadow-[hsl(var(--violet)/0.3)] flex items-center justify-center">
+              <ShieldCheck className="h-3 w-3 text-[hsl(var(--primary-foreground))]" />
+            </div>
           </div>
         </div>
-        <h2 className="mb-4 text-4xl font-bold text-gradient animate-fade-in">
-          AI Private Personal Assistant
+
+        <h2 className="mb-3 text-4xl heading-display text-[hsl(var(--foreground))] animate-fade-in">
+          Your AI.<br />
+          <span className="text-[hsl(var(--primary))]">Your rules.</span>
         </h2>
-        <p className="max-w-md text-[hsl(var(--muted-foreground))] mb-10 text-lg leading-relaxed animate-fade-in">
-          Your private AI companion for coaching, therapy, and brainstorming.
+        <p className="max-w-sm text-[hsl(var(--muted-foreground))] mb-10 text-base leading-relaxed animate-fade-in">
+          Private coaching, therapy, and brainstorming — nothing leaves your device unless you say so.
         </p>
 
         {!hasApiKey && !isAirplane && (
@@ -559,33 +574,31 @@ export function ChatWindow() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 max-w-lg w-full animate-slide-up">
-            {personas.slice(0, 4).map((p, i) => (
+        <div className="grid grid-cols-2 gap-3 max-w-lg w-full stagger-children">
+            {personas.slice(0, 4).map((p) => (
               <button
                 key={p.id}
                 onClick={() => void createConversation(p.id, currentModel.id)}
-                className="group flex items-start gap-4 p-5 rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.8)] backdrop-blur-sm hover:border-[hsl(var(--primary)/0.5)] hover:bg-[hsl(var(--accent)/0.5)] hover:shadow-lg transition-all text-left"
-                style={{ animationDelay: `${i * 50}ms` }}
+                className="group flex items-start gap-3 p-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--primary)/0.4)] hover:shadow-md text-left active:scale-[0.98]"
               >
-                <span className="text-3xl group-hover:scale-110 transition-transform">{p.icon}</span>
+                <span className="text-2xl shrink-0 mt-0.5 group-hover:scale-110 transition-transform">{p.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold group-hover:text-[hsl(var(--primary))] transition-colors">{p.name}</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2 mt-1">{p.description}</p>
+                  <p className="text-sm font-semibold group-hover:text-[hsl(var(--primary))]">{p.name}</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2 mt-0.5 leading-relaxed">{p.description}</p>
                 </div>
               </button>
             ))}
             {/* Incognito Chat Card */}
             <button
               onClick={() => void createConversation(personas[0]?.id || "psychologist", currentModel.id, undefined, true)}
-              className="group flex items-start gap-4 p-5 rounded-2xl border border-dashed border-purple-500/30 bg-purple-500/5 backdrop-blur-sm hover:border-purple-500/50 hover:bg-purple-500/10 hover:shadow-lg transition-all text-left col-span-2"
-              style={{ animationDelay: `${4 * 50}ms` }}
+              className="group flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-[hsl(var(--violet)/0.25)] bg-[hsl(var(--violet)/0.04)] hover:border-[hsl(var(--violet)/0.5)] hover:bg-[hsl(var(--violet)/0.08)] text-left col-span-2 active:scale-[0.98]"
             >
-              <span className="text-3xl group-hover:scale-110 transition-transform flex items-center justify-center">
-                <EyeOff className="h-8 w-8 text-purple-400" />
-              </span>
+              <div className="shrink-0 h-9 w-9 rounded-lg bg-[hsl(var(--violet)/0.12)] flex items-center justify-center group-hover:bg-[hsl(var(--violet)/0.2)]">
+                <EyeOff className="h-4.5 w-4.5 text-[hsl(var(--violet))]" />
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold group-hover:text-purple-400 transition-colors">Incognito Chat</p>
-                <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2 mt-1">Start a private conversation that won't be saved. Messages vanish when you close or leave.</p>
+                <p className="text-sm font-semibold group-hover:text-[hsl(var(--violet))]">Incognito Chat</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">Messages vanish when you close or leave.</p>
               </div>
             </button>
           </div>
@@ -594,7 +607,11 @@ export function ChatWindow() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[hsl(var(--background))] relative">
+    <div className={`flex flex-1 flex-col overflow-hidden bg-[hsl(var(--background))] relative ${
+      activePrivacyMode === 'local' ? 'privacy-tint-local' :
+      activePrivacyMode === 'hybrid' ? 'privacy-tint-hybrid' :
+      activePrivacyMode === 'cloud' ? 'privacy-tint-cloud' : ''
+    }`}>
       {/* Chat Header - Project Breadcrumb */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -632,9 +649,9 @@ export function ChatWindow() {
 
       {/* Incognito Banner */}
       {conversation?.isIncognito && (
-        <div className="flex items-center gap-3 px-6 py-2.5 bg-purple-500/10 border-b border-purple-500/20">
-          <EyeOff className="h-4 w-4 text-purple-400 flex-shrink-0" />
-          <span className="text-sm font-medium text-purple-300">
+        <div className="flex items-center gap-3 px-6 py-2.5 bg-[hsl(var(--violet)/0.1)] border-b border-[hsl(var(--violet)/0.2)]">
+          <EyeOff className="h-4 w-4 text-[hsl(var(--violet))] flex-shrink-0" />
+          <span className="text-sm font-medium text-[hsl(var(--violet-muted))]">
             Incognito Mode — This conversation won't be saved
           </span>
         </div>
@@ -651,18 +668,20 @@ export function ChatWindow() {
           {!messages.length ? (
             // Empty State
             <div className="flex-col items-center justify-center flex-1 text-center px-4 animate-fade-in flex">
-              <div className="h-20 w-20 mb-8 rounded-3xl bg-gradient-to-br from-[hsl(var(--secondary))] to-[hsl(var(--muted))] flex items-center justify-center text-5xl shadow-lg">
+              <div className="h-16 w-16 mb-6 rounded-2xl bg-[hsl(var(--secondary))] flex items-center justify-center text-4xl">
                 {persona?.icon || "👋"}
               </div>
-              <h2 className="text-3xl font-bold mb-3">
-                {conversation?.title || "New Chat"}
+              <h2 className="text-2xl heading-display mb-2">
+                {persona?.name || "New Chat"}
               </h2>
-              <p className="text-[hsl(var(--muted-foreground))] max-w-md text-lg leading-relaxed">
+              <p className="text-[hsl(var(--muted-foreground))] max-w-sm text-sm leading-relaxed">
                 {persona?.description || "Start a conversation to begin."}
               </p>
-              <div className="flex items-center gap-2 mt-6 text-sm text-[hsl(var(--muted-foreground)/0.7)]">
-                <Sparkles className="h-4 w-4" />
-                <span>Powered by {currentModel.name}</span>
+              <div className="flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-lg bg-[hsl(var(--secondary)/0.6)] text-xs text-[hsl(var(--muted-foreground))]">
+                <Sparkles className="h-3 w-3" />
+                <span>{currentModel.name}</span>
+                <span className="opacity-40">·</span>
+                <span className="capitalize">{activePrivacyMode}</span>
               </div>
             </div>
           ) : (
@@ -764,7 +783,7 @@ export function ChatWindow() {
             </div>
           )}
           {/* Floating Input Box */}
-          <div className={`relative border border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] rounded-2xl focus-within:border-[hsl(var(--ring)/0.5)] focus-within:ring-1 focus-within:ring-[hsl(var(--ring)/0.15)] transition-all duration-120 shadow-[var(--shadow)] ${pendingReview ? 'opacity-40 pointer-events-none' : ''}`}>
+          <div className={`relative border border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] rounded-2xl focus-within:border-[hsl(var(--ring)/0.4)] focus-within:ring-2 focus-within:ring-[hsl(var(--ring)/0.08)] focus-within:shadow-[var(--shadow-md)] shadow-[var(--shadow)] ${pendingReview ? 'opacity-40 pointer-events-none' : ''}`}>
             {/* Mentioned Personas Bar */}
             {mentionedPersonas.length > 0 && (
               <div className="absolute -top-10 left-0 right-0 flex items-center gap-2 px-4">
@@ -824,21 +843,21 @@ export function ChatWindow() {
             )}
 
             {/* Privacy Mode Pills */}
-            <div className="absolute -top-3 left-4 z-10 flex items-center gap-1" data-tour="model-selector">
+            <div className="absolute -top-4 left-4 z-10 flex items-center gap-1.5" data-tour="model-selector">
               {([
                 {
                   mode: 'local' as const, icon: Lock, label: 'Local',
-                  activeCls: 'border-green-500/50 bg-green-500/15 text-green-600 dark:text-green-400',
+                  activeCls: 'border-green-600/40 bg-green-500/12 text-green-700 dark:text-green-400 dark:border-green-500/40 privacy-pill-active',
                   modelLabel: (() => { const m = useSettingsStore.getState().ollamaModels.find(m => m.apiModelId === settings.localModeModel); return m?.name?.replace(/^Qwen3\s*/, '') || settings.localModeModel; })(),
                 },
                 {
                   mode: 'hybrid' as const, icon: ShieldCheck, label: 'Hybrid',
-                  activeCls: 'border-blue-500/50 bg-blue-500/15 text-blue-600 dark:text-blue-400',
+                  activeCls: 'border-[hsl(var(--primary)/0.4)] bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] privacy-pill-active',
                   modelLabel: (() => { const m = useSettingsStore.getState().models.find(m => m.id === settings.hybridModeModel); return m?.name?.replace(/^Qwen3\s*/, '') || settings.hybridModeModel; })(),
                 },
                 {
                   mode: 'cloud' as const, icon: Zap, label: 'Cloud',
-                  activeCls: 'border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-400',
+                  activeCls: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 dark:border-amber-500/40 privacy-pill-active',
                   modelLabel: (() => { const m = useSettingsStore.getState().models.find(m => m.id === settings.cloudModeModel); return m?.name?.replace(/^Qwen3\s*/, '') || settings.cloudModeModel; })(),
                 },
               ]).map(({ mode, icon: Icon, label, activeCls, modelLabel }) => {
@@ -848,12 +867,12 @@ export function ChatWindow() {
                   <button
                     key={mode}
                     onClick={() => handlePrivacyModeSelect(mode)}
-                    className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium shadow-sm transition-all ${
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-sm active:scale-[0.97] ${
                       isActive
                         ? activeCls
                         : isDimmed
-                          ? 'border-[hsl(var(--border)/0.3)] bg-[hsl(var(--card)/0.5)] text-[hsl(var(--muted-foreground)/0.5)] hover:text-[hsl(var(--muted-foreground))]'
-                          : 'border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--ring)/0.5)]'
+                          ? 'border-[hsl(var(--border)/0.3)] bg-[hsl(var(--card)/0.5)] text-[hsl(var(--muted-foreground)/0.4)] hover:text-[hsl(var(--muted-foreground))]'
+                          : 'border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--ring)/0.4)] hover:shadow-md'
                     }`}
                     title={
                       mode === 'local' ? 'All processing on your device — maximum privacy' :
@@ -861,15 +880,15 @@ export function ChatWindow() {
                       'Direct to cloud API — fastest'
                     }
                   >
-                    <Icon className="h-3 w-3" />
+                    <Icon className="h-3.5 w-3.5" />
                     <span className="leading-none">{label}</span>
-                    <span className="text-[9px] opacity-60 leading-none">{modelLabel}</span>
+                    <span className="text-[10px] opacity-50 leading-none font-medium">{modelLabel}</span>
                   </button>
                 );
               })}
               {activePrivacyMode === 'custom' && (
-                <span className="flex items-center gap-1.5 rounded-full border border-purple-500/50 bg-purple-500/15 text-purple-600 dark:text-purple-400 px-2.5 py-1 text-[11px] font-medium shadow-sm">
-                  <Settings2 className="h-3 w-3" />
+                <span className="flex items-center gap-1.5 rounded-lg border-2 border-[hsl(var(--violet)/0.4)] bg-[hsl(var(--violet)/0.1)] text-[hsl(var(--violet))] px-3 py-1.5 text-xs font-semibold shadow-sm privacy-pill-active">
+                  <Settings2 className="h-3.5 w-3.5" />
                   <span className="leading-none">Custom</span>
                 </span>
               )}
@@ -914,11 +933,11 @@ export function ChatWindow() {
                   {/* Privacy Status Indicator (during processing) */}
                   {privacyStatus.mode !== 'idle' && (
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-all ${
-                      privacyStatus.mode === 'processing' ? 'bg-blue-500/10 text-blue-400 animate-pulse' :
+                      privacyStatus.mode === 'processing' ? 'bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] animate-pulse' :
                       privacyStatus.mode === 'pending_review' ? 'bg-amber-500/10 text-amber-400 animate-pulse' :
                       privacyStatus.mode === 'local' ? 'bg-green-500/10 text-green-400' :
                       privacyStatus.mode === 'attributes_only' ? 'bg-green-500/10 text-green-400' :
-                      privacyStatus.mode === 'anonymized' ? 'bg-blue-500/10 text-blue-400' :
+                      privacyStatus.mode === 'anonymized' ? 'bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]' :
                       privacyStatus.mode === 'blocked' ? 'bg-red-500/10 text-red-400' :
                       'bg-yellow-500/10 text-yellow-400'
                     }`} title={privacyStatus.explanation}>
@@ -931,9 +950,9 @@ export function ChatWindow() {
                 <button
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
-                  className={`flex items-center justify-center h-10 w-10 rounded-xl transition-all duration-200 ${input.trim()
-                    ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90 active:scale-95"
-                    : "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground)/0.5)] cursor-not-allowed"
+                  className={`flex items-center justify-center h-10 w-10 rounded-xl ${input.trim()
+                    ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md shadow-[hsl(var(--primary)/0.25)] hover:shadow-lg hover:shadow-[hsl(var(--primary)/0.3)] active:scale-93 active:shadow-sm"
+                    : "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground)/0.4)] cursor-not-allowed"
                     }`}
                 >
                   <Send className="h-4 w-4" />

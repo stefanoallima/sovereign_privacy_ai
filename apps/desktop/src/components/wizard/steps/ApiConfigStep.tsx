@@ -90,10 +90,10 @@ export function ApiConfigStep() {
       {/* ============================================================ */}
       <div className="rounded-2xl border border-[hsl(var(--primary)/0.3)] bg-[hsl(var(--primary)/0.03)] p-5 mb-5">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.1)] px-2 py-0.5 rounded-full">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.1)] px-2 py-0.5 rounded-full">
             Recommended
           </span>
-          <span className="text-[10px] font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
             Privacy-safe AI inference
           </span>
         </div>
@@ -112,10 +112,10 @@ export function ApiConfigStep() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <p className="text-sm font-bold text-amber-600 dark:text-amber-400">Zero Data Retention</p>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">
                   Action Required
                 </span>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
                   Not enabled by default
                 </span>
               </div>
@@ -153,8 +153,8 @@ export function ApiConfigStep() {
 
         <div className="space-y-3 mb-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center mt-0.5">
-              <Globe className="h-4 w-4 text-blue-500" />
+            <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-[hsl(var(--primary)/0.1)] flex items-center justify-center mt-0.5">
+              <Globe className="h-4 w-4 text-[hsl(var(--primary))]" />
             </div>
             <div>
               <p className="text-sm font-medium">European Infrastructure</p>
@@ -195,25 +195,25 @@ export function ApiConfigStep() {
           <p className="text-sm font-semibold mb-3">Getting started with Nebius</p>
           <ol className="space-y-2">
             <li className="flex items-start gap-2.5">
-              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-[hsl(var(--primary))] text-white text-[10px] font-bold flex items-center justify-center mt-0.5">1</span>
+              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-[11px] font-bold flex items-center justify-center mt-0.5">1</span>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
                 Create a free account at <button type="button" onClick={() => openExternal("https://studio.nebius.ai/")} className="text-[hsl(var(--primary))] hover:underline font-medium">studio.nebius.ai</button>
               </p>
             </li>
             <li className="flex items-start gap-2.5">
-              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-[hsl(var(--primary))] text-white text-[10px] font-bold flex items-center justify-center mt-0.5">2</span>
+              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-[11px] font-bold flex items-center justify-center mt-0.5">2</span>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
                 Go to your <strong>API Keys</strong> section and create a new inference token
               </p>
             </li>
             <li className="flex items-start gap-2.5">
-              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">3</span>
+              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">3</span>
               <p className="text-xs text-[hsl(var(--foreground))] font-medium">
                 Enable <strong>zero data retention</strong> in your account or API key settings — this is critical for privacy
               </p>
             </li>
             <li className="flex items-start gap-2.5">
-              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-[hsl(var(--primary))] text-white text-[10px] font-bold flex items-center justify-center mt-0.5">4</span>
+              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-[11px] font-bold flex items-center justify-center mt-0.5">4</span>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
                 Paste your inference token below
               </p>

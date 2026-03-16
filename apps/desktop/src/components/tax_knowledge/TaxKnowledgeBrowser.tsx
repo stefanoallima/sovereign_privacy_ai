@@ -30,46 +30,46 @@ export const TaxKnowledgeBrowser: React.FC = () => {
     );
 
     return (
-        <div className="p-6 h-full flex flex-col bg-gray-50/50">
+        <div className="p-6 h-full flex flex-col bg-[hsl(var(--secondary)/0.3)]">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-800">
-                        <BookOpen className="text-blue-600" />
+                    <h2 className="text-2xl font-bold flex items-center gap-2 text-[hsl(var(--foreground))]">
+                        <BookOpen className="text-[hsl(var(--primary))]" />
                         Dutch Tax Knowledge Base
                     </h2>
-                    <p className="text-gray-500 text-sm mt-1">
+                    <p className="text-[hsl(var(--foreground-subtle))] text-sm mt-1">
                         Understanding the 'Why' behind your accountant's requests.
                     </p>
                 </div>
             </div>
 
             <div className="relative mb-6">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[hsl(var(--foreground-subtle))]" size={20} />
                 <input
                     type="text"
                     placeholder="Search tax terms (e.g. 'WOZ', 'Jaaropgaaf')..."
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-[hsl(var(--border))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] bg-[hsl(var(--card))] shadow-sm"
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                 />
             </div>
 
             {loading ? (
-                <div className="flex-1 flex items-center justify-center text-gray-400">Loading knowledge base...</div>
+                <div className="flex-1 flex items-center justify-center text-[hsl(var(--foreground-subtle))]">Loading knowledge base...</div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto pb-4">
                     {filteredConcepts.map((concept) => (
-                        <div key={concept.term} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div key={concept.term} className="bg-[hsl(var(--card))] rounded-xl p-5 border border-[hsl(var(--border)/0.5)] shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-start mb-3">
-                                <h3 className="text-lg font-bold text-gray-800">{concept.term}</h3>
+                                <h3 className="text-lg font-bold text-[hsl(var(--foreground))]">{concept.term}</h3>
                                 {concept.english_term && (
-                                    <span className="text-xs font-medium px-2 py-1 bg-blue-50 text-blue-700 rounded-full">
+                                    <span className="text-xs font-medium px-2 py-1 bg-[hsl(var(--primary)/0.05)] text-[hsl(var(--primary))] rounded-full">
                                         {concept.english_term}
                                     </span>
                                 )}
                             </div>
 
-                            <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                            <p className="text-[hsl(var(--foreground-muted))] text-sm mb-4 leading-relaxed">
                                 {concept.definition}
                             </p>
 
@@ -83,7 +83,7 @@ export const TaxKnowledgeBrowser: React.FC = () => {
                                 </div>
 
                                 {concept.related_boxes.length > 0 && (
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    <div className="flex items-center gap-2 text-xs text-[hsl(var(--foreground-subtle))]">
                                         <FileText size={14} />
                                         <span>Look for: {concept.related_boxes.join(', ')}</span>
                                     </div>
@@ -93,7 +93,7 @@ export const TaxKnowledgeBrowser: React.FC = () => {
                     ))}
 
                     {filteredConcepts.length === 0 && (
-                        <div className="col-span-full text-center py-10 text-gray-400">
+                        <div className="col-span-full text-center py-10 text-[hsl(var(--foreground-subtle))]">
                             No concepts found matching "{filter}".
                         </div>
                     )}

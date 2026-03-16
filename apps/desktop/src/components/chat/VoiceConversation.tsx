@@ -89,7 +89,7 @@ export function VoiceConversation({
       return 'bg-red-500 hover:bg-red-600 text-white';
     }
     if (isConnecting) {
-      return 'bg-gray-400 text-white cursor-wait';
+      return 'bg-[hsl(var(--foreground-subtle))] text-[hsl(var(--primary-foreground))] cursor-wait';
     }
     return 'bg-green-500 hover:bg-green-600 text-white';
   };
@@ -97,22 +97,22 @@ export function VoiceConversation({
   // Get mic button style
   const getMicButtonStyle = () => {
     if (!isConnected) {
-      return 'bg-gray-300 text-gray-500 cursor-not-allowed';
+      return 'bg-[hsl(var(--secondary))] text-[hsl(var(--foreground-subtle))] cursor-not-allowed';
     }
     if (isAgentSpeaking) {
-      return 'bg-blue-500 text-white';
+      return 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]';
     }
     if (isSpeaking) {
       return 'bg-green-500 text-white animate-pulse';
     }
-    return 'bg-gray-200 hover:bg-gray-300 text-gray-700';
+    return 'bg-[hsl(var(--secondary))] hover:bg-[hsl(var(--secondary)/0.8)] text-[hsl(var(--foreground-muted))]';
   };
 
   return (
     <div className={`flex flex-col items-center gap-4 p-4 ${className}`}>
       {/* Status indicator */}
-      <div className="flex items-center gap-2 text-sm text-gray-600">
-        {isAgentSpeaking && <Volume2 className="w-4 h-4 animate-pulse text-blue-500" />}
+      <div className="flex items-center gap-2 text-sm text-[hsl(var(--foreground-muted))]">
+        {isAgentSpeaking && <Volume2 className="w-4 h-4 animate-pulse text-[hsl(var(--primary))]" />}
         {isSpeaking && <Mic className="w-4 h-4 animate-pulse text-green-500" />}
         <span>{getStatusText()}</span>
       </div>
@@ -169,17 +169,17 @@ export function VoiceConversation({
               ? 'bg-green-500'
               : connectionState === ConnectionState.Connecting
               ? 'bg-yellow-500 animate-pulse'
-              : 'bg-gray-400'
+              : 'bg-[hsl(var(--foreground-subtle))]'
           }`}
         />
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-[hsl(var(--foreground-subtle))]">
           {isConnected ? 'Connected' : 'Disconnected'}
         </span>
       </div>
 
       {/* Instructions */}
       {isConnected && !isAgentSpeaking && !isSpeaking && (
-        <p className="text-xs text-gray-400 text-center max-w-xs">
+        <p className="text-xs text-[hsl(var(--foreground-subtle))] text-center max-w-xs">
           Hold the microphone button to speak. The AI will automatically detect when you stop talking.
         </p>
       )}

@@ -95,9 +95,9 @@ export const PiiExtractionDialog: React.FC<PiiExtractionDialogProps> = ({
       {/* Dialog Body */}
       <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.9)] shadow-2xl animate-fade-in">
         {/* Header */}
-        <div className="bg-gradient-to-br from-[hsl(var(--primary)/0.05)] to-[hsl(162_78%_55%/0.05)] p-8 border-b border-[hsl(var(--border)/0.3)]">
+        <div className="bg-[hsl(var(--primary)/0.05)] p-8 border-b border-[hsl(var(--border)/0.3)]">
           <div className="flex items-center gap-4 mb-4">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(162_78%_50% )] flex items-center justify-center text-white shadow-lg shadow-[hsl(var(--primary)/0.25)]">
+            <div className="h-12 w-12 rounded-2xl bg-[hsl(var(--primary))] flex items-center justify-center text-[hsl(var(--primary-foreground))] shadow-lg shadow-[hsl(var(--primary)/0.25)]">
               <Shield size={24} />
             </div>
             <div>
@@ -120,21 +120,21 @@ export const PiiExtractionDialog: React.FC<PiiExtractionDialogProps> = ({
               <div
                 key={field.key}
                 className={`group relative rounded-2xl border transition-all duration-300 ${isDeleted
-                    ? 'bg-red-500/5 border-red-500/20 opacity-60'
+                    ? 'bg-[hsl(var(--status-danger-bg))] border-[hsl(var(--status-danger-border))] opacity-60'
                     : 'bg-[hsl(var(--secondary)/0.3)] border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--primary)/0.3)] hover:bg-[hsl(var(--secondary)/0.5)]'
                   }`}
               >
                 <div className="p-4 flex items-center gap-4">
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className={`text-[11px] font-bold uppercase tracking-wider ${isDeleted ? 'text-red-400' : 'text-[hsl(var(--muted-foreground))]'}`}>
+                      <label className={`text-[11px] font-bold uppercase tracking-wider ${isDeleted ? 'text-[hsl(var(--status-danger))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
                         {field.label}
                       </label>
                       {confidence && !isDeleted && (
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${confidence >= 0.9
-                            ? 'bg-green-500/10 text-green-600'
+                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md ${confidence >= 0.9
+                            ? 'bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))]'
                             : confidence >= 0.85
-                              ? 'bg-amber-500/10 text-amber-600'
+                              ? 'bg-[hsl(var(--status-caution-bg))] text-[hsl(var(--status-caution))]'
                               : 'bg-orange-500/10 text-orange-600'
                           }`}>
                           {Math.round(confidence * 100)}% Match
@@ -149,7 +149,7 @@ export const PiiExtractionDialog: React.FC<PiiExtractionDialogProps> = ({
                           value={fieldValue}
                           onChange={e => handleFieldChange(field.key as keyof EditedPii, e.target.value)}
                           disabled={isDeleted}
-                          className={`w-full bg-transparent text-sm font-medium focus:outline-none transition-all ${isDeleted ? 'text-gray-400 line-through' : 'text-[hsl(var(--foreground))]'
+                          className={`w-full bg-transparent text-sm font-medium focus:outline-none transition-all ${isDeleted ? 'text-[hsl(var(--foreground-subtle))] line-through' : 'text-[hsl(var(--foreground))]'
                             }`}
                         />
                       </div>
@@ -164,8 +164,8 @@ export const PiiExtractionDialog: React.FC<PiiExtractionDialogProps> = ({
                     <button
                       onClick={() => handleDelete(field.key)}
                       className={`h-8 w-8 rounded-lg flex items-center justify-center transition-all ${isDeleted
-                          ? 'bg-red-500/10 text-red-600 hover:bg-red-500/20'
-                          : 'bg-[hsl(var(--muted)/0.5)] text-[hsl(var(--muted-foreground))] hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100'
+                          ? 'bg-[hsl(var(--status-danger-bg))] text-[hsl(var(--status-danger))] hover:opacity-80'
+                          : 'bg-[hsl(var(--muted)/0.5)] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--status-danger-bg))] hover:text-[hsl(var(--status-danger))] group-hover:opacity-100'
                         }`}
                       title={isDeleted ? 'Restore' : 'Remove'}
                     >
@@ -180,11 +180,11 @@ export const PiiExtractionDialog: React.FC<PiiExtractionDialogProps> = ({
 
         {/* Local Security Banner */}
         <div className="px-8 py-4 bg-gradient-to-r from-[hsl(var(--primary)/0.03)] to-transparent flex items-center gap-3">
-          <div className="p-1.5 rounded-lg bg-green-500/10 text-green-600">
+          <div className="p-1.5 rounded-lg bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))]">
             <Lock size={14} />
           </div>
           <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-tight">
-            <span className="font-bold text-green-600">Privacy Shield Active:</span> Extracted data is encrypted and stored 100% locally. No sensitive information leaves your device during this step.
+            <span className="font-bold text-[hsl(var(--status-safe))]">Privacy Shield Active:</span> Extracted data is encrypted and stored 100% locally. No sensitive information leaves your device during this step.
           </p>
         </div>
 
@@ -200,7 +200,7 @@ export const PiiExtractionDialog: React.FC<PiiExtractionDialogProps> = ({
           <button
             onClick={handleConfirm}
             disabled={loading || extractedCount === 0}
-            className="flex-[2] px-6 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(162_78%_50% )] text-white shadow-lg shadow-[hsl(var(--primary)/0.2)] hover:shadow-xl hover:shadow-[hsl(var(--primary)/0.3)] hover:-translate-y-0.5 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+            className="flex-[2] px-6 py-3 rounded-2xl font-bold text-sm bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-lg shadow-[hsl(var(--primary)/0.2)] hover:shadow-xl hover:shadow-[hsl(var(--primary)/0.3)] hover:-translate-y-0.5 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
           >
             {loading ? 'Processing...' : 'Confirm & Secure Local Storage'}
           </button>

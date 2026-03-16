@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SpeakButton } from "./VoiceButton";
-import { Bot, Copy, Check, ShieldAlert, Send, FileText } from "lucide-react";
+import { Bot, Copy, Check, ShieldAlert, Send, FileText, Lock, ShieldCheck, Zap } from "lucide-react";
 import { PrivacyIndicator, PrivacyLevel } from "./PrivacyIndicator";
 import { useChatStore } from "@/stores";
 
@@ -30,15 +30,15 @@ interface MessageBubbleProps {
 }
 
 // Helper to get privacy icon for backend mode
-function getBackendPrivacyIcon(mode?: BackendPrivacyMode): { icon: string; label: string; color: string } {
+function getBackendPrivacyIcon(mode?: BackendPrivacyMode): { icon: React.ReactNode; label: string; color: string } {
   switch (mode) {
     case 'local':
-      return { icon: '🔒', label: 'Local (Built-in)', color: 'text-green-600' };
+      return { icon: <Lock className="h-3 w-3" />, label: 'Local (Built-in)', color: 'text-[hsl(var(--status-safe))]' };
     case 'hybrid':
-      return { icon: '🔐', label: 'Hybrid (Anonymized)', color: 'text-blue-600' };
+      return { icon: <ShieldCheck className="h-3 w-3" />, label: 'Hybrid (Anonymized)', color: 'text-[hsl(var(--primary))]' };
     case 'cloud':
     default:
-      return { icon: '⚡', label: 'Cloud (Nebius)', color: 'text-amber-600' };
+      return { icon: <Zap className="h-3 w-3" />, label: 'Cloud (Nebius)', color: 'text-[hsl(var(--status-caution))]' };
   }
 }
 
@@ -129,8 +129,8 @@ export const MessageBubble = React.memo(function MessageBubble({
         {isUser ? (
           <div className="flex flex-col items-end gap-1">
             <div className={`transition-all ${approvalStatus === 'pending'
-                ? "max-w-[75%] ml-auto px-4 py-2.5 rounded-2xl rounded-tr-sm bg-amber-100 border border-amber-200 text-amber-900 text-[13px] leading-relaxed"
-                : "max-w-[75%] ml-auto px-4 py-2.5 rounded-2xl rounded-tr-sm bg-[hsl(var(--primary)/0.15)] border border-[hsl(var(--primary)/0.2)] text-[hsl(var(--foreground))] text-[13px] leading-relaxed"
+                ? "max-w-[75%] ml-auto px-4 py-2.5 rounded-2xl rounded-tr-sm bg-[hsl(var(--status-caution-bg))] border border-[hsl(var(--status-caution-border))] text-[hsl(var(--foreground))] text-sm leading-relaxed"
+                : "max-w-[75%] ml-auto px-4 py-2.5 rounded-2xl rounded-tr-sm bg-[hsl(var(--primary)/0.15)] border border-[hsl(var(--primary)/0.2)] text-[hsl(var(--foreground))] text-sm leading-relaxed"
               }`}>
               {mainContent}
             </div>
@@ -140,20 +140,20 @@ export const MessageBubble = React.memo(function MessageBubble({
 
             {/* Approval UI for User Message (e.g. proposed prompt to send) */}
             {approvalStatus === 'pending' && (
-              <div className="bg-white border border-amber-200 rounded-lg p-3 mt-1 shadow-sm w-full max-w-md">
+              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--status-caution-border))] rounded-lg p-3 mt-1 shadow-sm w-full max-w-md">
                 <div className="flex items-start gap-2 mb-2">
-                  <ShieldAlert className="text-amber-500 shrink-0" size={16} />
-                  <div className="text-xs text-gray-600">
+                  <ShieldAlert className="text-[hsl(var(--status-caution))] shrink-0" size={16} />
+                  <div className="text-xs text-[hsl(var(--foreground-muted))]">
                     <strong>Approval Required:</strong> The Local LLM anonymized this request. Review the content above before sending to Cloud.
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <button className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors">
+                  <button className="px-3 py-1.5 text-xs font-medium text-[hsl(var(--foreground-muted))] hover:bg-[hsl(var(--accent))] rounded transition-colors">
                     Edit
                   </button>
                   <button
                     onClick={handleApprove}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white rounded transition-colors shadow-sm"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[hsl(var(--status-caution))] hover:bg-[hsl(var(--status-caution)/0.85)] text-white rounded transition-colors shadow-sm"
                   >
                     <Send size={12} />
                     Approve & Send
@@ -164,7 +164,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           </div>
         ) : (
           /* Assistant Content (Left) */
-          <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--foreground-muted))] text-[13px] leading-relaxed w-full overflow-hidden">
+          <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] text-sm leading-relaxed w-full overflow-hidden">
             {/* Persona Name + Privacy Badge */}
             <div className="flex items-center gap-2 px-4 pt-3 pb-2">
               <span className="font-semibold text-[13px] text-[hsl(var(--foreground)/0.9)]">

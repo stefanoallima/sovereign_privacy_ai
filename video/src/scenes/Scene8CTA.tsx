@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { ShieldLogo } from "../components/ShieldLogo";
 import { ParticleField } from "../components/ParticleField";
+import { AppMockup } from "../components/AppMockup";
 import { COLORS } from "../constants/colors";
 
 export const Scene8CTA: React.FC = () => {
@@ -29,6 +30,19 @@ export const Scene8CTA: React.FC = () => {
       }}
     >
       <ParticleField count={50} color={COLORS.accent} />
+
+      {/* Faded app mockup in background */}
+      <div style={{
+        position: "absolute",
+        right: -80,
+        top: "50%",
+        transform: "translateY(-50%)",
+        opacity: interpolate(frame, [20, 60], [0, 0.18], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+        pointerEvents: "none",
+        zIndex: 0,
+      }}>
+        <AppMockup frame={0} fps={fps} mode="sovereign" messageStage={2} scale={0.72} />
+      </div>
 
       <div style={{ transform: `scale(${logoScale})`, zIndex: 1 }}>
         <ShieldLogo size={160} startFrame={0} />

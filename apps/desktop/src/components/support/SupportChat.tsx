@@ -60,7 +60,7 @@ export function SupportChat({ isOpen, onClose }: SupportChatProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--foreground)/0.15)] animate-fade-in">
       <div className="relative flex flex-col w-full max-w-lg h-[85vh] max-h-[700px] mx-4 bg-[hsl(var(--card))] rounded-3xl shadow-2xl border border-[hsl(var(--border)/0.5)] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[hsl(var(--border)/0.5)]">

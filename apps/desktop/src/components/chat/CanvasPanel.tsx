@@ -37,9 +37,7 @@ function CanvasEmptyState({ onClose }: { onClose: () => void }) {
       {/* Empty state body */}
       <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6">
         <div className="text-center">
-          <div className="h-12 w-12 rounded-2xl bg-[hsl(var(--violet)/0.15)] border border-[hsl(var(--violet)/0.3)] flex items-center justify-center mx-auto mb-4">
-            <FileText className="h-6 w-6 text-[hsl(var(--violet))]" />
-          </div>
+          <FileText className="h-6 w-6 text-[hsl(var(--violet))] mx-auto mb-3" />
           <h3 className="text-[14px] font-semibold text-[hsl(var(--foreground))] mb-1">Canvas is empty</h3>
           <p className="text-[12px] text-[hsl(var(--muted-foreground))]">
             Ask the AI to create a document, or start from a template

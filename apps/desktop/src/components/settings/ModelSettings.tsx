@@ -60,7 +60,7 @@ export function ModelSettings() {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
             Cloud Models
           </h3>
-          <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
+          <span className="rounded bg-[hsl(var(--primary)/0.1)] px-1.5 py-0.5 text-[11px] font-medium text-[hsl(var(--primary))]">
             Nebius AI
           </span>
         </div>
@@ -83,7 +83,7 @@ export function ModelSettings() {
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-sm font-medium">{model.name}</span>
                   {model.isDefault && (
-                    <span className="rounded bg-[hsl(var(--primary))]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[hsl(var(--primary))]">
+                    <span className="rounded bg-[hsl(var(--primary))]/10 px-1.5 py-0.5 text-[11px] font-semibold text-[hsl(var(--primary))]">
                       DEFAULT
                     </span>
                   )}
@@ -118,7 +118,7 @@ export function ModelSettings() {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
             Local Models
           </h3>
-          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
+          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600">
             Offline · Free
           </span>
         </div>
@@ -145,12 +145,12 @@ export function ModelSettings() {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-sm font-medium">{model.name}</span>
                     {isDownloaded && (
-                      <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
+                      <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-600">
                         READY
                       </span>
                     )}
                     {!isDownloaded && (
-                      <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
+                      <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-amber-600">
                         NOT DOWNLOADED
                       </span>
                     )}

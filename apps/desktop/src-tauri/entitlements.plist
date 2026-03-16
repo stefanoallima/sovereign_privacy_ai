@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Outbound network access (cloud AI inference, update checks) -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+
+  <!--
+    Hardened Runtime: do NOT allow JIT or unsigned executable memory.
+    llama.cpp uses Metal GPU shaders through Apple's own APIs — no JIT needed.
+    If a future backend requires JIT, flip com.apple.security.cs.allow-jit to true.
+  -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <false/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <false/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <false/>
+</dict>
+</plist>

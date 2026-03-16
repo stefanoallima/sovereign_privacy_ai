@@ -17,9 +17,9 @@ const TIERS = [
     tagline: "Quick & lightweight",
     description: "Catches the most common personal details — names, emails, phone numbers. Fast on any machine. May miss specialised identifiers such as SSNs or tax IDs — Layer 2 (LLM extraction) provides the safety net.",
     icon: Zap,
-    iconColor: "text-amber-500",
-    borderColor: "border-amber-200 dark:border-amber-800",
-    bgColor: "bg-amber-50 dark:bg-amber-950/20",
+    iconColor: "text-[hsl(var(--status-caution))]",
+    borderColor: "border-[hsl(var(--status-caution-border))]",
+    bgColor: "bg-[hsl(var(--status-caution-bg))]",
     size: "~600 MB",
     accuracy: "Good",
     speed: "Fast",
@@ -31,9 +31,9 @@ const TIERS = [
     tagline: "Best of both worlds",
     description: "High accuracy with a small footprint, thanks to smart compression. Detects a wide range of sensitive data. Best for most users.",
     icon: Scale,
-    iconColor: "text-blue-500",
-    borderColor: "border-blue-200 dark:border-blue-800",
-    bgColor: "bg-blue-50 dark:bg-blue-950/20",
+    iconColor: "text-[hsl(var(--primary))]",
+    borderColor: "border-[hsl(var(--primary)/0.2)] dark:border-[hsl(var(--primary)/0.3)]",
+    bgColor: "bg-[hsl(var(--primary)/0.05)] dark:bg-[hsl(var(--primary)/0.08)]",
     size: "~650 MB",
     accuracy: "High",
     speed: "Good",
@@ -45,9 +45,9 @@ const TIERS = [
     tagline: "Maximum detection",
     description: "The most comprehensive scanner. Catches subtle PII that other models miss. Best for highly sensitive use cases.",
     icon: Shield,
-    iconColor: "text-green-600",
-    borderColor: "border-green-200 dark:border-green-800",
-    bgColor: "bg-green-50 dark:bg-green-950/20",
+    iconColor: "text-[hsl(var(--status-safe))]",
+    borderColor: "border-[hsl(var(--status-safe-border))]",
+    bgColor: "bg-[hsl(var(--status-safe-bg))]",
     size: "~1.8 GB",
     accuracy: "Best",
     speed: "Slower",
@@ -146,7 +146,7 @@ export function PrivacyGuardStep() {
     <div className="max-w-lg mx-auto">
       <div className="text-center mb-8">
         <div className="flex justify-center mb-3">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--violet))] flex items-center justify-center shadow-lg">
             <Shield className="h-7 w-7 text-white" />
           </div>
         </div>
@@ -164,14 +164,14 @@ export function PrivacyGuardStep() {
         </p>
         <div className="space-y-2.5">
           <div className="flex gap-3 items-start">
-            <span className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-bold flex items-center justify-center">1</span>
+            <span className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] text-[11px] font-bold flex items-center justify-center">1</span>
             <div>
               <p className="font-medium text-xs">GLiNER scanner <span className="font-normal text-[hsl(var(--muted-foreground))]">— set up below</span></p>
               <p className="text-[hsl(var(--muted-foreground))] text-xs leading-relaxed">On-device neural model. Detects names, emails, phones, addresses and more. The Fast tier may miss specialised identifiers like SSNs.</p>
             </div>
           </div>
           <div className="flex gap-3 items-start">
-            <span className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[10px] font-bold flex items-center justify-center">2</span>
+            <span className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-[hsl(var(--violet)/0.1)] text-[hsl(var(--violet))] text-[11px] font-bold flex items-center justify-center">2</span>
             <div>
               <p className="font-medium text-xs">LLM extraction <span className="font-normal text-[hsl(var(--muted-foreground))]">— always active</span></p>
               <p className="text-[hsl(var(--muted-foreground))] text-xs leading-relaxed">Your local model converts raw values to safe categories (e.g. exact income → <em>[INCOME_BRACKET]</em>) before any cloud request. Acts as a safety net even when Layer 1 is skipped.</p>
@@ -225,7 +225,7 @@ export function PrivacyGuardStep() {
               <div className="flex items-start gap-3">
                 <div className={`mt-0.5 ${tier.iconColor}`}>
                   {isDownloaded ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <CheckCircle2 className="h-5 w-5 text-[hsl(var(--status-safe))]" />
                   ) : (
                     <TierIcon className="h-5 w-5" />
                   )}
@@ -235,12 +235,12 @@ export function PrivacyGuardStep() {
                     <span className="font-semibold text-sm">{tier.label}</span>
                     <span className="text-xs text-[hsl(var(--muted-foreground))]">{tier.tagline}</span>
                     {tier.recommended && (
-                      <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                      <span className="text-[11px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded-full bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] dark:bg-[hsl(var(--primary)/0.2)] dark:text-[hsl(var(--primary))]">
                         Recommended
                       </span>
                     )}
                     {isDownloaded && (
-                      <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">
+                      <span className="text-[11px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded-full bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))]">
                         Ready
                       </span>
                     )}
@@ -292,7 +292,7 @@ export function PrivacyGuardStep() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 p-3 mb-4 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-lg border border-[hsl(var(--status-danger-border))] bg-[hsl(var(--status-danger-bg))] p-3 mb-4 text-sm text-[hsl(var(--status-danger))]">
           {error}
         </div>
       )}

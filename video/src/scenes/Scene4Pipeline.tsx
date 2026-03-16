@@ -1,229 +1,152 @@
+/**
+ * Scene4 — The Sovereign Answer (17–29s, 360 frames)
+ *
+ * Closes the loop from Scene1 (the threat) by showing the same health question
+ * now answered safely inside the Sovereign AI app. The AppMockup in sovereign
+ * mode shows the real UI with the Anonymized badge and privacy header.
+ *
+ *   0–40f   : App slides in, "With Sovereign AI" label fades up
+ *   30–200f : Response streams into the assistant bubble
+ *   180–360f: Privacy detail cards animate in below the app
+ */
+
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { PipelineNode } from "../components/PipelineNode";
-import { COLORS } from "../constants/colors";
+import {
+  AbsoluteFill,
+  interpolate,
+  spring,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
+import { AppMockup } from "../components/AppMockup";
 
-const NODES: {
-  id: string;
-  label: string;
-  sublabel?: string;
-  x: number;
-  y: number;
-  color: string;
-  activateFrame: number;
-}[] = [
-  { id: "msg",    label: "Your Message",      sublabel: undefined,         x: 160,  y: 320, color: COLORS.textMuted,  activateFrame: 10  },
-  { id: "gliner", label: "GLiNER Shield",     sublabel: "PII detection",   x: 440,  y: 320, color: COLORS.safe,       activateFrame: 30  },
-  { id: "router", label: "Backend Router",    sublabel: undefined,         x: 720,  y: 320, color: COLORS.accent,     activateFrame: 50  },
-  { id: "attr",   label: "Attribute Extract", sublabel: "categories only", x: 960,  y: 560, color: COLORS.accent,     activateFrame: 70  },
-  { id: "cloud",  label: "Cloud LLM",         sublabel: "EU-based",        x: 680,  y: 560, color: COLORS.cloud,      activateFrame: 90  },
-  { id: "rehy",   label: "Rehydration",       sublabel: "local only",      x: 400,  y: 560, color: COLORS.safe,       activateFrame: 110 },
-];
+const clamp = {
+  extrapolateLeft: "clamp" as const,
+  extrapolateRight: "clamp" as const,
+};
 
-const PATH_D = "M 250 352 L 530 352 L 810 352 L 1050 592 L 770 592 L 490 592";
-
-const PATH_POINTS = [
-  { x: 250, y: 352 },
-  { x: 530, y: 352 },
-  { x: 810, y: 352 },
-  { x: 1050, y: 592 },
-  { x: 770, y: 592 },
-  { x: 490, y: 592 },
-];
-
-// Utility: interpolate a point along a polyline by [0,1] progress
-function getPointAlongPolyline(
-  points: { x: number; y: number }[],
-  t: number
-): { x: number; y: number } {
-  if (points.length < 2) return points[0] ?? { x: 0, y: 0 };
-
-  const segments: { length: number; p1: { x: number; y: number }; p2: { x: number; y: number } }[] = [];
-  let total = 0;
-  for (let i = 0; i < points.length - 1; i++) {
-    const dx = points[i + 1].x - points[i].x;
-    const dy = points[i + 1].y - points[i].y;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    segments.push({ length: len, p1: points[i], p2: points[i + 1] });
-    total += len;
-  }
-
-  let target = t * total;
-  for (const seg of segments) {
-    if (target <= seg.length) {
-      const ratio = target / seg.length;
-      return {
-        x: seg.p1.x + ratio * (seg.p2.x - seg.p1.x),
-        y: seg.p1.y + ratio * (seg.p2.y - seg.p1.y),
-      };
-    }
-    target -= seg.length;
-  }
-  return points[points.length - 1];
-}
+const PRIVACY_POINTS = [
+  { icon: "🔍", text: "Your name & health details detected automatically" },
+  { icon: "🔒", text: "Replaced with safe placeholders before leaving device" },
+  { icon: "✅", text: "AI answers with full context — you keep your identity" },
+] as const;
 
 export const Scene4Pipeline: React.FC = () => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
 
-  const particleProgress = interpolate(frame, [130, 280], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  // App entrance
+  const appSpring = spring({ frame, fps, config: { mass: 0.6, damping: 14, stiffness: 80 } });
+  const appY  = interpolate(appSpring, [0, 1], [50, 0]);
+  const appOp = interpolate(appSpring, [0, 1], [0, 1]);
 
-  const lineProgress = interpolate(frame, [10, 120], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  // Label
+  const labelOp = interpolate(frame, [12, 28], [0, 1], clamp);
 
-  const pathLength = 1500;
-  const dashOffset = pathLength * (1 - lineProgress);
+  // Violet background glow
+  const glowOp = interpolate(frame, [0, 60], [0, 1], clamp);
 
-  const particleXY = getPointAlongPolyline(PATH_POINTS, particleProgress);
+  // Privacy points stagger in
+  const pointOp = (i: number) =>
+    interpolate(frame, [185 + i * 20, 205 + i * 20], [0, 1], clamp);
+  const pointX = (i: number) =>
+    interpolate(
+      spring({ frame: Math.max(0, frame - 185 - i * 20), fps, config: { mass: 0.4, damping: 12, stiffness: 100 } }),
+      [0, 1], [30, 0]
+    );
 
-  const redactionProgress = interpolate(frame, [155, 175], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const bubbleOpacity = interpolate(frame, [220, 240], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const rehydrateProgress = interpolate(frame, [265, 285], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  // Tagline
+  const tagOp = interpolate(frame, [290, 316], [0, 1], clamp);
 
   return (
-    <AbsoluteFill
-      style={{
-        background: COLORS.background,
-        fontFamily: "Inter, monospace",
-      }}
-    >
-      {/* Title */}
-      <div
-        style={{
-          position: "absolute",
-          top: 60,
-          left: 0,
-          right: 0,
-          textAlign: "center",
-          fontSize: 26,
-          fontWeight: 700,
-          color: COLORS.textMuted,
-          opacity: interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" }),
-        }}
-      >
-        Privacy Pipeline
+    <AbsoluteFill style={{
+      background: "#000000",
+      fontFamily: "system-ui, -apple-system, sans-serif",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 48,
+    }}>
+      {/* Violet radial glow */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        opacity: glowOp,
+        background: "radial-gradient(ellipse 1100px 700px at 50% 50%, rgba(124,58,237,0.13) 0%, transparent 70%)",
+      }} />
+
+      {/* Left column: label + app */}
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 18,
+        opacity: appOp,
+        transform: `translateY(${appY}px)`,
+      }}>
+        <div style={{
+          opacity: labelOp,
+          fontSize: 12, fontWeight: 700,
+          letterSpacing: "0.10em", textTransform: "uppercase",
+          color: "rgba(167,139,250,0.85)",
+        }}>
+          Same question — fully protected
+        </div>
+
+        <AppMockup
+          frame={Math.max(0, frame - 28)}
+          fps={fps}
+          mode="sovereign"
+          messageStage={2}
+          assistantTypeFrame={Math.max(0, frame - 40)}
+          scale={0.65}
+        />
       </div>
 
-      {/* SVG: connecting lines + particle */}
-      <svg
-        width={1920}
-        height={1080}
-        style={{ position: "absolute", top: 0, left: 0 }}
-      >
-        {/* Dotted path */}
-        <path
-          d={PATH_D}
-          fill="none"
-          stroke={COLORS.accent}
-          strokeWidth={2}
-          strokeDasharray={`${pathLength}`}
-          strokeDashoffset={dashOffset}
-          opacity={0.4}
-        />
+      {/* Right column: privacy detail cards */}
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+        width: 380,
+      }}>
+        {PRIVACY_POINTS.map((p, i) => (
+          <div key={i} style={{
+            opacity: pointOp(i),
+            transform: `translateX(${pointX(i)}px)`,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 14,
+            padding: "16px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+          }}>
+            <span style={{ fontSize: 24, flexShrink: 0 }}>{p.icon}</span>
+            <span style={{
+              fontSize: 14,
+              color: "rgba(255,255,255,0.75)",
+              lineHeight: 1.45,
+              fontWeight: 500,
+            }}>
+              {p.text}
+            </span>
+          </div>
+        ))}
 
-        {/* Traveling particle */}
-        {particleProgress > 0 && particleProgress < 1 && (
-          <circle
-            cx={particleXY.x}
-            cy={particleXY.y}
-            r={7}
-            fill={COLORS.accent}
-            style={{ filter: `drop-shadow(0 0 8px ${COLORS.accent})` }}
-          />
-        )}
-
-        {/* Blocked red path at Attribute Extract */}
-        {frame > 200 && (
-          <>
-            <line x1={1050} y1={560} x2={1050} y2={490} stroke={COLORS.danger} strokeWidth={2} strokeDasharray="6 4" opacity={0.7} />
-            <text x={1065} y={525} fill={COLORS.danger} fontSize={12} fontFamily="monospace">BSN: 123... ✕</text>
-          </>
-        )}
-      </svg>
-
-      {/* Pipeline nodes */}
-      {NODES.map((n) => (
-        <PipelineNode
-          key={n.id}
-          label={n.label}
-          sublabel={n.sublabel}
-          activateFrame={n.activateFrame}
-          glowColor={n.color}
-          x={n.x}
-          y={n.y}
-        />
-      ))}
-
-      {/* Redacted text near GLiNER node */}
-      {frame > 140 && (
-        <div
-          style={{
-            position: "absolute",
-            left: 370,
-            top: 270,
-            fontSize: 12,
-            fontFamily: "monospace",
-            color: COLORS.safe,
-            opacity: interpolate(frame, [140, 155], [0, 1], { extrapolateRight: "clamp" }),
-          }}
-        >
-          {redactionProgress > 0.5
-            ? "█████, BSN: █████████"
-            : "€62,500, BSN: 123-456-789"}
+        {/* Tagline */}
+        <div style={{
+          opacity: tagOp,
+          marginTop: 8,
+          fontSize: 22,
+          fontWeight: 700,
+          color: "#ffffff",
+          letterSpacing: "-0.02em",
+          lineHeight: 1.3,
+        }}>
+          Powerful AI.{" "}
+          <span style={{ color: "#a78bfa" }}>Zero exposure.</span>
         </div>
-      )}
-
-      {/* Cloud LLM response bubble */}
-      {bubbleOpacity > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            left: 580,
-            top: 500,
-            background: "rgba(107, 114, 128, 0.15)",
-            border: `1px solid ${COLORS.cloud}`,
-            borderRadius: 8,
-            padding: "8px 14px",
-            fontSize: 12,
-            color: COLORS.cloud,
-            opacity: bubbleOpacity,
-          }}
-        >
-          Your [INCOME] falls in the 40% bracket...
-        </div>
-      )}
-
-      {/* Rehydrated response */}
-      {rehydrateProgress > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            left: 300,
-            top: 640,
-            fontSize: 13,
-            color: COLORS.safe,
-            opacity: rehydrateProgress,
-          }}
-        >
-          Your <strong>€62,500</strong> falls in the 40% bracket...
-          <span style={{ marginLeft: 8, fontSize: 11, color: COLORS.textMuted }}>← real values restored locally</span>
-        </div>
-      )}
+      </div>
     </AbsoluteFill>
   );
 };

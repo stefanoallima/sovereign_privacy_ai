@@ -123,6 +123,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Backward compat (derived from privacyMode)
   airplaneMode: false,
   airplaneModeModel: "qwen3-1.7b",
+  cloudTrustLevel: null,
   skipCloudReview: false,
   theme: "light",
   showTokenCounts: true,
@@ -358,7 +359,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 12, // v12: add GLiNER privacy shield settings
+      version: 13, // v13: add cloudTrustLevel
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -380,6 +381,7 @@ export const useSettingsStore = create<SettingsStore>()(
             glinerEnabled: old.glinerEnabled ?? false,
             glinerModelId: old.glinerModelId ?? null,
             glinerConfidenceThreshold: old.glinerConfidenceThreshold ?? 0.4,
+            cloudTrustLevel: old.cloudTrustLevel ?? null,
           },
           models: DEFAULT_MODELS,
           ollamaModels: DEFAULT_OLLAMA_MODELS,

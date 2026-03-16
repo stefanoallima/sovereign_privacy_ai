@@ -11,12 +11,13 @@ import {
   Pencil,
   CheckCircle,
   XCircle,
+  ShieldCheck,
 } from "lucide-react";
 
 
 const PRIVACY_LABELS = {
   maximum: { label: "Maximum Privacy", icon: Shield, color: "text-green-500" },
-  balanced: { label: "Balanced", icon: Lock, color: "text-blue-500" },
+  balanced: { label: "Balanced", icon: Lock, color: "text-[hsl(var(--primary))]" },
   performance: { label: "Performance", icon: Zap, color: "text-orange-500" },
 } as const;
 
@@ -44,7 +45,7 @@ export function SettingsPreview() {
 
     generateCommentary(
       `The user has completed setup with these choices: ${parts}. Give a warm 2-3 sentence summary welcoming them and remind them they can adjust settings anytime.`,
-      "Your setup is complete! Everything looks great — click 'Apply Settings' to save your choices and start using Sovereign AI. Remember, you can revisit these settings anytime using the Settings Assistant in the sidebar or the Settings panel."
+      "Your setup is complete! Everything looks great — click 'Start using Sovereign AI' to save your choices. You can revisit any of these settings anytime."
     );
   }, []);
 
@@ -54,6 +55,14 @@ export function SettingsPreview() {
       updateSettings({ airplaneMode: true });
     } else {
       updateSettings({ airplaneMode: false });
+    }
+
+    // Apply cloud trust level
+    if (choices.cloudTrustLevel) {
+      updateSettings({
+        cloudTrustLevel: choices.cloudTrustLevel,
+        skipCloudReview: choices.cloudTrustLevel === "trusted",
+      });
     }
 
     // Apply API key
@@ -125,7 +134,7 @@ export function SettingsPreview() {
         {/* Privacy Shield (GLiNER) */}
         <div className="flex items-center justify-between p-4 border-b border-[hsl(var(--border)/0.3)]">
           <div className="flex items-center gap-3">
-            <Shield className={`h-5 w-5 ${choices.glinerEnabled ? "text-blue-500" : "text-[hsl(var(--muted-foreground))]"}`} />
+            <Shield className={`h-5 w-5 ${choices.glinerEnabled ? "text-[hsl(var(--primary))]" : "text-[hsl(var(--muted-foreground))]"}`} />
             <div>
               <p className="text-sm font-medium">Privacy Shield</p>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
@@ -170,10 +179,38 @@ export function SettingsPreview() {
           </div>
         )}
 
+        {/* Cloud Trust */}
+        {choices.privacyMode !== "maximum" && (
+          <div className="flex items-center justify-between p-4 border-b border-[hsl(var(--border)/0.3)]">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className={`h-5 w-5 ${choices.cloudTrustLevel === "trusted" ? "text-green-500" : choices.cloudTrustLevel === "minimal" ? "text-amber-500" : "text-[hsl(var(--primary))]"}`} />
+              <div>
+                <p className="text-sm font-medium">Cloud Trust Level</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  {choices.cloudTrustLevel === "trusted"
+                    ? "Trusted — ZDR confirmed"
+                    : choices.cloudTrustLevel === "partial"
+                    ? "Partial trust — aware of trade-offs"
+                    : choices.cloudTrustLevel === "minimal"
+                    ? "Minimal — reminders enabled"
+                    : "Not configured"}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => goToStep(4)}
+              className="flex items-center gap-1 text-xs text-[hsl(var(--primary))] hover:underline"
+            >
+              <Pencil className="h-3 w-3" />
+              Change
+            </button>
+          </div>
+        )}
+
         {/* Default Persona */}
         <div className="flex items-center justify-between p-4 border-b border-[hsl(var(--border)/0.3)]">
           <div className="flex items-center gap-3">
-            <Brain className="h-5 w-5 text-purple-500" />
+            <Brain className="h-5 w-5 text-[hsl(var(--violet))]" />
             <div>
               <p className="text-sm font-medium">Default Persona</p>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
@@ -184,7 +221,7 @@ export function SettingsPreview() {
             </div>
           </div>
           <button
-            onClick={() => goToStep(4)}
+            onClick={() => goToStep(5)}
             className="flex items-center gap-1 text-xs text-[hsl(var(--primary))] hover:underline"
           >
             <Pencil className="h-3 w-3" />
@@ -216,10 +253,13 @@ export function SettingsPreview() {
       {/* Apply */}
       <button
         onClick={handleApply}
-        className="w-full mt-6 py-4 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(162_78%_50%)] text-white font-semibold text-lg hover:opacity-90 transition-opacity shadow-lg"
+        className="w-full mt-6 py-4 rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-semibold text-lg hover:opacity-90 shadow-lg shadow-[hsl(var(--primary)/0.25)] active:scale-[0.98]"
       >
-        Apply Settings
+        Start using Sovereign AI
       </button>
+      <p className="text-center text-xs text-[hsl(var(--muted-foreground))] mt-3">
+        You can change any of these in Settings at any time.
+      </p>
     </div>
   );
 }

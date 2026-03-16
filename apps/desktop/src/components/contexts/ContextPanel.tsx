@@ -87,7 +87,7 @@ export function ContextPanel() {
   return (
     <aside className="relative flex w-80 flex-shrink-0 flex-col bg-[hsl(var(--surface-1))] border-l border-[hsl(var(--border))] h-full transition-all duration-300">
       {/* Header with Tabs */}
-      <div className="flex flex-col border-b border-[hsl(var(--border)/0.5)] bg-[hsl(var(--background)/0.3)] backdrop-blur-md">
+      <div className="flex flex-col border-b border-[hsl(var(--border)/0.5)]">
         <div className="flex items-center justify-between px-5 py-4">
           <h2 className="font-bold text-[15px] tracking-tight flex items-center gap-2">
             <LayoutGrid className="h-4 w-4 text-[hsl(var(--primary))]" />
@@ -115,7 +115,7 @@ export function ContextPanel() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 scrollbar-thin">
 
         {activeTab === "general" ? (
           <>
@@ -217,23 +217,18 @@ export function ContextPanel() {
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))] pointer-events-none" />
               </div>
 
-              {/* Model Stats - Only show for selected */}
+              {/* Model Stats — inline, no card containers */}
               {selectedModel && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="bg-[hsl(var(--secondary)/0.5)] rounded-lg p-2.5 flex flex-col gap-1 border border-[hsl(var(--border)/0.5)]">
-                    <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))] font-semibold">Speed</span>
-                    <div className="flex items-center gap-1.5 text-xs font-medium">
-                      <Zap className="h-3 w-3 text-amber-500" />
-                      {selectedModel.speedTier}
-                    </div>
-                  </div>
-                  <div className="bg-[hsl(var(--secondary)/0.5)] rounded-lg p-2.5 flex flex-col gap-1 border border-[hsl(var(--border)/0.5)]">
-                    <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))] font-semibold">Cost</span>
-                    <div className="flex items-center gap-1.5 text-xs font-medium">
-                      <Coins className="h-3 w-3 text-[hsl(var(--primary))]" />
-                      ${selectedModel.inputCostPer1M}/1M
-                    </div>
-                  </div>
+                <div className="mt-3 flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
+                  <span className="flex items-center gap-1.5">
+                    <Zap className="h-3 w-3 text-[hsl(var(--violet))]" />
+                    {selectedModel.speedTier}
+                  </span>
+                  <span className="w-px h-3 bg-[hsl(var(--border))]" />
+                  <span className="flex items-center gap-1.5">
+                    <Coins className="h-3 w-3 text-[hsl(var(--primary))]" />
+                    ${selectedModel.inputCostPer1M}/1M
+                  </span>
                 </div>
               )}
             </CollapsibleSection>
@@ -241,10 +236,12 @@ export function ContextPanel() {
             {/* Contexts */}
             <CollapsibleSection title="Personal Contexts" icon={<FileText className="h-3.5 w-3.5" />} defaultOpen>
               {contexts.length === 0 ? (
-                <div className="rounded-xl bg-[hsl(var(--muted)/0.3)] px-4 py-8 text-center border border-dashed border-[hsl(var(--border))]">
-                  <FileText className="h-8 w-8 mx-auto text-[hsl(var(--muted-foreground)/0.3)] mb-2" />
+                <div className="px-1 py-4 text-center">
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                    No personal contexts yet
+                    Add context your advisors can reference — like your financial situation, health goals, or career plans.
+                  </p>
+                  <p className="text-[11px] text-[hsl(var(--foreground-subtle))] mt-1.5">
+                    Context stays on your device.
                   </p>
                 </div>
               ) : (
@@ -265,7 +262,7 @@ export function ContextPanel() {
                         className="h-4 w-4 rounded-md border-2 border-[hsl(var(--border))] text-[hsl(var(--primary))] focus:ring-[hsl(var(--ring))]"
                       />
                       <span className="flex-1 text-sm font-medium group-hover:text-[hsl(var(--foreground))] transition-colors">{ctx.name}</span>
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] bg-[hsl(var(--muted))] px-2 py-0.5 rounded-full font-mono">
+                      <span className="text-[11px] text-[hsl(var(--muted-foreground))] bg-[hsl(var(--muted))] px-2 py-0.5 rounded-full font-mono">
                         {ctx.tokenCount}
                       </span>
                       <button
@@ -293,19 +290,16 @@ export function ContextPanel() {
 
             {/* Usage Stats */}
             <CollapsibleSection title="Session Usage" icon={<Clock className="h-3.5 w-3.5" />}>
-              <div className="rounded-xl bg-[hsl(var(--muted)/0.3)] p-4 border border-[hsl(var(--border)/0.5)]">
-                <div className="space-y-3 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[hsl(var(--muted-foreground))]">Context tokens</span>
-                    <span className="font-mono font-medium">~2,400</span>
-                  </div>
-                  <div className="w-full h-px bg-[hsl(var(--border)/0.5)]" />
-                  <div className="flex justify-between items-center">
-                    <span className="text-[hsl(var(--muted-foreground))]">Cost per message</span>
-                    <span className="font-mono font-bold text-[hsl(var(--primary))]">
-                      ~${selectedModel ? ((2400 / 1_000_000) * selectedModel.inputCostPer1M).toFixed(5) : "0.00000"}
-                    </span>
-                  </div>
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-[hsl(var(--muted-foreground))]">Context tokens</span>
+                  <span className="font-mono font-medium">~2,400</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[hsl(var(--muted-foreground))]">Cost per message</span>
+                  <span className="font-mono font-bold text-[hsl(var(--primary))]">
+                    ~${selectedModel ? ((2400 / 1_000_000) * selectedModel.inputCostPer1M).toFixed(5) : "0.00000"}
+                  </span>
                 </div>
               </div>
             </CollapsibleSection>
@@ -367,12 +361,12 @@ function CollapsibleSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card)/0.4)] rounded-2xl overflow-hidden transition-all duration-200" data-tour={dataTour}>
+    <div data-tour={dataTour}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3.5 hover:bg-[hsl(var(--secondary)/0.3)] transition-colors"
+        className="w-full flex items-center justify-between py-2 hover:text-[hsl(var(--foreground))] transition-colors"
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {icon && <span className="text-[hsl(var(--muted-foreground))]">{icon}</span>}
           <span className="text-[11px] font-semibold tracking-widest uppercase text-[hsl(var(--foreground-subtle))]">{title}</span>
         </div>
@@ -380,10 +374,8 @@ function CollapsibleSection({
       </button>
 
       {isOpen && (
-        <div className="p-3.5 pt-0 border-t border-[hsl(var(--border)/0.3)] animate-fade-in">
-          <div className="pt-3">
-            {children}
-          </div>
+        <div className="pt-2 pb-1 animate-fade-in">
+          {children}
         </div>
       )}
     </div>

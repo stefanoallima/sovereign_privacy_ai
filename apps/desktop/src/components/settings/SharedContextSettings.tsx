@@ -117,7 +117,7 @@ export function SharedContextSettings() {
                                 <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2 mt-1">
                                     {ctx.content}
                                 </p>
-                                <span className="text-[10px] text-[hsl(var(--muted-foreground))] mt-2 block">
+                                <span className="text-[11px] text-[hsl(var(--muted-foreground))] mt-2 block">
                                     {ctx.tokenCount} tokens
                                 </span>
                             </div>
@@ -141,8 +141,9 @@ export function SharedContextSettings() {
                     </div>
                 ))}
                 {contexts.length === 0 && (
-                    <div className="text-center py-6 text-sm text-[hsl(var(--muted-foreground))]">
-                        No shared contexts yet.
+                    <div className="text-center py-6">
+                        <p className="text-sm font-medium text-[hsl(var(--foreground))]">No shared contexts</p>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">Add context your advisors can reference — like your financial situation, health goals, or career plans.</p>
                     </div>
                 )}
             </div>

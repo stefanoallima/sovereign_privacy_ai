@@ -41,7 +41,7 @@ export function VoiceButton({ onTranscription }: VoiceButtonProps) {
       case "processing":
         return "bg-amber-500 text-white animate-pulse";
       case "speaking":
-        return "bg-[hsl(var(--primary))] text-white";
+        return "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]";
       default:
         return "bg-[hsl(var(--secondary))] hover:bg-[hsl(var(--accent))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--accent-foreground))]";
     }
