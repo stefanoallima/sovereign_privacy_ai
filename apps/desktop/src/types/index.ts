@@ -130,6 +130,8 @@ export interface Conversation {
   activeContextIds: string[];
   totalTokensUsed: number;
   isIncognito?: boolean;
+  /** Rolling summary of older conversation turns for local LLM context */
+  summary?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -153,6 +155,8 @@ export interface Message {
   // Canvas routing
   canvasDocId?: string;
   canvasIntro?: string;
+  // Attachments
+  attachments?: FileAttachment[];
 }
 
 // Knowledge Base
@@ -224,4 +228,76 @@ export interface CanvasDocument {
   content: string;             // markdown
   createdAt: Date;
   updatedAt: Date;
+}
+
+// === Form Fill Types ===
+
+export interface FileAttachment {
+  id: string;
+  filename: string;
+  fileType: 'pdf' | 'docx' | 'doc' | 'md' | 'txt';
+  filePath: string;
+  fileSize: number;
+  textContent: string;
+  structure?: {
+    page_count: number;
+    has_tables: boolean;
+    document_type?: string;
+  };
+  isFormFill?: boolean;
+}
+
+export interface FormField {
+  id: string;
+  label: string;
+  category: string;
+  type: 'simple' | 'reasoning';
+  value?: string;
+  source?: 'profile' | 'user-input' | 'llm-composed' | 'skipped';
+  hint?: string;
+  placeholder?: string;
+}
+
+export interface FormFill {
+  id: string;
+  conversationId: string;
+  messageId: string;
+  templatePath: string;
+  templateFilename: string;
+  fileType: 'pdf' | 'docx' | 'doc' | 'md' | 'txt';
+  fieldMap: FormField[];
+  status: 'extracting' | 'filling' | 'reviewing' | 'complete';
+  canvasDocId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UserProfileAddress {
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
+}
+
+export interface UserProfile {
+  id: string;
+  fullName?: string;
+  dateOfBirth?: string;
+  bsn?: string;
+  nationality?: string;
+  email?: string;
+  phone?: string;
+  address?: UserProfileAddress;
+  employerName?: string;
+  employmentType?: 'employed' | 'self-employed' | 'freelancer' | 'retired' | 'student';
+  jobTitle?: string;
+  incomeBracket?: string;
+  bankName?: string;
+  iban?: string;
+  customFields: Record<string, string>;
+  customRedactTerms?: Array<{
+    label: string;
+    value: string;
+    replacement: string;
+  }>;
 }

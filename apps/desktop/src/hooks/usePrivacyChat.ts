@@ -22,7 +22,7 @@ import {
 } from '@/services/attribute-extraction-service';
 import { makeBackendRoutingDecision, type BackendDecision } from '@/services/backend-routing-service';
 import { invoke } from '@tauri-apps/api/core';
-import type { Persona } from '@/types';
+import type { Persona, FileAttachment } from '@/types';
 
 interface DetectedEntity {
   text: string;
@@ -66,6 +66,31 @@ async function applyGlinerPiiRedaction(
         sanitized = sanitized.substring(0, entity.start) + placeholder + sanitized.substring(entity.end);
         mappings.set(placeholder, original);
       }
+    }
+
+    // Auto-persist detected PII to Privacy Shield custom redaction terms
+    // so they're automatically redacted in all future messages
+    try {
+      const { useUserContextStore } = await import('@/stores/userContext');
+      const { addCustomRedactTerm } = useUserContextStore.getState();
+      const { selectActiveProfile } = await import('@/stores/userContext');
+      const existingTerms = selectActiveProfile(useUserContextStore.getState())?.customRedactTerms || [];
+      const existingValues = new Set(existingTerms.map(t => t.value.toLowerCase()));
+
+      let added = 0;
+      for (const entity of entities) {
+        const value = entity.text.trim();
+        // Skip very short values (likely false positives) and duplicates
+        if (value.length < 3 || existingValues.has(value.toLowerCase())) continue;
+        addCustomRedactTerm(entity.label, value);
+        existingValues.add(value.toLowerCase());
+        added++;
+      }
+      if (added > 0) {
+        console.log(`[PII auto-persist] Added ${added} new term(s) to Privacy Shield`);
+      }
+    } catch (persistErr) {
+      console.warn('[PII auto-persist] Failed (non-fatal):', persistErr);
     }
 
     return { sanitized, mappings, entityCount: entities.length };
@@ -234,6 +259,7 @@ export function usePrivacyChat() {
     getCurrentMessages,
     addMessage,
     updateConversationPersona,
+    updateConversationSummary,
     updateStreamingContent,
     finalizeStreaming,
     setLoading,
@@ -315,7 +341,7 @@ export function usePrivacyChat() {
    * Accepts optional mentionedPersonaIds for multi-persona routing
    */
   const sendMessage = useCallback(
-    async (content: string, mentionedPersonaIds?: string[]) => {
+    async (content: string, mentionedPersonaIds?: string[], attachments?: FileAttachment[]) => {
       if (!currentConversationId || !content.trim()) return;
 
       const conversation = getCurrentConversation();
@@ -323,7 +349,7 @@ export function usePrivacyChat() {
 
       // If multiple personas mentioned, use multi-persona flow
       if (mentionedPersonaIds && mentionedPersonaIds.length > 1) {
-        return sendMultiPersonaMessage(content, mentionedPersonaIds);
+        return sendMultiPersonaMessage(content, mentionedPersonaIds, attachments);
       }
 
       // Determine target persona
@@ -352,12 +378,18 @@ export function usePrivacyChat() {
         targetPersona = getSelectedPersona();
       }
 
+      // Sync conversation persona when the user switches via the context panel
+      if (targetPersona && conversation.personaId !== targetPersona.id) {
+        updateConversationPersona(currentConversationId, targetPersona.id);
+      }
+
       // Add user message
       addMessage(currentConversationId, {
         conversationId: currentConversationId,
         role: 'user',
         content: content.trim(),
         personaId: targetPersona?.id,
+        attachments,
       });
 
       setLoading(true);
@@ -385,7 +417,7 @@ export function usePrivacyChat() {
    * Send message to multiple personas sequentially with privacy processing
    */
   const sendMultiPersonaMessage = useCallback(
-    async (content: string, targetPersonaIds: string[]) => {
+    async (content: string, targetPersonaIds: string[], attachments?: FileAttachment[]) => {
       if (!currentConversationId || !content.trim()) return;
 
       const conversation = getCurrentConversation();
@@ -403,6 +435,7 @@ export function usePrivacyChat() {
         role: 'user',
         content: content.trim(),
         personaId: targetPersonas[0]?.id,
+        attachments,
       });
 
       setLoading(true);
@@ -430,6 +463,142 @@ export function usePrivacyChat() {
     ]
   );
 
+  // ---- Token budget helpers for local inference ----
+
+  /** Rough token estimate for Qwen tokenizer (~3.5 chars per token) */
+  const estimateTokens = (text: string) => Math.ceil(text.length / 3.5);
+
+  /** ChatML overhead per message: <|im_start|>role\n...<|im_end|>\n ≈ 6 tokens */
+  const CHATML_OVERHEAD = 6;
+
+  /** Context sizes per model (must match Rust registry) */
+  const MODEL_CTX: Record<string, number> = {
+    'qwen3-0.6b': 4096, 'qwen3-1.7b': 8192, 'qwen3-4b': 8192,
+    'qwen3.5-4b': 16384, 'qwen3-8b': 16384,
+  };
+  const MAX_GEN: Record<string, number> = {
+    'qwen3-0.6b': 1024, 'qwen3-1.7b': 2048, 'qwen3-4b': 2048,
+    'qwen3.5-4b': 4096, 'qwen3-8b': 4096,
+  };
+
+  /** Build a short system prompt from the persona */
+  function buildSystemPrompt(persona: any): string {
+    const name = persona?.name?.toLowerCase() || '';
+    if (name.includes('tax')) return 'You are a tax advisor. Give concise, accurate answers.';
+    if (name.includes('legal')) return 'You are a legal advisor. Give concise, accurate answers.';
+    if (name.includes('health')) return 'You are a health advisor. Give concise, accurate answers.';
+    if (name.includes('finance')) return 'You are a financial advisor. Give concise, accurate answers.';
+    if (persona?.systemPrompt) {
+      const first = persona.systemPrompt.split(/[.!?\n]/)[0];
+      if (first && first.length < 200) return first.trim() + '.';
+    }
+    return 'You are a helpful assistant. Be concise.';
+  }
+
+  /** Build a token-budgeted ChatML prompt for local inference */
+  function buildLocalPrompt(params: {
+    systemMsg: string;
+    summary?: string;
+    documentContent?: string;
+    history: Array<{ role: string; content: string }>;
+    userMessage: string;
+    modelId: string;
+  }): string {
+    const ctxSize = MODEL_CTX[params.modelId] ?? 2048;
+    const genReserve = MAX_GEN[params.modelId] ?? 384;
+    let budget = ctxSize - genReserve;
+
+    // Priority 1: System prompt (with optional summary)
+    let sysContent = params.systemMsg;
+    if (params.summary) {
+      sysContent += `\n\nContext from earlier in this conversation:\n${params.summary}`;
+    }
+    const sysTokens = estimateTokens(sysContent) + CHATML_OVERHEAD;
+    budget -= sysTokens;
+
+    // Priority 2: Current user message (always full)
+    const userTokens = estimateTokens(params.userMessage) + CHATML_OVERHEAD;
+    budget -= userTokens;
+
+    // Priority 3: Active documents (up to 50% of remaining budget)
+    let docBlock = '';
+    if (params.documentContent && budget > 100) {
+      const docBudget = Math.floor(budget * 0.5);
+      const docChars = Math.floor(docBudget * 3.5);
+      docBlock = params.documentContent.length > docChars
+        ? params.documentContent.slice(0, docChars) + '…'
+        : params.documentContent;
+      budget -= estimateTokens(docBlock) + CHATML_OVERHEAD;
+    }
+
+    // Priority 4: Recent history (fill remaining, newest first)
+    const historyBlocks: string[] = [];
+    const reversedHistory = [...params.history].reverse();
+    for (const msg of reversedHistory) {
+      if (msg.content.startsWith('**Airplane Mode Error**')) continue;
+      const msgTokens = estimateTokens(msg.content) + CHATML_OVERHEAD;
+      if (msgTokens > budget) {
+        // Try truncating this message to fit
+        const availChars = Math.floor((budget - CHATML_OVERHEAD) * 3.5);
+        if (availChars > 50) {
+          historyBlocks.unshift(`<|im_start|>${msg.role}\n${msg.content.slice(0, availChars)}…<|im_end|>\n`);
+        }
+        break;
+      }
+      historyBlocks.unshift(`<|im_start|>${msg.role}\n${msg.content}<|im_end|>\n`);
+      budget -= msgTokens;
+    }
+
+    // Assemble prompt
+    let prompt = `<|im_start|>system\n${sysContent}<|im_end|>\n`;
+    if (docBlock) {
+      prompt += `<|im_start|>user\n[Reference document]\n${docBlock}<|im_end|>\n`;
+    }
+    prompt += historyBlocks.join('');
+    prompt += `<|im_start|>user\n${params.userMessage} /no_think<|im_end|>\n`;
+    prompt += `<|im_start|>assistant\n`;
+
+    return prompt;
+  }
+
+  /** Trigger a rolling summary when conversation grows beyond threshold */
+  async function maybeUpdateSummary(
+    conversationId: string,
+    messages: Array<{ role: string; content: string }>,
+    modelId: string,
+  ) {
+    // Count assistant messages — summarize every 4
+    const assistantCount = messages.filter(m => m.role === 'assistant').length;
+    if (assistantCount < 4 || assistantCount % 4 !== 0) return;
+
+    const { invoke } = await import('@tauri-apps/api/core');
+
+    // Take last 8 messages for summarization
+    const recentMsgs = messages.slice(-8);
+    const transcript = recentMsgs
+      .map(m => `${m.role}: ${m.content.slice(0, 200)}`)
+      .join('\n');
+
+    const summaryPrompt =
+      `<|im_start|>system\nSummarize this conversation in 2-3 sentences. Focus on key topics discussed, decisions made, and the user's situation. Be factual and concise. /no_think<|im_end|>\n` +
+      `<|im_start|>user\n${transcript}<|im_end|>\n` +
+      `<|im_start|>assistant\n`;
+
+    try {
+      const summary = await invoke<string>('ollama_generate', {
+        prompt: summaryPrompt,
+        model: modelId,
+      });
+      const cleaned = summary.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<\/?think>/g, '').trim();
+      if (cleaned && cleaned.length > 10) {
+        await updateConversationSummary(conversationId, cleaned);
+        console.log(`[summary] updated (${cleaned.length} chars): ${cleaned.slice(0, 80)}…`);
+      }
+    } catch (err) {
+      console.warn('[summary] generation failed (non-fatal):', err);
+    }
+  }
+
   /**
    * Send locally only (Airplane Mode) - no cloud requests
    */
@@ -437,7 +606,6 @@ export function usePrivacyChat() {
     const startTime = Date.now();
     const t0 = performance.now();
 
-    // Update privacy status for airplane mode
     setPrivacyStatus({
       mode: 'local',
       icon: '✈️',
@@ -447,47 +615,6 @@ export function usePrivacyChat() {
     });
 
     try {
-      // Build a COMPACT ChatML prompt for local inference.
-      // Every token costs CPU time, so we minimize prompt size:
-      // - Short system prompt (1-2 sentences, not paragraphs)
-      // - Only last 4 messages of history (not 6+)
-      // - ChatML tags that Qwen3 models understand natively
-
-      // Short system instruction based on persona
-      const personaName = targetPersona?.name?.toLowerCase() || '';
-      let sysMsg = 'You are a helpful assistant. Be concise.';
-      if (personaName.includes('tax')) sysMsg = 'You are a tax advisor. Give concise, accurate answers.';
-      else if (personaName.includes('legal')) sysMsg = 'You are a legal advisor. Give concise, accurate answers.';
-      else if (personaName.includes('health')) sysMsg = 'You are a health advisor. Give concise, accurate answers.';
-      else if (personaName.includes('finance')) sysMsg = 'You are a financial advisor. Give concise, accurate answers.';
-      else if (targetPersona?.systemPrompt) {
-        // Use first sentence of the persona's system prompt to keep it short
-        const firstSentence = targetPersona.systemPrompt.split(/[.!?\n]/)[0];
-        if (firstSentence && firstSentence.length < 200) sysMsg = firstSentence.trim() + '.';
-      }
-
-      let fullPrompt = `<|im_start|>system\n${sysMsg}<|im_end|>\n`;
-
-      // Add recent conversation history, keeping total prompt under ~1500 chars
-      // to stay well within the 1.7B model's context window
-      const history = getCurrentMessages();
-      const recentHistory = history.slice(-4);
-      let historyChars = 0;
-      const maxHistoryChars = 1000;
-      for (const msg of recentHistory) {
-        const role = msg.role === 'user' ? 'user' : 'assistant';
-        // Skip error messages from previous failures
-        if (msg.content.startsWith('**Airplane Mode Error**')) continue;
-        const truncated = msg.content.length > 300 ? msg.content.slice(0, 300) + '…' : msg.content;
-        if (historyChars + truncated.length > maxHistoryChars) break;
-        fullPrompt += `<|im_start|>${role}\n${truncated}<|im_end|>\n`;
-        historyChars += truncated.length;
-      }
-
-      fullPrompt += `<|im_start|>user\n${content.trim()}<|im_end|>\n`;
-      fullPrompt += `<|im_start|>assistant\n`;
-
-      // Send to local llama.cpp backend
       const { invoke } = await import('@tauri-apps/api/core');
 
       console.log(`[sendLocalOnly] checking availability… t=${(performance.now()-t0).toFixed(0)}ms`);
@@ -496,20 +623,38 @@ export function usePrivacyChat() {
         throw new Error('No local AI model has been downloaded yet.\n\nTo use Airplane Mode:\n1. Go to Settings (gear icon)\n2. Find the Privacy Engine section\n3. Download a model\n\nOnce downloaded, Airplane Mode will work fully offline.');
       }
 
-      // Use the model passed from sendMessage (already resolved to user's current default)
       const localModelId = passedModel?.provider === 'ollama'
         ? passedModel.apiModelId
         : settings.airplaneModeModel;
 
-      // Switch the active model in the Rust backend (no-op if already active)
+      // Switch the active model in the Rust backend
       console.log(`[sendLocalOnly] setting active model: ${localModelId} t=${(performance.now()-t0).toFixed(0)}ms`);
       await invoke('set_active_local_model', { modelId: localModelId }).catch((e: unknown) => {
         console.warn('[sendLocalOnly] set_active_local_model failed (will use default):', e);
       });
 
-      console.log(`[sendLocalOnly] invoking inference, prompt_len=${fullPrompt.length} model=${localModelId} t=${(performance.now()-t0).toFixed(0)}ms`);
-      // Retry up to 2 times with increasing delay — handles cold-start race
-      // where set_active_local_model returns before the model is fully loaded
+      // Gather context for token-budgeted prompt
+      const conversation = getCurrentConversation();
+      const history = getCurrentMessages();
+      const activeContexts = contexts.filter((ctx) =>
+        conversation?.activeContextIds?.includes(ctx.id)
+      );
+      const documentContent = activeContexts.length > 0
+        ? activeContexts.map(ctx => `## ${ctx.name}\n${ctx.content}`).join('\n\n')
+        : undefined;
+
+      const fullPrompt = buildLocalPrompt({
+        systemMsg: buildSystemPrompt(targetPersona),
+        summary: conversation?.summary,
+        documentContent,
+        history: history.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
+        userMessage: content.trim(),
+        modelId: localModelId,
+      });
+
+      console.log(`[sendLocalOnly] prompt built: ${fullPrompt.length} chars (~${estimateTokens(fullPrompt)} tokens) model=${localModelId} t=${(performance.now()-t0).toFixed(0)}ms`);
+
+      // Retry up to 2 times with increasing delay
       let response: string | undefined;
       let lastErr: unknown;
       for (let attempt = 1; attempt <= 3; attempt++) {
@@ -518,13 +663,13 @@ export function usePrivacyChat() {
             prompt: fullPrompt,
             model: localModelId,
           });
-          break; // success
+          break;
         } catch (err) {
           lastErr = err;
           const errMsg = err instanceof Error ? err.message : String(err);
           console.warn(`[sendLocalOnly] attempt ${attempt}/3 failed: ${errMsg}`);
           if (attempt < 3) {
-            const delay = attempt * 2000; // 2s, then 4s
+            const delay = attempt * 2000;
             console.log(`[sendLocalOnly] retrying in ${delay}ms…`);
             await new Promise((r) => setTimeout(r, delay));
           }
@@ -533,15 +678,13 @@ export function usePrivacyChat() {
       if (response === undefined) {
         throw lastErr;
       }
+
       // Strip Qwen3 thinking tags from the response
       let cleaned = response;
-      // Remove <think>...</think> blocks (model's internal reasoning)
       cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-      // Remove orphaned </think> tag at start (if model started thinking before response)
       if (cleaned.startsWith('</think>')) {
         cleaned = cleaned.slice('</think>'.length).trim();
       }
-      // Fallback: if stripping removed everything, use original
       if (!cleaned) cleaned = response.replace(/<\/?think>/g, '').trim() || '(No response generated)';
 
       console.log(`[sendLocalOnly] response received, len=${response.length} cleaned=${cleaned.length} total=${(performance.now()-t0).toFixed(0)}ms`);
@@ -553,17 +696,21 @@ export function usePrivacyChat() {
         await finalizeStreaming(
           currentConversationId!,
           'local-ollama',
-          Math.ceil(fullPrompt.length / 4),
-          Math.ceil(cleaned.length / 4),
+          estimateTokens(fullPrompt),
+          estimateTokens(cleaned),
           latencyMs,
           targetPersona?.id
         );
       } catch (dbErr) {
         console.warn('[sendLocalOnly] finalizeStreaming failed (non-fatal):', dbErr);
-        // Non-fatal: the response was already shown via updateStreamingContent
       }
 
-      // Reset privacy status
+      // Trigger rolling summary in background (non-blocking)
+      if (currentConversationId) {
+        const updatedMessages = getCurrentMessages();
+        maybeUpdateSummary(currentConversationId, updatedMessages, localModelId).catch(() => {});
+      }
+
       setPrivacyStatus({
         mode: 'idle',
         icon: '✈️',
@@ -800,7 +947,7 @@ export function usePrivacyChat() {
         mode: 'idle',
         icon: '❌',
         label: 'Error',
-        explanation: error instanceof Error ? error.message : 'Unknown error',
+        explanation: error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error',
         hadFallback: false,
       });
     }
@@ -919,7 +1066,7 @@ export function usePrivacyChat() {
         mode: 'idle',
         icon: '❌',
         label: 'Error',
-        explanation: error instanceof Error ? error.message : 'Unknown error',
+        explanation: error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error',
         hadFallback: false,
       });
     }

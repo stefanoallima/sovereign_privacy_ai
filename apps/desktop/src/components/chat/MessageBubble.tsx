@@ -2,9 +2,10 @@ import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SpeakButton } from "./VoiceButton";
-import { Bot, Copy, Check, ShieldAlert, Send, FileText, Lock, ShieldCheck, Zap } from "lucide-react";
+import { Bot, Copy, Check, ShieldAlert, Send, FileText, File, Lock, ShieldCheck, Zap, ClipboardPaste } from "lucide-react";
 import { PrivacyIndicator, PrivacyLevel } from "./PrivacyIndicator";
 import { useChatStore } from "@/stores";
+import type { FileAttachment } from "@/types";
 
 // Backend privacy modes for personas
 export type BackendPrivacyMode = 'local' | 'hybrid' | 'cloud';
@@ -27,6 +28,7 @@ interface MessageBubbleProps {
   /** Conversational intro text that precedes the canvas content (shown in chat) */
   canvasIntro?: string;
   onViewCanvas?: () => void;
+  attachments?: FileAttachment[];
 }
 
 // Helper to get privacy icon for backend mode
@@ -42,7 +44,41 @@ function getBackendPrivacyIcon(mode?: BackendPrivacyMode): { icon: React.ReactNo
   }
 }
 
-// ... (parseThinkingContent function remains same) ...
+// Attachment helpers for inline rendering in user messages
+function getAttachmentIcon(fileType: FileAttachment['fileType']) {
+  switch (fileType) {
+    case 'pdf':
+      return File;
+    case 'docx':
+    case 'doc':
+    case 'md':
+    case 'txt':
+    default:
+      return FileText;
+  }
+}
+
+function getAttachmentBadgeStyle(fileType: FileAttachment['fileType']): string {
+  switch (fileType) {
+    case 'pdf':
+      return 'bg-red-500/10 text-red-500';
+    case 'docx':
+    case 'doc':
+      return 'bg-blue-500/10 text-blue-500';
+    case 'md':
+      return 'bg-green-500/10 text-green-500';
+    case 'txt':
+    default:
+      return 'bg-[hsl(var(--muted-foreground)/0.1)] text-[hsl(var(--muted-foreground))]';
+  }
+}
+
+function formatAttachmentSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 // Parse content to extract thinking blocks
 function parseThinkingContent(content: string): { thinking: string | null; mainContent: string } {
   const thinkRegex = /<think>([\s\S]*?)<\/think>/gi;
@@ -85,6 +121,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   canvasDocTitle,
   canvasIntro,
   onViewCanvas,
+  attachments,
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
@@ -128,11 +165,57 @@ export const MessageBubble = React.memo(function MessageBubble({
         {/* User Bubble (Right) */}
         {isUser ? (
           <div className="flex flex-col items-end gap-1">
-            <div className={`transition-all ${approvalStatus === 'pending'
+            <div className={`group/user relative transition-all ${approvalStatus === 'pending'
                 ? "max-w-[75%] ml-auto px-4 py-2.5 rounded-2xl rounded-tr-sm bg-[hsl(var(--status-caution-bg))] border border-[hsl(var(--status-caution-border))] text-[hsl(var(--foreground))] text-sm leading-relaxed"
                 : "max-w-[75%] ml-auto px-4 py-2.5 rounded-2xl rounded-tr-sm bg-[hsl(var(--primary)/0.15)] border border-[hsl(var(--primary)/0.2)] text-[hsl(var(--foreground))] text-sm leading-relaxed"
               }`}>
+              {/* Attachment cards */}
+              {attachments && attachments.length > 0 && (
+                <div className="flex flex-col gap-1.5 mb-2">
+                  {attachments.map((att) => {
+                    const IconComp = getAttachmentIcon(att.fileType);
+                    const badgeStyle = getAttachmentBadgeStyle(att.fileType);
+                    return (
+                      <div
+                        key={att.id}
+                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[hsl(var(--primary)/0.15)] bg-[hsl(var(--primary)/0.05)]"
+                      >
+                        <div className="flex items-center justify-center h-7 w-7 rounded-md bg-[hsl(var(--secondary))] flex-shrink-0">
+                          <IconComp className="h-3.5 w-3.5 text-[hsl(var(--muted-foreground))]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[12px] font-medium text-[hsl(var(--foreground))] truncate">
+                              {att.filename}
+                            </span>
+                            <span className={`inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold uppercase ${badgeStyle}`}>
+                              {att.fileType}
+                            </span>
+                            {att.isFormFill && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[hsl(var(--violet)/0.1)] text-[hsl(var(--violet))]">
+                                <ClipboardPaste className="h-2.5 w-2.5" />
+                                Form Fill
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-[hsl(var(--muted-foreground)/0.5)]">
+                            {formatAttachmentSize(att.fileSize)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {mainContent}
+              {/* Copy button for user messages */}
+              <button
+                onClick={handleCopy}
+                className="absolute -bottom-2 -left-2 p-1 rounded-md bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] opacity-0 group-hover/user:opacity-100 transition-opacity shadow-sm"
+                title="Copy message"
+              >
+                {copied ? <Check className="h-3 w-3 text-[hsl(var(--primary))]" /> : <Copy className="h-3 w-3" />}
+              </button>
             </div>
             {privacyLevel && (
               <PrivacyIndicator level={privacyLevel} piiTypesDetected={piiTypesDetected} />

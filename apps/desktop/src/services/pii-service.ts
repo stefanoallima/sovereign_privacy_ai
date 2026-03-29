@@ -34,6 +34,17 @@ export async function extractPiiFromDocument(
   return invoke('extract_pii_from_document', { text });
 }
 
+// ============ Dynamic PII Extraction (multi-record, arbitrary columns) ============
+
+export interface DynamicPIIExtraction {
+  records: Record<string, string>[];
+  columns: string[];
+}
+
+export async function extractPiiDynamic(text: string): Promise<DynamicPIIExtraction> {
+  return invoke('extract_pii_dynamic', { text });
+}
+
 export async function checkOllamaAvailability(): Promise<boolean> {
   return invoke('ollama_is_available');
 }
@@ -90,7 +101,7 @@ export interface ParsedDocument {
 }
 
 export async function parseDocument(filePath: string): Promise<ParsedDocument> {
-  return invoke('parse_document', { file_path: filePath });
+  return invoke('parse_document', { filePath: filePath });
 }
 
 // ============ Entity Resolution ============

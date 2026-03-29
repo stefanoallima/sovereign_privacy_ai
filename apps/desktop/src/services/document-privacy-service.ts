@@ -111,7 +111,7 @@ export async function parseDocument(filePath: string): Promise<DocumentParseResu
       document_type: string;
       page_count: number;
       has_tables: boolean;
-    }>('parse_document', { path: filePath });
+    }>('parse_document', { filePath: filePath });
 
     return {
       text: result.text,
@@ -255,7 +255,7 @@ export async function processDocumentWithPrivacy(
       anonymizedText: '',
       placeholderMap: [],
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error',
     };
   }
 }

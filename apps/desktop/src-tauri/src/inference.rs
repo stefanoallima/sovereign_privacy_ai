@@ -47,6 +47,13 @@ pub trait LocalInference: Send + Sync {
     /// Generate JSON-constrained output from a prompt
     async fn generate_json(&self, prompt: &str) -> Result<String, InferenceError>;
 
+    /// Generate JSON-constrained output with a hard cap on generation tokens.
+    /// Used for structured extraction where the output is bounded (e.g. PII tables).
+    /// Default implementation ignores the cap and delegates to `generate_json`.
+    async fn generate_json_short(&self, prompt: &str, _max_tokens: usize) -> Result<String, InferenceError> {
+        self.generate_json(prompt).await
+    }
+
     /// Ensure a model is downloaded and ready
     async fn ensure_model(&self, model_name: &str) -> Result<(), InferenceError>;
 

@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { X, Eye, Edit2, FileText, Trash2, Save, FolderPlus, BookOpen } from 'lucide-react';
+import { X, Eye, Edit2, FileText, Trash2, Save, FolderPlus, BookOpen, Copy, Check } from 'lucide-react';
 import { useCanvasStore, useChatStore } from '@/stores';
+import { useFormFillStore } from '@/stores/formFill';
+import { FormFillCanvas } from './FormFillCanvas';
 
 function extractBriefFromCanvas(content: string): string {
   const lines = content.split('\n').filter(l => /^([-*•]|#{1,3}) /.test(l.trim()));
@@ -70,12 +72,21 @@ export function CanvasPanel() {
   const { closePanel, updateDocument, deleteDocument, documents, activeDocumentId } = useCanvasStore();
   const doc = documents.find(d => d.id === activeDocumentId);
   const { projects, currentConversationId } = useChatStore();
+  const { currentFormFill } = useFormFillStore();
 
   const [mode, setMode] = useState<'preview' | 'edit'>('preview');
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    if (!doc) return;
+    navigator.clipboard.writeText(mode === 'edit' ? editContent : doc.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [doc, mode, editContent]);
 
   // Sync local state when active document changes
   useEffect(() => {
@@ -99,6 +110,15 @@ export function CanvasPanel() {
 
   if (!doc) {
     return <CanvasEmptyState onClose={closePanel} />;
+  }
+
+  // Form-fill mode: render FormFillCanvas when the active document is a filled form
+  // Prefer ID-based match; fall back to title prefix for backward compat
+  const isFormFillMode = currentFormFill !== null &&
+    (currentFormFill.canvasDocId === activeDocumentId ||
+     (!currentFormFill.canvasDocId && doc.title.startsWith('Filled: ')));
+  if (isFormFillMode) {
+    return <FormFillCanvas onClose={closePanel} />;
   }
 
   return (
@@ -144,6 +164,16 @@ export function CanvasPanel() {
               </button>
             ))}
           </div>
+
+          <button
+            onClick={handleCopy}
+            className={`p-1.5 rounded-lg transition-colors ${copied
+              ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.1)]'
+              : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))]'}`}
+            title={copied ? 'Copied!' : 'Copy document'}
+          >
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          </button>
 
           {isDirty && (
             <button

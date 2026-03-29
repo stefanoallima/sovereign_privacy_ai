@@ -18,7 +18,14 @@ pub struct PIIExtraction {
     pub address: Option<String>,
     pub email: Option<String>,
     pub income: Option<String>,
+    #[serde(default)]
     pub confidence_scores: PIIConfidenceScores,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DynamicPIIExtraction {
+    pub records: Vec<std::collections::HashMap<String, String>>,
+    pub columns: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

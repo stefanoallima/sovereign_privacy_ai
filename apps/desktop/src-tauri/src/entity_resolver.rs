@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_should_create_new_person() {
-        let persons_empty: Vec<Person> = vec![];
+        let persons_empty: Vec<EntityMatch> = vec![];
         assert!(EntityResolver::should_create_new_person(&persons_empty));
 
         let high_conf_match = EntityMatch {

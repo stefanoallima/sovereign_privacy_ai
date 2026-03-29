@@ -29,7 +29,7 @@ pub enum BackendType {
     Hybrid,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AnonymizationMode {
     /// No anonymization
     None,
@@ -49,7 +49,7 @@ impl AnonymizationMode {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BackendConfig {
     /// Which backend to use
     pub backend: BackendType,
@@ -71,7 +71,7 @@ pub enum ContentMode {
 }
 
 /// What happened during fallback (for audit trail)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FallbackEvent {
     /// No fallback needed
     None,
@@ -83,7 +83,7 @@ pub enum FallbackEvent {
     Blocked(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BackendDecision {
     /// Which backend was selected
     pub backend: BackendType,
@@ -101,7 +101,7 @@ pub struct BackendDecision {
     pub is_safe: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProcessingResult {
     /// Which backend was actually used
     pub backend_used: BackendType,
