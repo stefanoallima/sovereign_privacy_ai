@@ -4,20 +4,6 @@ import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 
-interface LocalModelInfo {
-  id: string;
-  name: string;
-  filename: string;
-  url: string;
-  size_bytes: number;
-  ctx_size: number;
-  description: string;
-  speed_tier: string;
-  intelligence_tier: string;
-  is_downloaded: boolean;
-  local_path: string | null;
-}
-
 interface GlinerModelInfo {
   id: string;
   name: string;
@@ -30,19 +16,6 @@ interface GlinerModelInfo {
   local_path: string | null;
   source_url: string;
 }
-
-const SPEED_LABEL: Record<string, string> = {
-  "very-fast": "Very fast",
-  fast: "Fast",
-  medium: "Medium",
-  slow: "Slow",
-};
-
-const INTEL_LABEL: Record<string, string> = {
-  "very-high": "Top quality",
-  high: "High quality",
-  good: "Good quality",
-};
 
 export function PrivacySettings() {
   const { settings, updateSettings, setPrivacyMode, models, ollamaModels } = useSettingsStore();
@@ -90,31 +63,11 @@ export function PrivacySettings() {
     }
   };
 
-  // Local models state
-  const [localModels, setLocalModels] = useState<LocalModelInfo[]>([]);
-  const [activeModelId, setActiveModelId] = useState<string>("");
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [modelsDir, setModelsDir] = useState("");
-
   // GLiNER state
   const [glinerModels, setGlinerModels] = useState<GlinerModelInfo[]>([]);
   const [glinerDownloadingId, setGlinerDownloadingId] = useState<string | null>(null);
   const [glinerProgress, setGlinerProgress] = useState(0);
   const [glinerModelsDir, setGlinerModelsDir] = useState<string>("");
-
-  const loadLocalModels = useCallback(async () => {
-    try {
-      const models = await invoke<LocalModelInfo[]>('list_local_models');
-      setLocalModels(models);
-      const active = await invoke<string>('get_active_local_model');
-      setActiveModelId(active);
-      const dir = await invoke<string>('get_local_models_dir');
-      setModelsDir(dir);
-    } catch (error) {
-      console.error('Failed to load local models:', error);
-    }
-  }, []);
 
   const loadGlinerModels = useCallback(async () => {
     try {
@@ -128,26 +81,8 @@ export function PrivacySettings() {
   }, []);
 
   useEffect(() => {
-    loadLocalModels();
     loadGlinerModels();
-  }, [settings.airplaneMode, loadLocalModels, loadGlinerModels]);
-
-  // Poll during local model download
-  useEffect(() => {
-    if (!downloadingId) return;
-    const interval = setInterval(async () => {
-      try {
-        const progress = await invoke<number>('get_local_download_progress');
-        setDownloadProgress(progress);
-        if (progress >= 100) {
-          setDownloadingId(null);
-          setDownloadProgress(0);
-          await loadLocalModels();
-        }
-      } catch { /* ignore */ }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [downloadingId, loadLocalModels]);
+  }, [settings.airplaneMode, loadGlinerModels]);
 
   // Poll during GLiNER download
   useEffect(() => {
@@ -165,40 +100,6 @@ export function PrivacySettings() {
     }, 1000);
     return () => clearInterval(interval);
   }, [glinerDownloadingId, loadGlinerModels]);
-
-  const handleDownloadLocal = async (modelId: string) => {
-    setDownloadingId(modelId);
-    setDownloadProgress(0);
-    try {
-      await invoke('download_local_model', { modelId });
-      await loadLocalModels();
-    } catch (error) {
-      console.error('Download failed:', error);
-    } finally {
-      setDownloadingId(null);
-      setDownloadProgress(0);
-    }
-  };
-
-  const handleDeleteLocal = async (modelId: string) => {
-    try {
-      await invoke('delete_local_model', { modelId });
-      await loadLocalModels();
-    } catch (error) {
-      console.error('Delete failed:', error);
-    }
-  };
-
-  const handleSelectLocal = async (modelId: string) => {
-    try {
-      await invoke('set_active_local_model', { modelId });
-      setActiveModelId(modelId);
-      // Also update the settings store so the model selector knows
-      updateSettings({ airplaneModeModel: modelId });
-    } catch (error) {
-      console.error('Failed to set active model:', error);
-    }
-  };
 
   const handleGlinerDownload = async (modelId: string) => {
     setGlinerDownloadingId(modelId);
@@ -236,158 +137,34 @@ export function PrivacySettings() {
     return (bytes / (1024 * 1024)).toFixed(0) + ' MB';
   };
 
-  const hasAnyLocalModel = localModels.some(m => m.is_downloaded);
+  const [hasAnyLocalModel, setHasAnyLocalModel] = useState(false);
+
+  // Check if any local model is downloaded (for privacy mode selector)
+  useEffect(() => {
+    invoke<{ id: string; is_downloaded: boolean }[]>('list_local_models')
+      .then((list) => {
+        setHasAnyLocalModel(list.some(m => m.is_downloaded));
+      })
+      .catch(() => {});
+  }, []);
+
   const hasAnyGlinerModel = glinerModels.some(m => m.is_downloaded);
 
   return (
     <div className="space-y-6">
-      {/* Privacy Engine — Multi-model Section */}
+      {/* Privacy Engine — Reference to Models tab */}
       <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
-        <div className={`p-4 ${hasAnyLocalModel ? 'bg-[hsl(var(--status-safe-bg))]' : 'bg-[hsl(var(--muted)/0.3)]'}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${hasAnyLocalModel ? 'bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))]' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'}`}>
-                <EngineIcon />
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  Privacy Engine
-                  {hasAnyLocalModel && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-[hsl(var(--status-safe))] text-white">
-                      READY
-                    </span>
-                  )}
-                </h3>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                  Choose a local AI model for offline privacy-first processing
-                </p>
-              </div>
+        <div className="p-4 bg-[hsl(var(--muted)/0.3)]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]">
+              <EngineIcon />
             </div>
-            {modelsDir && (
-              <button
-                onClick={() => openFolder(modelsDir)}
-                className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1 shrink-0"
-              >
-                <FolderIcon /> Open Folder
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-[hsl(var(--border)/0.5)]">
-          {!hasAnyLocalModel && (
-            <div className="rounded-lg bg-[hsl(var(--status-caution-bg))] border border-[hsl(var(--status-caution-border))] p-3 mb-4">
-              <p className="text-xs text-[hsl(var(--status-caution))] font-medium">
-                No local model downloaded yet
-              </p>
-              <p className="text-xs text-[hsl(var(--status-caution))] mt-1">
-                Download a model below to enable local AI. We recommend starting with the <strong>1.7B Light</strong> model (~1.1 GB) for the best balance of speed and quality.
+            <div>
+              <h3 className="font-semibold text-sm">Privacy Engine</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Manage local models in the <strong>Models</strong> tab.
               </p>
             </div>
-          )}
-
-          <div className="space-y-2">
-            {localModels.map((model) => {
-              const isActive = model.id === activeModelId;
-              const isDownloading = downloadingId === model.id;
-
-              return (
-                <div
-                  key={model.id}
-                  className={`rounded-lg border p-3 transition-colors ${
-                    isActive && model.is_downloaded
-                      ? 'border-[hsl(var(--status-safe-border))] bg-[hsl(var(--status-safe-bg))]'
-                      : model.is_downloaded
-                        ? 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'
-                        : 'border-[hsl(var(--border)/0.5)]'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium">{model.name}</span>
-                        <span className="text-xs text-[hsl(var(--muted-foreground))]">
-                          {formatSize(model.size_bytes)}
-                        </span>
-                        {model.is_downloaded && isActive && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--status-safe))] text-white">
-                            ACTIVE
-                          </span>
-                        )}
-                        {model.is_downloaded && !isActive && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]">
-                            DOWNLOADED
-                          </span>
-                        )}
-                        {model.id === 'qwen3-1.7b' && !model.is_downloaded && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]">
-                            RECOMMENDED
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
-                        {model.description}
-                      </p>
-                      <div className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-[hsl(var(--muted-foreground))]">
-                        <span>{SPEED_LABEL[model.speed_tier] ?? model.speed_tier}</span>
-                        <span>&middot;</span>
-                        <span>{INTEL_LABEL[model.intelligence_tier] ?? model.intelligence_tier}</span>
-                        <span>&middot;</span>
-                        <span>{model.ctx_size / 1000}K ctx</span>
-                      </div>
-                      {model.is_downloaded && model.local_path && (
-                        <p className="text-[11px] text-[hsl(var(--muted-foreground)/0.6)] mt-1 font-mono truncate">
-                          {model.local_path}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="shrink-0 flex flex-col gap-1">
-                      {!model.is_downloaded && !isDownloading && (
-                        <button
-                          onClick={() => handleDownloadLocal(model.id)}
-                          disabled={downloadingId !== null}
-                          className="px-3 py-1.5 rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                        >
-                          Download
-                        </button>
-                      )}
-                      {model.is_downloaded && !isActive && (
-                        <button
-                          onClick={() => handleSelectLocal(model.id)}
-                          className="px-3 py-1.5 rounded-lg bg-[hsl(var(--status-safe-bg))] text-[hsl(var(--status-safe))] text-xs font-medium hover:opacity-80 transition-colors"
-                        >
-                          Use This
-                        </button>
-                      )}
-                      {model.is_downloaded && (
-                        <button
-                          onClick={() => handleDeleteLocal(model.id)}
-                          className="px-3 py-1.5 rounded-lg bg-[hsl(var(--status-danger-bg))] text-[hsl(var(--status-danger))] text-xs font-medium hover:opacity-80 transition-colors"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Download Progress */}
-                  {isDownloading && (
-                    <div className="mt-2 space-y-1">
-                      <div className="w-full h-1.5 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-[hsl(var(--status-safe))] transition-all duration-500"
-                          style={{ width: `${downloadProgress}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-[hsl(var(--muted-foreground))] text-center">
-                        Downloading... {downloadProgress}% of {formatSize(model.size_bytes)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>

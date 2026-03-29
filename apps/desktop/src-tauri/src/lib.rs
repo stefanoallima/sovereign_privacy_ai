@@ -24,6 +24,12 @@ mod rehydration;
 mod rehydration_commands;
 mod gliner;
 mod gliner_commands;
+mod user_profile;
+mod user_profile_commands;
+mod form_export;
+mod form_export_commands;
+mod form_fill;
+mod form_fill_commands;
 mod support_commands;
 
 use commands::DbState;
@@ -44,6 +50,8 @@ use attribute_extraction::AttributeExtractor;
 use attribute_extraction_commands::AttributeExtractionState;
 use gliner::GlinerBackend;
 use gliner_commands::GlinerState;
+use user_profile::UserProfileStore;
+use user_profile_commands::UserProfileState;
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -172,6 +180,15 @@ pub fn run() {
             panic!("Critical: encryption key manager failed");
         });
 
+    // Initialize user profile store (uses a clone of the encryption key)
+    let profile_data_dir = directories::ProjectDirs::from("", "", "PrivateAssistant")
+        .map(|d| d.data_dir().to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    let user_profile_state = UserProfileState {
+        store: UserProfileStore::new(&profile_data_dir),
+        key_manager: encryption_key.clone(),
+    };
+
     // Initialize anonymization service
     let anonymization = AnonymizationService::new()
         .unwrap_or_else(|e| {
@@ -219,6 +236,7 @@ pub fn run() {
         .manage(tokio::sync::Mutex::new(backend_routing))
         .manage(tokio::sync::Mutex::new(attribute_extraction))
         .manage(gliner_state)
+        .manage(tokio::sync::Mutex::new(user_profile_state))
         .invoke_handler(tauri::generate_handler![
             // Settings
             commands::get_setting,
@@ -262,6 +280,7 @@ pub fn run() {
             // Inference (backward-compatible command names + new commands)
             inference_commands::ollama_is_available,
             inference_commands::extract_pii_from_document,
+            inference_commands::extract_pii_dynamic,
             inference_commands::ollama_generate,
             inference_commands::ollama_pull_model,
             inference_commands::ollama_initialize,
@@ -309,8 +328,20 @@ pub fn run() {
             gliner_commands::delete_gliner_model,
             gliner_commands::get_gliner_models_dir,
             gliner_commands::detect_pii_with_gliner,
+            // User Profile (encrypted PII storage)
+            user_profile_commands::save_user_profile,
+            user_profile_commands::backup_redaction_terms,
+            user_profile_commands::restore_redaction_terms,
+            user_profile_commands::load_user_profile,
             // Support
             support_commands::submit_support_issue,
+            // Form Export (DOCX template filling & generation)
+            form_export_commands::export_filled_docx,
+            form_export_commands::generate_new_docx,
+            // Form Fill (LLM-powered field extraction & profile matching)
+            form_fill_commands::extract_form_fields,
+            form_fill_commands::match_form_fields_to_profile,
+            form_fill_commands::compose_reasoning_field,
         ])
         .setup(|app| {
             // Point ort to the bundled ONNX Runtime so GLiNER works on user machines

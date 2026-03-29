@@ -5,8 +5,10 @@
 
 import React, { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { parseDocument, extractPiiFromDocument, anonymizeText, validateAnonymization, findPersonMatches, PIIExtraction, Person, EntityMatch, ParsedDocument, AnonymizationResult, ValidationResult } from '@/services/pii-service';
+import { useUserContextStore } from '@/stores/userContext';
+import { parseDocument, extractPiiFromDocument, extractPiiDynamic, anonymizeText, validateAnonymization, findPersonMatches, PIIExtraction, DynamicPIIExtraction, Person, EntityMatch, ParsedDocument, AnonymizationResult, ValidationResult } from '@/services/pii-service';
 import PiiExtractionDialog from './PiiExtractionDialog';
+import DynamicPiiDialog from './DynamicPiiDialog';
 import EntityResolutionDialog from './EntityResolutionDialog';
 import PrivacyIndicator from './PrivacyIndicator';
 
@@ -29,6 +31,7 @@ enum UploadStep {
   EXTRACTING = 'extracting',
   PII_CONFIRMATION = 'pii_confirmation',
   ENTITY_RESOLUTION = 'entity_resolution',
+  DYNAMIC_PII_CONFIRMATION = 'dynamic_pii_confirmation',
   ANONYMIZING = 'anonymizing',
   COMPLETE = 'complete',
   ERROR = 'error',
@@ -46,6 +49,7 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
   const [nameMatches, setNameMatches] = useState<EntityMatch[]>([]);
   const [anonymized, setAnonymized] = useState<AnonymizationResult | null>(null);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [dynamicPii, setDynamicPii] = useState<DynamicPIIExtraction | null>(null);
 
   const handleFileSelect = async () => {
     setStep(UploadStep.UPLOADING);
@@ -73,7 +77,19 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
       const parsedDoc = await parseDocument(filePath);
       setDocument(parsedDoc);
 
-      // Extract PII
+      // Try dynamic extraction first (supports arbitrary columns + multiple records)
+      try {
+        const dynamicResult = await extractPiiDynamic(parsedDoc.text_content);
+        if (dynamicResult.records.length > 0 && dynamicResult.columns.length > 0) {
+          setDynamicPii(dynamicResult);
+          setStep(UploadStep.DYNAMIC_PII_CONFIRMATION);
+          return;
+        }
+      } catch {
+        // Fall back to fixed-schema extraction
+      }
+
+      // Fallback: fixed-schema PII extraction
       const extractedPii = await extractPiiFromDocument(parsedDoc.text_content);
       setPii(extractedPii);
 
@@ -85,7 +101,8 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
 
       setStep(UploadStep.PII_CONFIRMATION);
     } catch (err) {
-      setError(`Error processing document: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
+      setError(`Error processing document: ${msg}`);
       setStep(UploadStep.ERROR);
     }
   };
@@ -144,9 +161,50 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
         });
       }
     } catch (err) {
-      setError(`Anonymization failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(`Anonymization failed: ${err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error'}`);
       setStep(UploadStep.ERROR);
     }
+  };
+
+  const handleDynamicConfirm = (selectedRecords: Record<string, string>[]) => {
+    const ctx = useUserContextStore.getState();
+    const isSingleRecord = selectedRecords.length === 1;
+
+    for (const record of selectedRecords) {
+      for (const [key, value] of Object.entries(record)) {
+        if (!value || !value.trim()) continue;
+
+        // For single-record docs, map to PII fields AND add as redaction terms
+        // For multi-record docs, ONLY add as custom redaction terms (can't pick one person as "the" profile)
+        if (isSingleRecord) {
+          const lowerKey = key.toLowerCase();
+          if (lowerKey.includes('name') && !lowerKey.includes('sur')) {
+            ctx.setPIIValue('name', value);
+          } else if (lowerKey.includes('surname') || lowerKey.includes('last')) {
+            ctx.setPIIValue('surname', value);
+          } else if (lowerKey === 'bsn') {
+            ctx.setPIIValue('bsn', value);
+          } else if (lowerKey.includes('email')) {
+            ctx.setPIIValue('email', value);
+          } else if (lowerKey.includes('phone')) {
+            ctx.setPIIValue('phone', value);
+          } else if (lowerKey.includes('address')) {
+            ctx.setPIIValue('address', value);
+          } else if (lowerKey.includes('iban')) {
+            ctx.setPIIValue('iban', value);
+          } else if (lowerKey.includes('income')) {
+            ctx.setPIIValue('income', value);
+          }
+        }
+
+        // Always add every value as a custom redaction term
+        // This ensures all names, BSNs, SSNs etc. are redacted in future conversations
+        ctx.addCustomRedactTerm(key, value);
+      }
+    }
+
+    setStep(UploadStep.COMPLETE);
+    setDynamicPii(null);
   };
 
   const handleReset = () => {
@@ -157,6 +215,7 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
     setNameMatches([]);
     setAnonymized(null);
     setValidation(null);
+    setDynamicPii(null);
   };
 
   return (
@@ -216,6 +275,16 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
         />
       )}
 
+      {/* Dynamic PII Confirmation Dialog */}
+      {step === UploadStep.DYNAMIC_PII_CONFIRMATION && dynamicPii && (
+        <DynamicPiiDialog
+          data={dynamicPii}
+          documentName={document?.filename || 'Document'}
+          onConfirm={handleDynamicConfirm}
+          onCancel={handleReset}
+        />
+      )}
+
       {/* Entity Resolution Dialog */}
       {step === UploadStep.ENTITY_RESOLUTION && (
         <EntityResolutionDialog
@@ -227,6 +296,19 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
       )}
 
       {/* Complete State */}
+      {step === UploadStep.COMPLETE && !anonymized && (
+        <div className="space-y-4">
+          <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800">
+            <strong>Success!</strong> Records have been imported into your local profile.
+          </div>
+          <button
+            onClick={handleReset}
+            className="w-full rounded bg-[hsl(var(--primary))] px-4 py-2 font-medium text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary)/0.85)]"
+          >
+            Upload Another Document
+          </button>
+        </div>
+      )}
       {step === UploadStep.COMPLETE && anonymized && validation && (
         <div className="space-y-4">
           <PrivacyIndicator

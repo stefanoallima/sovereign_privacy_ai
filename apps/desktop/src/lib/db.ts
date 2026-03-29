@@ -1,4 +1,5 @@
 import Dexie, { type Table } from "dexie";
+import type { FileAttachment, FormField, UserProfileAddress } from "../types";
 
 export interface LocalConversation {
   id: string;
@@ -8,6 +9,8 @@ export interface LocalConversation {
   title: string;
   activeContextIds: string[];
   totalTokensUsed: number;
+  /** Rolling summary of older conversation turns for local LLM context */
+  summary?: string;
   deleted?: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -29,6 +32,7 @@ export interface LocalMessage {
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   canvasDocId?: string;
   canvasIntro?: string;
+  attachments?: FileAttachment[];
   deleted?: boolean;
   createdAt?: Date;
 }
@@ -66,6 +70,38 @@ export interface LocalCanvasDocument {
   updatedAt: Date;
 }
 
+export interface LocalFormFill {
+  id: string;
+  conversationId: string;
+  messageId: string;
+  templatePath: string;
+  templateFilename: string;
+  fileType: 'pdf' | 'docx' | 'doc' | 'md' | 'txt';
+  fieldMap: FormField[];
+  status: 'extracting' | 'filling' | 'reviewing' | 'complete';
+  canvasDocId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LocalUserProfile {
+  id: string;
+  fullName?: string;
+  dateOfBirth?: string;
+  bsn?: string;
+  nationality?: string;
+  email?: string;
+  phone?: string;
+  address?: UserProfileAddress;
+  employerName?: string;
+  employmentType?: 'employed' | 'self-employed' | 'freelancer' | 'retired' | 'student';
+  jobTitle?: string;
+  incomeBracket?: string;
+  bankName?: string;
+  iban?: string;
+  customFields: Record<string, string>;
+}
+
 export interface LocalPersona {
   id: string;
   name: string;
@@ -90,6 +126,8 @@ export class AppDatabase extends Dexie {
   contexts!: Table<LocalContext>;
   personas!: Table<LocalPersona>;
   canvasDocuments!: Table<LocalCanvasDocument>;
+  formFills!: Table<LocalFormFill>;
+  userProfile!: Table<LocalUserProfile>;
 
   constructor() {
     super("PrivateAssistantDB");
@@ -112,6 +150,11 @@ export class AppDatabase extends Dexie {
     this.version(3).stores({
       syncQueue: null,
       syncState: null,
+    });
+
+    this.version(4).stores({
+      formFills: '&id, conversationId, messageId, status, createdAt',
+      userProfile: '&id',
     });
   }
 }
@@ -190,6 +233,37 @@ export const canvasDbOps = {
   },
   async getAllCanvasDocuments(): Promise<LocalCanvasDocument[]> {
     return db.canvasDocuments.toArray();
+  },
+};
+
+
+export const formFillDbOps = {
+  async createFormFill(formFill: LocalFormFill): Promise<void> {
+    await db.formFills.add(formFill);
+  },
+  async updateFormFill(id: string, updates: Partial<LocalFormFill>): Promise<void> {
+    await db.formFills.update(id, { ...updates, updatedAt: new Date() });
+  },
+  async getFormFill(id: string): Promise<LocalFormFill | undefined> {
+    return db.formFills.get(id);
+  },
+  async getFormFillsByConversation(conversationId: string): Promise<LocalFormFill[]> {
+    return db.formFills.where("conversationId").equals(conversationId).toArray();
+  },
+  async deleteFormFill(id: string): Promise<void> {
+    await db.formFills.delete(id);
+  },
+  async deleteFormFillsByConversation(conversationId: string): Promise<void> {
+    await db.formFills.where('conversationId').equals(conversationId).delete();
+  },
+};
+
+export const userProfileDbOps = {
+  async saveUserProfile(profile: LocalUserProfile): Promise<void> {
+    await db.userProfile.put({ ...profile, id: "default" });
+  },
+  async getUserProfile(): Promise<LocalUserProfile | undefined> {
+    return db.userProfile.get("default");
   },
 };
 

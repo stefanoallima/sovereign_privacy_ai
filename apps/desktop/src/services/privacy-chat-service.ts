@@ -170,7 +170,7 @@ export async function sendPrivacyAwareChat(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error',
       privacyInfo: {
         backend: 'unknown',
         contentMode: 'error',
@@ -290,7 +290,7 @@ export async function* streamPrivacyAwareChat(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error',
       privacyInfo: {
         backend: 'unknown',
         contentMode: 'error',

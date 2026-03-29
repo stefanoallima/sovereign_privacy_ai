@@ -215,19 +215,99 @@ fn extract_text_from_docx_xml(xml: &str) -> String {
 /// We use a simpler approach - validate PDF structure then use byte-level extraction.
 fn extract_text_with_pdf_crate(bytes: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
     use pdf::file::FileOptions;
+    use pdf::content::{Op, TextDrawAdjusted};
 
-    // Load the PDF to validate it's a proper PDF file
     let file = FileOptions::cached().load(bytes)?;
+    let resolver = file.resolver();
 
-    // Get page count to ensure the PDF is valid
-    let page_count = file.pages().count();
-    if page_count == 0 {
-        return Err("PDF has no pages".into());
+    let mut all_text = String::new();
+
+    for page in file.pages() {
+        let page = page?;
+        if let Some(ref content) = page.contents {
+            let ops = match content.operations(&resolver) {
+                Ok(ops) => ops,
+                Err(e) => {
+                    warn!("Failed to parse PDF content operations: {}", e);
+                    continue;
+                }
+            };
+            for op in &ops {
+                match op {
+                    Op::TextDraw { text } => {
+                        if let Some(s) = pdf_string_to_text(text) {
+                            all_text.push_str(&s);
+                        }
+                    }
+                    Op::TextDrawAdjusted { array } => {
+                        for item in array {
+                            match item {
+                                TextDrawAdjusted::Text(text) => {
+                                    if let Some(s) = pdf_string_to_text(text) {
+                                        all_text.push_str(&s);
+                                    }
+                                }
+                                TextDrawAdjusted::Spacing(spacing) => {
+                                    if *spacing < -100.0 {
+                                        all_text.push('\t');
+                                    } else if *spacing < -50.0 {
+                                        all_text.push(' ');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Op::TextNewline => {
+                        all_text.push('\n');
+                    }
+                    Op::MoveTextPosition { .. } => {
+                        if !all_text.ends_with('\n') && !all_text.ends_with('\t') && !all_text.is_empty() {
+                            all_text.push('\n');
+                        }
+                    }
+                    Op::EndText => {
+                        if !all_text.ends_with('\n') {
+                            all_text.push('\n');
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        all_text.push('\n');
     }
 
-    // Use byte-level extraction since the pdf crate's content stream API is complex
-    // This approach works better for most documents
-    extract_text_from_pdf_bytes(bytes)
+    // Clean up
+    let text = all_text
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if text.len() < 5 {
+        return Err("Could not extract text from PDF using content streams".into());
+    }
+
+    Ok(text)
+}
+
+fn pdf_string_to_text(s: &pdf::primitive::PdfString) -> Option<String> {
+    let bytes = s.as_bytes();
+    if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
+        let chars: Vec<u16> = bytes[2..].chunks(2)
+            .filter_map(|c| if c.len() == 2 { Some(u16::from_be_bytes([c[0], c[1]])) } else { None })
+            .collect();
+        String::from_utf16(&chars).ok()
+    } else {
+        match std::str::from_utf8(bytes) {
+            Ok(s) if s.chars().all(|c| c >= ' ' || c == '\t' || c == '\n') => Some(s.to_string()),
+            _ => {
+                let s: String = bytes.iter().filter(|&&b| b >= 32 || b == b'\t' || b == b'\n').map(|&b| b as char).collect();
+                if s.trim().is_empty() { None } else { Some(s) }
+            }
+        }
+    }
 }
 
 /// Fallback: Extract text from PDF bytes using basic pattern matching
@@ -378,13 +458,13 @@ mod tests {
     fn test_dutch_document_detection() {
         let jaaropgaaf_text = "Dit is een Jaaropgaaf voor belastingjaar 2024";
         assert_eq!(
-            detect_dutch_document_type(jaaropgaaf_text),
+            detect_document_type(jaaropgaaf_text),
             Some("Jaaropgaaf".to_string())
         );
 
         let woz_text = "WOZ-beschikking waarde van het object";
         assert_eq!(
-            detect_dutch_document_type(woz_text),
+            detect_document_type(woz_text),
             Some("WOZ-beschikking".to_string())
         );
     }

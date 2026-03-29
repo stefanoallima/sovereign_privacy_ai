@@ -2,12 +2,21 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useChatStore, usePersonasStore, useSettingsStore, useCanvasStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { usePrivacyChat } from "@/hooks/usePrivacyChat";
+import { useFormFill } from "@/hooks/useFormFill";
+import { useFormFillStore } from "@/stores/formFill";
 import { useFirstSendTour } from "@/hooks/useAppTour";
 import { MessageBubble } from "./MessageBubble";
+import { FormFillProgress } from "./FormFillProgress";
+import { GapFillPrompt } from "./GapFillPrompt";
 import { PromptReviewPanel } from "./PromptReviewPanel";
 import { LivingBrief } from "./LivingBrief";
+import { AttachmentButton } from "./AttachmentButton";
+import { AttachmentPreview } from "./AttachmentPreview";
 import { getNebiusClient } from "@/services/nebius";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import type { FileAttachment } from "@/types";
 import {
   Send,
   AlertTriangle,
@@ -22,6 +31,7 @@ import {
   ShieldCheck,
   Zap,
   Settings2,
+  Upload,
 } from "lucide-react";
 
 // A paragraph is "structural" when its first non-empty line looks like a step,
@@ -29,28 +39,70 @@ import {
 const STRUCTURAL_PARAGRAPH_FIRST_LINE =
   /^(#{1,6} |```|\|.+\||\d+\.\s|[-*+] |\*\*Step|\*\*\d|Step \d|[\p{Emoji_Presentation}\p{Extended_Pictographic}])/u;
 
+// LLM preamble patterns — short conversational lines before the actual content.
+// When the FIRST paragraph matches this, everything after it is the document.
+const LLM_PREAMBLE =
+  /^(certainly|sure|of course|here('s| is| are)|below is|i('ve| have)|absolutely|great|okay|no problem|got it|alright)/i;
+
+// LLM closing-remark patterns that should NOT be included in canvas documents.
+const LLM_CLOSING_REMARK =
+  /^(let me know|feel free|hope this|i('d| would) (be happy|love) to|would you like|if you('d| would) like|don't hesitate|i can also|want me to|shall i|happy to help|is there anything|do you want|need any|further adjust|any questions|just let|reach out|glad to|note[s:])/i;
+
 /**
  * Split a message into { intro, canvas }.
- * - Splits at the first paragraph whose first line looks structural.
- * - If no prose precedes the structural part, intro is ''.
+ * Strategy:
+ * 1. If first paragraph is an LLM preamble ("Sure! Here's..."), split right after it.
+ *    The rest is the document regardless of format (email, plain text, etc.).
+ * 2. Otherwise, split at the first markdown-structural paragraph (header, list, code).
+ * 3. Strip trailing LLM closing remarks from the canvas portion.
  */
 function splitForCanvas(content: string): { intro: string; canvas: string } {
   const paragraphs = content.split(/\n\n+/);
   if (paragraphs.length < 2) return { intro: '', canvas: content.trim() };
 
-  for (let i = 0; i < paragraphs.length; i++) {
-    const firstLine = paragraphs[i].trimStart().split('\n')[0];
-    if (STRUCTURAL_PARAGRAPH_FIRST_LINE.test(firstLine)) {
-      if (i === 0) return { intro: '', canvas: content.trim() };
-      return {
-        intro: paragraphs.slice(0, i).join('\n\n').trim(),
-        canvas: paragraphs.slice(i).join('\n\n').trim(),
-      };
+  // Strategy 1: detect LLM preamble as the first paragraph
+  // A preamble is a short conversational intro (< 200 chars, matches common patterns)
+  let docStart = -1;
+  const firstPara = paragraphs[0].trim();
+  if (firstPara.length < 200 && LLM_PREAMBLE.test(firstPara)) {
+    docStart = 1;
+  }
+
+  // Strategy 2: fall back to first structural paragraph
+  if (docStart === -1) {
+    for (let i = 0; i < paragraphs.length; i++) {
+      const firstLine = paragraphs[i].trimStart().split('\n')[0];
+      if (STRUCTURAL_PARAGRAPH_FIRST_LINE.test(firstLine)) {
+        docStart = i;
+        break;
+      }
     }
   }
 
-  // No structural paragraph found — all canvas
-  return { intro: '', canvas: content.trim() };
+  if (docStart === -1) {
+    // No split point found — all canvas
+    return { intro: '', canvas: content.trim() };
+  }
+
+  // Strip trailing LLM closing remarks from document
+  let docEnd = paragraphs.length;
+  for (let i = paragraphs.length - 1; i > docStart; i--) {
+    const para = paragraphs[i].trim();
+    const firstLine = para.split('\n')[0].trimStart();
+    // Keep structural paragraphs
+    if (STRUCTURAL_PARAGRAPH_FIRST_LINE.test(firstLine)) break;
+    // Strip known closing remarks
+    if (LLM_CLOSING_REMARK.test(para)) {
+      docEnd = i;
+    } else {
+      break;
+    }
+  }
+
+  const intro = docStart > 0 ? paragraphs.slice(0, docStart).join('\n\n').trim() : '';
+  const canvas = paragraphs.slice(docStart, docEnd).join('\n\n').trim();
+
+  return { intro, canvas: canvas || content.trim() };
 }
 
 function shouldAutoCanvas(content: string): boolean {
@@ -85,6 +137,14 @@ interface ModelStatus {
   model_size_bytes: number;
 }
 
+interface ParsedDocumentDto {
+  filename: string;
+  file_type: string;
+  text_content: string;
+  page_count: number;
+  document_type: string | null;
+}
+
 export function ChatWindow() {
   const [input, setInput] = useState("");
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
@@ -100,6 +160,12 @@ export function ChatWindow() {
   const [cursorPosition, setCursorPosition] = useState(0);
   const [mentionedPersonas, setMentionedPersonas] = useState<string[]>([]); // Track mentioned persona IDs
 
+  // Attachment state
+  const [pendingAttachment, setPendingAttachment] = useState<FileAttachment | null>(null);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
+
   const {
     currentConversationId,
     conversations,
@@ -112,6 +178,7 @@ export function ChatWindow() {
     createConversation,
     projects,
     linkMessageToCanvas,
+    addMessage,
   } = useChatStore();
 
   const { createDocument, openPanel, getDocumentsByConversation } = useCanvasStore();
@@ -121,6 +188,7 @@ export function ChatWindow() {
   const { personas, getPersonaById } = usePersonasStore();
   const { sendMessage, sendMultiPersonaMessage, privacyStatus, pendingReview, approveAndSend, cancelReview } = usePrivacyChat();
   const { startFirstSendTour } = useFirstSendTour();
+  const formFill = useFormFill();
   const activeUserProfile = useUserContextStore(selectActiveProfile);
   const customTermsCount = activeUserProfile?.customRedactTerms?.length || 0;
 
@@ -265,6 +333,12 @@ export function ChatWindow() {
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setInput(newValue);
+
+    // Detect /fill command
+    if (newValue.trim() === '/fill') {
+      openAttachmentDialog();
+      return;
+    }
 
     // Simple mention detection — only do work if @ is present
     const cursorPos = e.target.selectionStart;
@@ -419,10 +493,63 @@ export function ChatWindow() {
   }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || !currentConversationId || isLoading) return;
+    if ((!input.trim() && !pendingAttachment) || !currentConversationId || isLoading) return;
 
-    const message = input.trim();
+    // If input is /fill with optional text, open file dialog
+    const fillMatch = input.trim().match(/^\/fill\s*(.*)/);
+    if (fillMatch && !pendingAttachment) {
+      const remainingText = fillMatch[1]?.trim() || '';
+      if (remainingText) setInput(remainingText);
+      else setInput('');
+      openAttachmentDialog();
+      return;
+    }
+
+    let message = input.trim();
     const targetPersonas = [...mentionedPersonas]; // Copy before clearing
+
+    // ---------- Form-fill path (local only -- PII never leaves the machine) ----------
+    if (formFill.isProcessing) {
+      return; // Already processing a form
+    }
+
+    if (pendingAttachment?.isFormFill) {
+      const attachment = pendingAttachment;
+      const userContent = message || `Fill this form: ${attachment.filename}`;
+
+      // Add a user message to the chat so the user sees their request
+      await addMessage(currentConversationId, {
+        conversationId: currentConversationId,
+        role: 'user',
+        content: userContent,
+        privacyLevel: 'local-only',
+        attachments: [attachment],
+      });
+
+      setInput('');
+      setPendingAttachment(null);
+
+      // Start form-fill pipeline (runs async, errors handled via store.error state)
+      const msgs = useChatStore.getState().messages;
+      const userMsgs = msgs[currentConversationId]?.filter(m => m.role === 'user') || [];
+      const lastUserMsgId = userMsgs[userMsgs.length - 1]?.id || 'unknown';
+      formFill.startPipeline(currentConversationId, lastUserMsgId, attachment);
+      return; // Skip regular sendMessage flow -- no data sent to cloud
+    }
+
+    // If non-form-fill attachment is present, include its content with the message
+    const attachment = pendingAttachment;
+    const attachmentForMessage = attachment ? [attachment] : undefined;
+    if (attachment) {
+      // Context mode: append document content
+      message = `${message}
+
+---
+Attached document (${attachment.filename}):
+${attachment.textContent}`;
+      setPendingAttachment(null);
+    }
+
     setInput("");
     setMentionedPersonas([]);
 
@@ -431,11 +558,11 @@ export function ChatWindow() {
 
     // If multiple personas mentioned, use multi-persona flow
     if (targetPersonas.length > 1) {
-      await sendMultiPersonaMessage(message, targetPersonas);
+      await sendMultiPersonaMessage(message, targetPersonas, attachmentForMessage);
     } else {
       // Single persona or no mention - use regular flow
       // Pass the single mentioned persona if available
-      await sendMessage(message, targetPersonas.length === 1 ? targetPersonas : undefined);
+      await sendMessage(message, targetPersonas.length === 1 ? targetPersonas : undefined, attachmentForMessage);
     }
   };
 
@@ -484,6 +611,84 @@ export function ChatWindow() {
       if (modelId) updateConversationModel(currentConversationId, modelId);
     }
   };
+
+  // --- Attachment & drag-drop handlers ---
+
+  const parseAndAttach = useCallback(async (filePath: string) => {
+    try {
+      const parsed = await invoke<ParsedDocumentDto>('parse_document', { filePath: filePath });
+      const fileType = parsed.file_type.toLowerCase() as FileAttachment['fileType'];
+      const attachment: FileAttachment = {
+        id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        filename: parsed.filename,
+        fileType,
+        filePath,
+        fileSize: parsed.text_content.length,
+        textContent: parsed.text_content,
+        structure: {
+          page_count: parsed.page_count,
+          has_tables: false,
+          document_type: parsed.document_type ?? undefined,
+        },
+      };
+      setPendingAttachment(attachment);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to parse file';
+      console.error('Failed to parse dropped file:', msg);
+      setAttachError(msg);
+    }
+  }, []);
+
+  const openAttachmentDialog = useCallback(async () => {
+    try {
+      const selected = await openFileDialog({
+        multiple: false,
+        filters: [{ name: 'Documents', extensions: ['pdf', 'docx', 'doc', 'md', 'txt'] }],
+      });
+      if (!selected) return;
+      const filePath = typeof selected === 'string' ? selected : selected[0];
+      if (filePath) await parseAndAttach(filePath);
+    } catch (err) {
+      console.error('File dialog error:', err);
+    }
+  }, [parseAndAttach]);
+
+  // Native Tauri v2 drag-drop: gives us real file paths (browser File.path is unavailable)
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    getCurrentWebviewWindow().onDragDropEvent((event) => {
+      if (event.payload.type === 'enter') {
+        setIsDragging(true);
+      } else if (event.payload.type === 'drop') {
+        setIsDragging(false);
+        const paths = event.payload.paths;
+        if (paths.length > 0) {
+          const supportedExts = ['pdf', 'docx', 'doc', 'md', 'txt'];
+          const filePath = paths[0];
+          const ext = filePath.split('.').pop()?.toLowerCase() || '';
+          if (supportedExts.includes(ext)) {
+            parseAndAttach(filePath);
+          }
+        }
+      } else if (event.payload.type === 'leave') {
+        setIsDragging(false);
+      }
+    }).then(fn => { unlisten = fn; });
+
+    return () => { unlisten?.(); };
+  }, [parseAndAttach]);
+
+  const handleAttachmentSendAsContext = useCallback(() => {
+    if (!pendingAttachment) return;
+    // Keep attachment as context — it will be appended to message on send
+    setPendingAttachment(prev => prev ? { ...prev, isFormFill: false } : null);
+  }, [pendingAttachment]);
+
+  const handleAttachmentFillForm = useCallback(() => {
+    if (!pendingAttachment) return;
+    setPendingAttachment(prev => prev ? { ...prev, isFormFill: true } : null);
+  }, [pendingAttachment]);
 
   // Welcome screen when no conversation selected
   if (!currentConversationId) {
@@ -703,6 +908,7 @@ export function ChatWindow() {
                     <MessageBubble
                       id={message.id}
                       role={message.role}
+                      attachments={message.attachments}
                       content={message.content}
                       timestamp={message.createdAt}
                       personaName={messagePersona?.name}
@@ -757,6 +963,65 @@ export function ChatWindow() {
                   </div>
                 </div>
               )}
+              {/* Form Fill Progress */}
+              {formFill.isProcessing && formFill.currentFormFill && (
+                <div className="animate-fade-in">
+                  <FormFillProgress
+                    currentStep={formFill.currentStep}
+                    filename={formFill.currentFormFill.templateFilename}
+                  />
+                </div>
+              )}
+              {/* Form Fill Error */}
+              {formFill.error && !formFill.isProcessing && (
+                <div className="flex justify-start px-6 mb-4">
+                  <div className="max-w-[85%] flex items-start gap-3 p-4 rounded-2xl border border-red-500/30 bg-red-500/5">
+                    <span className="text-red-500 text-lg flex-shrink-0">!</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-400">Form fill failed</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{formFill.error}</p>
+                    </div>
+                    <button 
+                      onClick={() => useFormFillStore.getState().reset()} 
+                      className="text-xs px-3 py-1 rounded-lg border border-[hsl(var(--border))] hover:bg-[hsl(var(--secondary))] transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Gap Fill Prompt */}
+              {formFill.currentStep === 'gap-filling' && formFill.gapFields.length > 0 && formFill.currentGapIndex < formFill.gapFields.length && (
+                <div className="animate-fade-in">
+                  <GapFillPrompt
+                    key={formFill.gapFields[formFill.currentGapIndex]?.id || formFill.currentGapIndex}
+                    field={formFill.gapFields[formFill.currentGapIndex]}
+                    onSubmit={(value, saveToProfile) => {
+                      formFill.updateFieldValue(
+                        formFill.gapFields[formFill.currentGapIndex].label,
+                        value,
+                        saveToProfile,
+                      );
+                      formFill.advanceGap();
+                      // Check updated index from store (not stale closure)
+                      const { currentGapIndex, gapFields } = useFormFillStore.getState();
+                      if (currentGapIndex >= gapFields.length) {
+                        void formFill.continueAfterGaps();
+                      }
+                    }}
+                    onSkip={() => {
+                      const store = useFormFillStore.getState();
+                      const field = store.gapFields[store.currentGapIndex];
+                      if (field) store.skipField(field.label);
+                      store.advanceGap();
+                      const { currentGapIndex, gapFields } = useFormFillStore.getState();
+                      if (currentGapIndex >= gapFields.length) {
+                        void formFill.continueAfterGaps();
+                      }
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
           <div ref={messagesEndRef} className="h-64 w-full flex-shrink-0" />
@@ -764,7 +1029,10 @@ export function ChatWindow() {
       </div>
 
       {/* Input Area - Floating at Bottom Center */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[hsl(var(--background))] via-[hsl(var(--background)/0.95)] to-transparent pointer-events-none">
+      <div
+        className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[hsl(var(--background))] via-[hsl(var(--background)/0.95)] to-transparent pointer-events-none"
+
+      >
         <div className="mx-auto max-w-3xl w-full pointer-events-auto">
           {/* Prompt Review Panel */}
           {pendingReview && (
@@ -782,6 +1050,38 @@ export function ChatWindow() {
               />
             </div>
           )}
+          {/* Drag-drop overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center rounded-2xl border-2 border-dashed border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.05)] backdrop-blur-sm pointer-events-none">
+              <div className="flex flex-col items-center gap-2 text-[hsl(var(--primary))]">
+                <Upload className="h-8 w-8" />
+                <span className="text-sm font-medium">Drop file to attach</span>
+                <span className="text-xs text-[hsl(var(--muted-foreground))]">PDF, DOCX, DOC, MD, TXT</span>
+              </div>
+            </div>
+          )}
+
+          {/* Attachment Error */}
+          {attachError && (
+            <div className="mb-2 flex items-center gap-2 px-4 py-2 rounded-xl border border-red-500/30 bg-red-500/5 text-sm">
+              <span className="text-red-500">!</span>
+              <span className="text-red-400 flex-1">{attachError}</span>
+              <button onClick={() => setAttachError(null)} className="text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]">Dismiss</button>
+            </div>
+          )}
+
+          {/* Attachment Preview */}
+          {pendingAttachment && (
+            <div className="mb-2">
+              <AttachmentPreview
+                attachment={pendingAttachment}
+                onRemove={() => setPendingAttachment(null)}
+                onSendAsContext={handleAttachmentSendAsContext}
+                onFillForm={handleAttachmentFillForm}
+              />
+            </div>
+          )}
+
           {/* Floating Input Box */}
           <div className={`relative border border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] rounded-2xl focus-within:border-[hsl(var(--ring)/0.4)] focus-within:ring-2 focus-within:ring-[hsl(var(--ring)/0.08)] focus-within:shadow-[var(--shadow-md)] shadow-[var(--shadow)] ${pendingReview ? 'opacity-40 pointer-events-none' : ''}`}>
             {/* Mentioned Personas Bar */}
@@ -848,7 +1148,7 @@ export function ChatWindow() {
                 {
                   mode: 'local' as const, icon: Lock, label: 'Local',
                   activeCls: 'border-green-600/40 bg-green-500/12 text-green-700 dark:text-green-400 dark:border-green-500/40 privacy-pill-active',
-                  modelLabel: (() => { const m = useSettingsStore.getState().ollamaModels.find(m => m.apiModelId === settings.localModeModel); return m?.name?.replace(/^Qwen3\s*/, '') || settings.localModeModel; })(),
+                  modelLabel: (() => { const m = useSettingsStore.getState().ollamaModels.find(m => m.apiModelId === settings.localModeModel); return m?.name?.replace(/^Qwen3(?:\.\d+)?\s*/, '') || settings.localModeModel; })(),
                 },
                 {
                   mode: 'hybrid' as const, icon: ShieldCheck, label: 'Hybrid',
@@ -947,16 +1247,24 @@ export function ChatWindow() {
                   )}
                 </div>
 
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  className={`flex items-center justify-center h-10 w-10 rounded-xl ${input.trim()
+                <div className="flex items-center gap-2">
+                  <AttachmentButton
+                    onFileSelected={(att) => { setAttachError(null); setPendingAttachment(att); }}
+                    onError={(msg) => setAttachError(msg)}
+                    disabled={isLoading}
+                  />
+
+                  <button
+                    onClick={handleSend}
+                    disabled={(!input.trim() && !pendingAttachment) || isLoading}
+                    className={`flex items-center justify-center h-10 w-10 rounded-xl ${input.trim() || pendingAttachment
                     ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md shadow-[hsl(var(--primary)/0.25)] hover:shadow-lg hover:shadow-[hsl(var(--primary)/0.3)] active:scale-93 active:shadow-sm"
                     : "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground)/0.4)] cursor-not-allowed"
                     }`}
                 >
-                  <Send className="h-4 w-4" />
-                </button>
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

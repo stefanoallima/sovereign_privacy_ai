@@ -1,10 +1,170 @@
 use crate::inference::{LocalInference, ModelStatus};
 use crate::llama_backend::{LlamaCppBackend, LocalModelInfo};
-use crate::ollama::PIIExtraction;
+use crate::ollama::{PIIExtraction, DynamicPIIExtraction};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tauri::State;
 use log::{info, error};
+
+// ---------------------------------------------------------------------------
+// Fast table parser -- bypass LLM for structured tabular data
+// ---------------------------------------------------------------------------
+
+/// Try to parse structured tabular data without using the LLM.
+/// Returns `Some(DynamicPIIExtraction)` if the text looks like a table,
+/// `None` otherwise (fall through to LLM).
+fn try_parse_table(text: &str) -> Option<DynamicPIIExtraction> {
+    let lines: Vec<&str> = text.lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+
+    if lines.len() < 2 {
+        return None;
+    }
+
+    let header_line = lines[0];
+
+    // Try pipe delimiter first
+    if header_line.contains('|') {
+        return try_parse_pipe_table(&lines);
+    }
+
+    // Try tab delimiter
+    if header_line.contains('\t') {
+        return try_parse_delimited_table(&lines, '\t');
+    }
+
+    // Try comma delimiter (CSV)
+    if header_line.contains(',') && !header_line.contains("  ") {
+        return try_parse_delimited_table(&lines, ',');
+    }
+
+    // Try whitespace-aligned columns (PDF-extracted text)
+    let header_tokens: Vec<&str> = header_line.split_whitespace().collect();
+    if header_tokens.len() >= 2 {
+        return try_parse_space_table(&lines);
+    }
+
+    None
+}
+
+fn try_parse_pipe_table(lines: &[&str]) -> Option<DynamicPIIExtraction> {
+    let parse_row = |line: &str| -> Vec<String> {
+        line.split('|')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    };
+
+    let columns = parse_row(lines[0]);
+    if columns.len() < 2 { return None; }
+
+    let mut records = Vec::new();
+    for line in &lines[1..] {
+        // Skip separator rows like |---|---|
+        if line.chars().all(|c| c == '|' || c == '-' || c == ' ' || c == '+' || c == ':') {
+            continue;
+        }
+        let values = parse_row(line);
+        if values.len() + 1 >= columns.len() {
+            let mut record = HashMap::new();
+            for (i, col) in columns.iter().enumerate() {
+                if let Some(val) = values.get(i) {
+                    if !val.is_empty() {
+                        record.insert(col.clone(), val.clone());
+                    }
+                }
+            }
+            if !record.is_empty() {
+                records.push(record);
+            }
+        }
+    }
+
+    if records.is_empty() { return None; }
+    Some(DynamicPIIExtraction { columns, records })
+}
+
+fn try_parse_delimited_table(lines: &[&str], delimiter: char) -> Option<DynamicPIIExtraction> {
+    let columns: Vec<String> = lines[0].split(delimiter)
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if columns.len() < 2 { return None; }
+
+    let mut records = Vec::new();
+    for line in &lines[1..] {
+        let values: Vec<String> = line.split(delimiter)
+            .map(|s| s.trim().to_string())
+            .collect();
+        if values.len() + 1 >= columns.len() {
+            let mut record = HashMap::new();
+            for (i, col) in columns.iter().enumerate() {
+                if let Some(val) = values.get(i) {
+                    if !val.is_empty() {
+                        record.insert(col.clone(), val.clone());
+                    }
+                }
+            }
+            if !record.is_empty() {
+                records.push(record);
+            }
+        }
+    }
+
+    if records.is_empty() { return None; }
+    Some(DynamicPIIExtraction { columns, records })
+}
+
+fn try_parse_space_table(lines: &[&str]) -> Option<DynamicPIIExtraction> {
+    let header = lines[0];
+    let columns: Vec<String> = header.split_whitespace()
+        .map(|s| s.to_string())
+        .collect();
+
+    if columns.len() < 2 { return None; }
+
+    let mut col_positions: Vec<usize> = Vec::new();
+    for col in &columns {
+        let search_from = col_positions.last().map(|&p| p + 1).unwrap_or(0);
+        if let Some(pos) = header[search_from..].find(col.as_str()) {
+            col_positions.push(search_from + pos);
+        }
+    }
+
+    if col_positions.len() != columns.len() { return None; }
+
+    let mut records = Vec::new();
+    for line in &lines[1..] {
+        if line.is_empty() { continue; }
+        let values: Vec<String> = line.split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+        if values.len() + 1 >= columns.len() && values.len() <= columns.len() + 1 {
+            let mut record = HashMap::new();
+            for (i, col) in columns.iter().enumerate() {
+                if let Some(val) = values.get(i) {
+                    if !val.is_empty() {
+                        record.insert(col.clone(), val.clone());
+                    }
+                }
+            }
+            if !record.is_empty() {
+                records.push(record);
+            }
+        }
+    }
+
+    if records.is_empty() { return None; }
+    Some(DynamicPIIExtraction { columns, records })
+}
+
+// ---------------------------------------------------------------------------
+// Tauri commands
+// ---------------------------------------------------------------------------
 
 /// Tauri state for the inference backend (llama.cpp or Ollama fallback)
 pub struct InferenceState(pub Arc<Mutex<Arc<dyn LocalInference>>>);
@@ -38,30 +198,60 @@ pub async fn extract_pii_from_document(
 
     info!("Extracting PII from document (length: {} chars)", text.len());
 
-    let prompt = format!(
-        r#"Extract personally identifiable information from the following Dutch text.
-Return a JSON object with the following fields (use null for missing values):
-- bsn: Dutch tax ID / BSN (9 digits)
-- name: First name(s)
-- surname: Last name
-- phone: Phone number
-- address: Full address
-- email: Email address
-- income: Annual income if mentioned
+    // Truncate text to avoid exceeding context window on small models
+    let truncated = if text.len() > 2000 {
+        let mut end = 2000;
+        while end > 0 && !text.is_char_boundary(end) { end -= 1; }
+        &text[..end]
+    } else {
+        &text
+    };
 
-Text to analyze:
+    let prompt = format!(
+        r#"/no_think
+Extract PII from this text. Return ONLY a JSON object, no other text.
+
+{{"bsn":"9-digit BSN or null","name":"first name or null","surname":"last name or null","phone":"phone or null","address":"address or null","email":"email or null","income":"income or null"}}
+
+Text:
 {}
 
-Return ONLY valid JSON, no markdown, no extra text."#,
-        text
+JSON:"#,
+        truncated
     );
 
-    match inference.generate_json(&prompt).await {
+    // Check if model is available first
+    if !inference.is_available().await {
+        return Err("Local AI model is not loaded. Please download a model in Settings → Privacy & Local first.".to_string());
+    }
+
+    match inference.generate_json_short(&prompt, 256).await {
         Ok(response) => {
-            let extraction: PIIExtraction = serde_json::from_str(&response).map_err(|e| {
-                error!("Failed to parse PII extraction JSON: {}", e);
-                format!("PII extraction parse failed: {}", e)
-            })?;
+            if response.trim().is_empty() {
+                return Err("Local AI model returned empty response. The model may still be loading — please try again in a moment.".to_string());
+            }
+            info!("PII extraction raw response: {}", &response[..response.len().min(500)]);
+            // Try parsing the JSON response; if it fails, try to extract JSON from the text
+            let extraction: PIIExtraction = match serde_json::from_str(&response) {
+                Ok(e) => e,
+                Err(e1) => {
+                    // Try to find a JSON object in the response (model may have added extra text)
+                    let trimmed = response.trim();
+                    let json_str = if let Some(start) = trimmed.find('{') {
+                        if let Some(end) = trimmed.rfind('}') {
+                            &trimmed[start..=end]
+                        } else {
+                            trimmed
+                        }
+                    } else {
+                        trimmed
+                    };
+                    serde_json::from_str(json_str).map_err(|e2| {
+                        error!("Failed to parse PII extraction JSON: {} / {}. Response was: {}", e1, e2, &response[..response.len().min(300)]);
+                        format!("PII extraction failed: the AI model returned invalid output. Please try again or use a larger model.")
+                    })?
+                }
+            };
             Ok(extraction)
         }
         Err(e) => {
@@ -153,6 +343,102 @@ pub async fn download_default_model(state: State<'_, InferenceState>) -> Result<
         .map_err(|e| format!("Download failed: {}", e))
 }
 
+/// Extract PII dynamically from document text - supports arbitrary columns and multiple records.
+/// Uses a fast table parser for structured data; falls back to LLM for unstructured text.
+#[tauri::command]
+pub async fn extract_pii_dynamic(
+    text: String,
+    state: State<'_, InferenceState>,
+) -> Result<DynamicPIIExtraction, String> {
+    info!("Dynamic PII extraction from document (length: {} chars)", text.len());
+
+    // ---------------------------------------------------------------
+    // Fast path: try parsing structured table data without the LLM
+    // ---------------------------------------------------------------
+    if let Some(result) = try_parse_table(&text) {
+        info!(
+            "Table parsed directly -- {} columns, {} records (no LLM needed)",
+            result.columns.len(),
+            result.records.len()
+        );
+        return Ok(result);
+    }
+
+    // ---------------------------------------------------------------
+    // Slow path: use LLM for unstructured text
+    // ---------------------------------------------------------------
+    let inference = get_inference(&state).await;
+
+    // Truncate text to 6000 chars (larger ctx window)
+    let truncated = if text.len() > 6000 {
+        let mut end = 6000;
+        while end > 0 && !text.is_char_boundary(end) { end -= 1; }
+        &text[..end]
+    } else {
+        &text
+    };
+
+    let prompt = format!(
+        r#"/no_think
+Extract ALL personal information from this document. The document may contain a table with multiple people.
+
+Return a JSON object with:
+- "columns": array of column/field names found (e.g. ["Name", "Surname", "BSN", "SSN"])
+- "records": array of objects, one per person/row found
+
+Example: {{"columns":["Name","Email"],"records":[{{"Name":"John","Email":"john@x.com"}},{{"Name":"Jane","Email":"jane@x.com"}}]}}
+
+If only one person, still use the records array with one entry.
+Keep the response under 500 tokens. Return ONLY the JSON.
+
+Text:
+{}
+
+JSON:"#,
+        truncated
+    );
+
+    if !inference.is_available().await {
+        return Err("Local AI model is not loaded. Please download a model in Settings.".to_string());
+    }
+
+    match inference.generate_json_short(&prompt, 512).await {
+        Ok(response) => {
+            if response.trim().is_empty() {
+                return Err("Local AI model returned empty response.".to_string());
+            }
+            info!("Dynamic PII extraction raw response: {}", &response[..response.len().min(500)]);
+
+            // Try direct parse first
+            let extraction: DynamicPIIExtraction = match serde_json::from_str(&response) {
+                Ok(e) => e,
+                Err(e1) => {
+                    // Fallback: extract JSON object from response text
+                    let trimmed = response.trim();
+                    let json_str = if let Some(start) = trimmed.find('{') {
+                        if let Some(end) = trimmed.rfind('}') {
+                            &trimmed[start..=end]
+                        } else {
+                            trimmed
+                        }
+                    } else {
+                        trimmed
+                    };
+                    serde_json::from_str(json_str).map_err(|e2| {
+                        error!("Failed to parse dynamic PII JSON: {} / {}. Response: {}", e1, e2, &response[..response.len().min(300)]);
+                        "Dynamic PII extraction failed: the AI model returned invalid output. Please try again.".to_string()
+                    })?
+                }
+            };
+            Ok(extraction)
+        }
+        Err(e) => {
+            error!("Dynamic PII extraction failed: {}", e);
+            Err(format!("Dynamic PII extraction failed: {}", e))
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Multi-model commands (direct LlamaCppBackend access)
 // ---------------------------------------------------------------------------
@@ -237,4 +523,82 @@ pub async fn get_local_models_dir(
     let guard = state.0.lock().await;
     let backend = guard.as_ref().ok_or("Local backend not available")?;
     Ok(backend.models_dir_string())
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_space_table() {
+        let text = "Name Surname BSN SSN
+John Doe 000123456 000-12-3456
+Jane Smith 999876543 666-99-8888";
+        let result = try_parse_table(text).expect("should parse space table");
+        assert_eq!(result.columns, vec!["Name", "Surname", "BSN", "SSN"]);
+        assert_eq!(result.records.len(), 2);
+        assert_eq!(result.records[0].get("Name").unwrap(), "John");
+        assert_eq!(result.records[0].get("BSN").unwrap(), "000123456");
+        assert_eq!(result.records[1].get("Surname").unwrap(), "Smith");
+        assert_eq!(result.records[1].get("SSN").unwrap(), "666-99-8888");
+    }
+
+    #[test]
+    fn test_parse_space_table_with_title() {
+        let text = "Fake PII Data Example
+Name Surname BSN SSN
+John Doe 000123456 000-12-3456
+Jane Smith 999876543 666-99-8888";
+        let result = try_parse_table(text);
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_parse_csv_table() {
+        let text = "Name,Surname,BSN
+John,Doe,000123456
+Jane,Smith,999876543";
+        let result = try_parse_table(text).expect("should parse CSV");
+        assert_eq!(result.columns, vec!["Name", "Surname", "BSN"]);
+        assert_eq!(result.records.len(), 2);
+        assert_eq!(result.records[0].get("Name").unwrap(), "John");
+    }
+
+    #[test]
+    fn test_parse_tab_table() {
+        let text = "Name\tSurname\tBSN
+John\tDoe\t000123456";
+        let result = try_parse_table(text).expect("should parse tab-delimited");
+        assert_eq!(result.columns, vec!["Name", "Surname", "BSN"]);
+        assert_eq!(result.records.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_pipe_table() {
+        let text = "| Name | Surname | BSN |
+|------|---------|-----|
+| John | Doe | 000123456 |";
+        let result = try_parse_table(text).expect("should parse pipe table");
+        assert_eq!(result.columns, vec!["Name", "Surname", "BSN"]);
+        assert_eq!(result.records.len(), 1);
+        assert_eq!(result.records[0].get("Name").unwrap(), "John");
+    }
+
+    #[test]
+    fn test_single_line_no_parse() {
+        let text = "Hello, my name is John Doe and my BSN is 123456789.";
+        assert!(try_parse_table(text).is_none(), "single prose line should not parse as table");
+    }
+
+    #[test]
+    fn test_prose_no_parse() {
+        let text = "Dear Sir,
+I am writing to inform you that my BSN is 123456789.
+Regards, John";
+        let _ = try_parse_table(text);
+    }
 }

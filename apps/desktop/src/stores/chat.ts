@@ -32,6 +32,7 @@ interface ChatStore {
   moveToProject: (conversationId: string, projectId: string | null) => Promise<void>;
   updateConversationModel: (id: string, modelId: string) => Promise<void>;
   updateConversationPersona: (id: string, personaId: string) => Promise<void>;
+  updateConversationSummary: (id: string, summary: string) => Promise<void>;
   toggleConversationContext: (conversationId: string, contextId: string) => Promise<void>;
 
   // Message actions
@@ -68,6 +69,7 @@ function toConversation(local: LocalConversation): Conversation {
     title: local.title,
     activeContextIds: local.activeContextIds,
     totalTokensUsed: local.totalTokensUsed,
+    summary: local.summary,
     createdAt: local.createdAt,
     updatedAt: local.updatedAt,
   };
@@ -92,6 +94,7 @@ function toMessage(local: LocalMessage): Message {
     approvalStatus: local.approvalStatus,
     canvasDocId: local.canvasDocId,
     canvasIntro: local.canvasIntro,
+    attachments: local.attachments,
   };
 }
 
@@ -218,6 +221,14 @@ export const useChatStore = create<ChatStore>()(
           await dbOps.deleteConversation(id);
         }
 
+        // Clean up associated form fills
+        try {
+          const { formFillDbOps } = await import('../lib/db');
+          await formFillDbOps.deleteFormFillsByConversation(id);
+        } catch (e) {
+          console.warn('Failed to clean up form fills:', e);
+        }
+
         set((state) => {
           const { [id]: _, ...remainingMessages } = state.messages;
           return {
@@ -280,6 +291,16 @@ export const useChatStore = create<ChatStore>()(
         }));
       },
 
+      updateConversationSummary: async (id: string, summary: string) => {
+        await dbOps.updateConversation(id, { summary });
+
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === id ? { ...c, summary, updatedAt: new Date() } : c
+          ),
+        }));
+      },
+
       toggleConversationContext: async (conversationId, contextId) => {
         const conv = get().conversations.find(c => c.id === conversationId);
         if (!conv) return;
@@ -332,6 +353,7 @@ export const useChatStore = create<ChatStore>()(
             privacyLevel: message.privacyLevel,
             piiTypesDetected: message.piiTypesDetected,
             approvalStatus: message.approvalStatus,
+            attachments: message.attachments,
           });
 
           // Update conversation timestamp

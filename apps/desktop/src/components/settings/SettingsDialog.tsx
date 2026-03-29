@@ -6,13 +6,14 @@ import { PersonaSettings } from "./PersonaSettings";
 import { KnowledgeBaseSettings } from "./KnowledgeBaseSettings";
 import { SharedContextSettings } from "./SharedContextSettings";
 import { PrivacySettings } from "./PrivacySettings";
+import { MyInfoPanel } from "./MyInfoPanel";
 
 interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type TabId = "api" | "models" | "privacy" | "personas" | "knowledge" | "context" | "appearance";
+type TabId = "api" | "models" | "privacy" | "myinfo" | "personas" | "knowledge" | "context" | "appearance";
 
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<TabId>("api");
@@ -32,6 +33,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             <TabButton label="API Configuration" active={activeTab === "api"} onClick={() => setActiveTab("api")} icon={<ApiIcon />} />
             <TabButton label="Models" active={activeTab === "models"} onClick={() => setActiveTab("models")} icon={<ModelIcon />} />
             <TabButton label="Privacy & Local" active={activeTab === "privacy"} onClick={() => setActiveTab("privacy")} icon={<PrivacyIcon />} />
+            <TabButton label="My Info" active={activeTab === "myinfo"} onClick={() => setActiveTab("myinfo")} icon={<MyInfoIcon />} />
             <div className="my-2 border-t border-[hsl(var(--border))]" />
             <TabButton label="Personas" active={activeTab === "personas"} onClick={() => setActiveTab("personas")} icon={<PersonaIcon />} />
             <TabButton label="Knowledge Bases" active={activeTab === "knowledge"} onClick={() => setActiveTab("knowledge")} icon={<DatabaseIcon />} />
@@ -58,6 +60,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               {activeTab === "api" && <ApiSettings />}
               {activeTab === "models" && <ModelSettings />}
               {activeTab === "privacy" && <PrivacySettings />}
+              {activeTab === "myinfo" && <MyInfoPanel />}
               {activeTab === "personas" && <PersonaSettings />}
               {activeTab === "knowledge" && <KnowledgeBaseSettings />}
               {activeTab === "context" && <SharedContextSettings />}
@@ -163,6 +166,15 @@ function PaletteIcon() {
       <circle cx="8.5" cy="7.5" r=".5" />
       <circle cx="6.5" cy="12.5" r=".5" />
       <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+    </svg>
+  )
+}
+function MyInfoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+      <line x1="12" x2="12" y1="14" y2="17" />
     </svg>
   )
 }

@@ -46,6 +46,19 @@ const DEFAULT_OLLAMA_MODELS: LLMModel[] = [
     isDefault: false,
   },
   {
+    id: "local-qwen3.5-4b",
+    provider: "ollama",
+    apiModelId: "qwen3.5-4b",
+    name: "Qwen3.5 4B (Recommended)",
+    contextWindow: 4096,
+    speedTier: "medium",
+    intelligenceTier: "very-high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+  },
+  {
     id: "local-qwen3-8b",
     provider: "ollama",
     apiModelId: "qwen3-8b",
@@ -359,7 +372,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 13, // v13: add cloudTrustLevel
+      version: 14, // v14: add Qwen3.5-4B model, bump ctx_sizes
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;

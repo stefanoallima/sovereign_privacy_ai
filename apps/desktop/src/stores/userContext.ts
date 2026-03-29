@@ -14,7 +14,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { PIIValues } from '@/services/rehydration-service';
-
 // ==================== Types ====================
 
 export interface CustomRedactTerm {
@@ -22,6 +21,16 @@ export interface CustomRedactTerm {
   value: string;
   /** Auto-generated same-length replacement string for rehydration */
   replacement: string;
+}
+
+// Fire-and-forget backup of custom redaction terms to encrypted Rust storage
+async function backupTermsToRust(terms: CustomRedactTerm[]) {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('backup_redaction_terms', { terms });
+  } catch (e) {
+    console.warn('Failed to backup redaction terms:', e);
+  }
 }
 
 /**
@@ -348,6 +357,7 @@ export const useUserContextStore = create<UserContextState>()(
                 ? { ...p, customRedactTerms: newTerms, updatedAt: new Date() }
                 : p
             );
+            backupTermsToRust(newTerms);
             return { profiles: updatedProfiles };
           }
           return state;
@@ -366,6 +376,7 @@ export const useUserContextStore = create<UserContextState>()(
                 ? { ...p, customRedactTerms: newTerms, updatedAt: new Date() }
                 : p
             );
+            backupTermsToRust(newTerms);
             return { profiles: updatedProfiles };
           }
           return state;
@@ -408,6 +419,7 @@ export const useUserContextStore = create<UserContextState>()(
                 ? { ...p, customRedactTerms: merged, updatedAt: new Date() }
                 : p
             );
+            backupTermsToRust(merged);
             return { profiles: updatedProfiles };
           }
           return state;
@@ -424,6 +436,7 @@ export const useUserContextStore = create<UserContextState>()(
                 ? { ...p, customRedactTerms: [], updatedAt: new Date() }
                 : p
             );
+            backupTermsToRust([]);
             return { profiles: updatedProfiles };
           }
           return state;
@@ -461,6 +474,56 @@ export const useUserContextStore = create<UserContextState>()(
         profiles: state.profiles,
         currentPII: state.currentPII,
       }),
+      onRehydrateStorage: (_state: UserContextState) => {
+        // After localStorage hydration completes, check Rust encrypted backup
+        return (rehydratedState?: UserContextState, error?: unknown) => {
+          if (error) {
+            console.warn('Rehydration error:', error);
+            return;
+          }
+          if (!rehydratedState) return;
+
+          // Fire-and-forget async restore from encrypted backend
+          (async () => {
+            try {
+              const { invoke } = await import('@tauri-apps/api/core');
+              const backupTerms: CustomRedactTerm[] = await invoke('restore_redaction_terms');
+
+              if (backupTerms.length > 0) {
+                const activeProfile = rehydratedState.profiles.find(
+                  (p: UserProfile) => p.id === rehydratedState.activeProfileId
+                );
+                const currentTerms = activeProfile?.customRedactTerms || [];
+
+                // Restore from backup if localStorage has fewer terms
+                if (backupTerms.length > currentTerms.length) {
+                  console.log(
+                    `Restoring ${backupTerms.length} redaction terms from encrypted backup (localStorage had ${currentTerms.length})`
+                  );
+                  // Merge: keep localStorage terms, add any from backup that are missing
+                  const existingValues = new Set(currentTerms.map((t: CustomRedactTerm) => t.value));
+                  const merged: CustomRedactTerm[] = [...currentTerms];
+                  for (const term of backupTerms) {
+                    if (!existingValues.has(term.value)) {
+                      merged.push(term);
+                    }
+                  }
+                  // Update the store
+                  useUserContextStore.setState({
+                    profiles: rehydratedState.profiles.map((p: UserProfile) =>
+                      p.id === rehydratedState.activeProfileId
+                        ? { ...p, customRedactTerms: merged, updatedAt: new Date() }
+                        : p
+                    ),
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to restore redaction terms from backup:', e);
+            }
+          })();
+        };
+      },
     }
   )
 );

@@ -48,7 +48,7 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
             filename: "Qwen3-0.6B-Q4_K_M.gguf".into(),
             url: "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf".into(),
             size_bytes: 530_000_000,
-            ctx_size: 1024,       // small model → small context = fast prefill
+            ctx_size: 4096,       // 0.6B can handle 4K easily with Q4 quant
             description: "Fastest, lowest RAM. Good for simple Q&A.".into(),
             speed_tier: "very-fast".into(),
             intelligence_tier: "good".into(),
@@ -61,7 +61,7 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
             filename: "Qwen3-1.7B-Q4_K_M.gguf".into(),
             url: "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf".into(),
             size_bytes: 1_200_000_000,
-            ctx_size: 1024,       // keep small for CPU speed
+            ctx_size: 8192,
             description: "Good balance of speed and quality. Recommended for most users.".into(),
             speed_tier: "fast".into(),
             intelligence_tier: "high".into(),
@@ -74,10 +74,23 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
             filename: "Qwen3-4B-Q4_K_M.gguf".into(),
             url: "https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf".into(),
             size_bytes: 2_700_000_000,
-            ctx_size: 2048,
+            ctx_size: 8192,
             description: "Higher quality responses. Needs ~4 GB RAM.".into(),
             speed_tier: "medium".into(),
             intelligence_tier: "high".into(),
+            is_downloaded: false,
+            local_path: None,
+        },
+        LocalModelInfo {
+            id: "qwen3.5-4b".into(),
+            name: "Qwen3.5 4B (Recommended)".into(),
+            filename: "Qwen3.5-4B-Q4_K_M.gguf".into(),
+            url: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf".into(),
+            size_bytes: 2_740_937_888,
+            ctx_size: 16384,
+            description: "Best quality-to-size ratio. Qwen3.5 architecture. Needs ~4 GB RAM.".into(),
+            speed_tier: "medium".into(),
+            intelligence_tier: "very-high".into(),
             is_downloaded: false,
             local_path: None,
         },
@@ -87,7 +100,7 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
             filename: "Qwen3-8B-Q4_K_M.gguf".into(),
             url: "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/6a569868d07d3bd59e8b97fb001bf8c0b254bb20/Qwen3-8B-Q4_K_M.gguf".into(),
             size_bytes: 5_030_000_000,
-            ctx_size: 2048,
+            ctx_size: 16384,
             description: "Best quality. Needs ~7 GB RAM. Slower on CPU.".into(),
             speed_tier: "slow".into(),
             intelligence_tier: "very-high".into(),
@@ -97,8 +110,16 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
     ]
 }
 
-/// Max tokens to generate. 512 is plenty for chat; keeps CPU time reasonable.
-const MAX_TOKENS: usize = 512;
+/// Max generation tokens, scaled by context size.
+/// Larger context → more room for the model to think and respond.
+fn max_gen_tokens(ctx_size: u32) -> usize {
+    match ctx_size {
+        0..=2048 => 512,
+        2049..=4096 => 1024,
+        4097..=8192 => 2048,
+        _ => 4096,
+    }
+}
 
 /// Max CPU threads for inference. More threads can hurt due to memory-bandwidth
 /// contention on most consumer CPUs.
@@ -409,11 +430,22 @@ impl LlamaCppBackend {
         Ok(())
     }
 
-    /// Run inference and return generated text
+    /// Run inference and return generated text.
+    /// If `max_tokens_cap` is Some, it overrides the default max generation length.
     async fn run_inference(
         &self,
         prompt: &str,
         json_mode: bool,
+    ) -> Result<String, InferenceError> {
+        self.run_inference_capped(prompt, json_mode, None).await
+    }
+
+    /// Run inference with an optional hard cap on generated tokens.
+    async fn run_inference_capped(
+        &self,
+        prompt: &str,
+        json_mode: bool,
+        max_tokens_cap: Option<usize>,
     ) -> Result<String, InferenceError> {
         self.load_model_if_needed().await?;
 
@@ -453,12 +485,10 @@ impl LlamaCppBackend {
                         ))
                     })?;
 
-            // Qwen3: always disable thinking mode for faster responses
-            let effective_prompt = format!("{}\n/no_think", prompt_owned);
-
+            // /no_think is now placed in the user message by the frontend
             let tokens_list = loaded
                 .model
-                .str_to_token(&effective_prompt, AddBos::Always)
+                .str_to_token(&prompt_owned, AddBos::Always)
                 .map_err(|e| {
                     InferenceError::InferenceFailed(format!("Tokenization failed: {}", e))
                 })?;
@@ -519,9 +549,17 @@ impl LlamaCppBackend {
             };
 
             let mut output_bytes: Vec<u8> = Vec::new();
-            let mut n_cur = batch.n_tokens();
+            // n_cur tracks the KV cache position for the next token.
+            // Must use total token_count, NOT batch.n_tokens() which only
+            // reflects the last prefill chunk size when prompt spans multiple batches.
+            let mut n_cur = token_count as i32;
             let eos_token = loaded.model.token_eos();
-            let max_gen = (ctx_size as usize - token_count).min(MAX_TOKENS);
+            let default_max = max_gen_tokens(ctx_size);
+            let capped = match max_tokens_cap {
+                Some(cap) => default_max.min(cap),
+                None => default_max,
+            };
+            let max_gen = (ctx_size as usize - token_count).min(capped);
             eprintln!("[llama] generating up to {} tokens…", max_gen);
 
             // Repetition detection
@@ -644,6 +682,10 @@ impl LocalInference for LlamaCppBackend {
 
     async fn generate_json(&self, prompt: &str) -> Result<String, InferenceError> {
         self.run_inference(prompt, true).await
+    }
+
+    async fn generate_json_short(&self, prompt: &str, max_tokens: usize) -> Result<String, InferenceError> {
+        self.run_inference_capped(prompt, true, Some(max_tokens)).await
     }
 
     async fn ensure_model(&self, model_name: &str) -> Result<(), InferenceError> {
