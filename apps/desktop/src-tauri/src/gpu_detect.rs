@@ -10,8 +10,24 @@ pub struct GpuInfo {
 
 /// Detect NVIDIA GPU using nvidia-smi
 pub fn detect_gpu() -> GpuInfo {
-    // Try running nvidia-smi to detect GPU
-    match std::process::Command::new("nvidia-smi")
+    // Try nvidia-smi from common paths (PATH may not include it in Tauri context)
+    let nvidia_smi_paths = [
+        "nvidia-smi".to_string(),
+        "C:\\Windows\\System32\\nvidia-smi.exe".to_string(),
+        "C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe".to_string(),
+    ];
+
+    for smi_path in &nvidia_smi_paths {
+        if let Some(info) = try_nvidia_smi(smi_path) {
+            return info;
+        }
+    }
+
+    GpuInfo { available: false, name: "None".into(), vram_mb: 0, backend: "cpu".into() }
+}
+
+fn try_nvidia_smi(path: &str) -> Option<GpuInfo> {
+    match std::process::Command::new(path)
         .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
         .output()
     {
@@ -20,16 +36,16 @@ pub fn detect_gpu() -> GpuInfo {
             let line = stdout.trim();
             if let Some((name, vram)) = line.split_once(',') {
                 let vram_mb = vram.trim().parse::<u64>().unwrap_or(0);
-                return GpuInfo {
+                return Some(GpuInfo {
                     available: true,
                     name: name.trim().to_string(),
                     vram_mb,
                     backend: "cuda".to_string(),
-                };
+                });
             }
-            GpuInfo { available: false, name: "Unknown".into(), vram_mb: 0, backend: "cpu".into() }
+            None
         }
-        _ => GpuInfo { available: false, name: "None".into(), vram_mb: 0, backend: "cpu".into() },
+        _ => None,
     }
 }
 
