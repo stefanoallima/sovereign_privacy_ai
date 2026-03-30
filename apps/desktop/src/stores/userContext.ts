@@ -347,6 +347,13 @@ export const useUserContextStore = create<UserContextState>()(
           const currentTerms = activeProfile?.customRedactTerms || [];
           const trimmedLabel = label.trim();
           const trimmedValue = value.trim();
+
+          // Deduplicate: skip if a term with the same value (case-insensitive) already exists
+          const existingValues = new Set(currentTerms.map(t => t.value.toLowerCase()));
+          if (existingValues.has(trimmedValue.toLowerCase())) {
+            return state; // Already exists, skip duplicate
+          }
+
           const typeIdx = getNextTypeIndex(trimmedLabel, currentTerms);
           const replacement = generateReplacementString(trimmedLabel, trimmedValue.length, typeIdx);
           const newTerms = [...currentTerms, { label: trimmedLabel, value: trimmedValue, replacement }];
@@ -402,15 +409,21 @@ export const useUserContextStore = create<UserContextState>()(
         set((state) => {
           const activeProfile = state.profiles.find((p) => p.id === state.activeProfileId);
           const currentTerms = activeProfile?.customRedactTerms || [];
+          // Deduplicate: skip terms whose value (case-insensitive) already exists
+          const existingValues = new Set(currentTerms.map(t => t.value.toLowerCase()));
+
           // Build terms with per-type indexing, tracking counts as we go
           const allSoFar = [...currentTerms];
-          const newTerms: CustomRedactTerm[] = parsed.map((p) => {
+          const newTerms: CustomRedactTerm[] = [];
+          for (const p of parsed) {
+            if (existingValues.has(p.value.toLowerCase())) continue; // skip duplicate
             const typeIdx = getNextTypeIndex(p.label, allSoFar);
             const replacement = generateReplacementString(p.label, p.value.length, typeIdx);
             const term: CustomRedactTerm = { label: p.label, value: p.value, replacement };
             allSoFar.push(term); // track for next iteration's count
-            return term;
-          });
+            existingValues.add(p.value.toLowerCase()); // track within batch
+            newTerms.push(term);
+          }
           const merged = [...currentTerms, ...newTerms];
 
           if (state.activeProfileId) {

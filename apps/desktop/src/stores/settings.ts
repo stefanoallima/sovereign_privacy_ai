@@ -145,6 +145,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   glinerEnabled: false,
   glinerModelId: null,
   glinerConfidenceThreshold: 0.4,
+  // Auto-redact all cloud-bound content
+  autoRedactAllContent: true,
 };
 
 interface SettingsStore {
@@ -372,7 +374,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 14, // v14: add Qwen3.5-4B model, bump ctx_sizes
+      version: 15, // v15: add autoRedactAllContent setting
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -394,6 +396,7 @@ export const useSettingsStore = create<SettingsStore>()(
             glinerEnabled: old.glinerEnabled ?? false,
             glinerModelId: old.glinerModelId ?? null,
             glinerConfidenceThreshold: old.glinerConfidenceThreshold ?? 0.4,
+            autoRedactAllContent: old.autoRedactAllContent ?? true,
             cloudTrustLevel: old.cloudTrustLevel ?? null,
           },
           models: DEFAULT_MODELS,

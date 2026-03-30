@@ -61,6 +61,9 @@ export interface AppSettings {
   glinerEnabled: boolean;
   glinerModelId: string | null;
   glinerConfidenceThreshold: number;  // 0.0-1.0, default 0.4
+
+  // Auto-redact all cloud-bound content (history, context, memories)
+  autoRedactAllContent: boolean;
 }
 
 // PII Vault Entry — a confirmed PII entity the user wants always redacted

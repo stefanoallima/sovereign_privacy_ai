@@ -168,37 +168,54 @@ export const DocumentUploadWidget: React.FC<DocumentUploadWidgetProps> = ({
 
   const handleDynamicConfirm = (selectedRecords: Record<string, string>[]) => {
     const ctx = useUserContextStore.getState();
-    const isSingleRecord = selectedRecords.length === 1;
 
+    // Always populate PII vault from the first selected record
+    // For multi-record docs, the first record is the best guess for the primary person
+    if (selectedRecords.length > 0) {
+      const firstRecord = selectedRecords[0];
+      for (const [key, value] of Object.entries(firstRecord)) {
+        if (!value || !value.trim()) continue;
+        const lowerKey = key.toLowerCase();
+
+        if (lowerKey.includes('name') && !lowerKey.includes('sur') && !lowerKey.includes('last') && !lowerKey.includes('employer') && !lowerKey.includes('accountant')) {
+          ctx.setPIIValue('name', value);
+        } else if (lowerKey.includes('surname') || (lowerKey.includes('last') && lowerKey.includes('name'))) {
+          ctx.setPIIValue('surname', value);
+        } else if (lowerKey === 'bsn') {
+          ctx.setPIIValue('bsn', value);
+        } else if (lowerKey.includes('email') && !lowerKey.includes('accountant')) {
+          ctx.setPIIValue('email', value);
+        } else if (lowerKey.includes('phone')) {
+          ctx.setPIIValue('phone', value);
+        } else if (lowerKey.includes('address')) {
+          ctx.setPIIValue('address', value);
+        } else if (lowerKey.includes('iban')) {
+          ctx.setPIIValue('iban', value);
+        } else if (lowerKey.includes('income')) {
+          ctx.setPIIValue('income', value);
+        } else if (lowerKey.includes('salary')) {
+          ctx.setPIIValue('salary', value);
+        } else if (lowerKey.includes('postcode') || lowerKey.includes('postal') || lowerKey.includes('zip')) {
+          ctx.setPIIValue('postcode', value);
+        } else if (lowerKey.includes('city')) {
+          ctx.setPIIValue('city', value);
+        } else if ((lowerKey.includes('date') && lowerKey.includes('birth')) || lowerKey === 'dob') {
+          ctx.setPIIValue('dateOfBirth', value);
+        } else if (lowerKey.includes('tax') && lowerKey.includes('number')) {
+          ctx.setPIIValue('taxNumber', value);
+        } else if (lowerKey.includes('tax') && lowerKey.includes('year')) {
+          ctx.setPIIValue('taxYear', value);
+        } else if (lowerKey.includes('employer')) {
+          ctx.setPIIValue('employerName', value);
+        }
+      }
+    }
+
+    // Add ALL values from ALL records as custom redaction terms
+    // This ensures all names, BSNs, SSNs etc. are redacted in future conversations
     for (const record of selectedRecords) {
       for (const [key, value] of Object.entries(record)) {
         if (!value || !value.trim()) continue;
-
-        // For single-record docs, map to PII fields AND add as redaction terms
-        // For multi-record docs, ONLY add as custom redaction terms (can't pick one person as "the" profile)
-        if (isSingleRecord) {
-          const lowerKey = key.toLowerCase();
-          if (lowerKey.includes('name') && !lowerKey.includes('sur')) {
-            ctx.setPIIValue('name', value);
-          } else if (lowerKey.includes('surname') || lowerKey.includes('last')) {
-            ctx.setPIIValue('surname', value);
-          } else if (lowerKey === 'bsn') {
-            ctx.setPIIValue('bsn', value);
-          } else if (lowerKey.includes('email')) {
-            ctx.setPIIValue('email', value);
-          } else if (lowerKey.includes('phone')) {
-            ctx.setPIIValue('phone', value);
-          } else if (lowerKey.includes('address')) {
-            ctx.setPIIValue('address', value);
-          } else if (lowerKey.includes('iban')) {
-            ctx.setPIIValue('iban', value);
-          } else if (lowerKey.includes('income')) {
-            ctx.setPIIValue('income', value);
-          }
-        }
-
-        // Always add every value as a custom redaction term
-        // This ensures all names, BSNs, SSNs etc. are redacted in future conversations
         ctx.addCustomRedactTerm(key, value);
       }
     }

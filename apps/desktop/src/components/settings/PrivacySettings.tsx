@@ -635,6 +635,23 @@ export function PrivacySettings() {
             className="h-4 w-4 rounded"
           />
         </div>
+
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <div className="font-medium text-sm">Auto-redact all cloud content</div>
+            <div className="text-xs text-[hsl(var(--muted-foreground))]">
+              Anonymize history, context, and memories before cloud sends
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={settings.autoRedactAllContent}
+            onChange={(e) =>
+              useSettingsStore.getState().updateSettings({ autoRedactAllContent: e.target.checked })
+            }
+            className="h-4 w-4 rounded"
+          />
+        </div>
       </div>
     </div>
   );
