@@ -47,7 +47,7 @@ base64 = "0.22"
 hound = "3.5"
 
 # Local LLM inference (embedded llama.cpp)
-llama-cpp-2 = { version = "0.1", features = ["sampler"] }
+llama-cpp-2 = { version = "0.1", features = ["sampler", "cuda"] }
 async-trait = "0.1"
 sha2 = "0.10"
 

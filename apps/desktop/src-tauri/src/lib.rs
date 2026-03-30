@@ -8,6 +8,7 @@ mod inference;
 mod ollama;
 mod inference_commands;
 mod llama_backend;
+mod gpu_detect;
 mod crypto;
 mod anonymization;
 mod anonymization_commands;
@@ -294,6 +295,7 @@ pub fn run() {
             inference_commands::get_active_local_model,
             inference_commands::get_local_download_progress,
             inference_commands::get_local_models_dir,
+            inference_commands::get_gpu_info,
             // Anonymization
             anonymization_commands::anonymize_text,
             anonymization_commands::validate_anonymization,

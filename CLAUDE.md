@@ -9,7 +9,17 @@ cd apps/desktop
 pnpm install
 pnpm tauri dev
 
-# Production build
+# Production build (Windows — short CARGO_TARGET_DIR to avoid MAX_PATH)
+# PowerShell:
+$env:CARGO_TARGET_DIR = "C:\tmp\tb"
+$env:CMAKE = "C:\Program Files\CMake\bin\cmake.exe"
+pnpm tauri build
+# Installer output: C:\tmp\tb\release\bundle\nsis\AILocalMind_*.exe
+# Portable exe:     C:\tmp\tb\release\ailocalmind.exe
+
+# Production build (bash / Git Bash):
+export CARGO_TARGET_DIR="C:/tmp/tb"
+export CMAKE="C:/Program Files/CMake/bin/cmake.exe"
 pnpm tauri build
 
 # Run Rust tests
@@ -20,7 +30,9 @@ cd src-tauri && cargo test
 
 - Node.js 22+, pnpm 10+
 - Rust 1.75+ (via rustup)
-- Ollama (for local LLM features)
+- CMake (must be in PATH)
+- LLVM/libclang (for bindgen)
+- Visual Studio Build Tools 2022 with C++ workload
 
 ## Architecture
 
@@ -63,4 +75,13 @@ cargo test anonymization::tests         # PII handling
 cargo test attribute_extraction::tests  # Attribute extraction
 cargo test rehydration::tests           # Template filling
 cargo test backend_routing::tests       # Routing logic
+```
+
+## CUDA Build Environment
+
+For GPU-accelerated builds with CUDA:
+```bash
+export CUDA_PATH="C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.2"
+export CUDACXX="C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.2/bin/nvcc.exe"
+export CudaToolkitDir="C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.2/"
 ```

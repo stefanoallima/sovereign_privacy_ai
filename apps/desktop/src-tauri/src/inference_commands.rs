@@ -1,4 +1,5 @@
 use crate::inference::{LocalInference, ModelStatus};
+use crate::gpu_detect;
 use crate::llama_backend::{LlamaCppBackend, LocalModelInfo};
 use crate::ollama::{PIIExtraction, DynamicPIIExtraction};
 use std::collections::HashMap;
@@ -523,6 +524,12 @@ pub async fn get_local_models_dir(
     let guard = state.0.lock().await;
     let backend = guard.as_ref().ok_or("Local backend not available")?;
     Ok(backend.models_dir_string())
+}
+
+/// Get GPU detection info (CUDA availability, VRAM, etc.)
+#[tauri::command]
+pub async fn get_gpu_info() -> Result<gpu_detect::GpuInfo, String> {
+    Ok(gpu_detect::detect_gpu())
 }
 
 // ---------------------------------------------------------------------------

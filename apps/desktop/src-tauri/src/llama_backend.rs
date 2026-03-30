@@ -1,4 +1,5 @@
 use crate::inference::{InferenceError, LocalInference, ModelStatus};
+use crate::gpu_detect;
 use async_trait::async_trait;
 use directories::ProjectDirs;
 use llama_cpp_2::context::params::LlamaContextParams;
@@ -137,6 +138,7 @@ struct LoadedModel {
     backend: LlamaBackendInit,
     model_id: String,
     ctx_size: u32,
+    gpu_layers: u32,
 }
 
 // Safety: LlamaModel and LlamaBackendInit are internally managed by llama.cpp
@@ -391,14 +393,26 @@ impl LlamaCppBackend {
         let ctx_size = info.ctx_size;
         let model_id_owned = model_id.to_string();
 
-        let n_gpu_layers = std::env::var("AILOCALMIND_GPU_LAYERS")
+        // GPU auto-detection: use env override if set, otherwise auto-detect
+        let model_size_for_gpu = info.size_bytes;
+        let n_gpu_layers = match std::env::var("AILOCALMIND_GPU_LAYERS")
             .ok()
             .and_then(|v| v.parse::<u32>().ok())
-            .unwrap_or(0);
-
-        if n_gpu_layers > 0 {
-            info!("GPU offloading enabled: {} layers → VRAM", n_gpu_layers);
-        }
+        {
+            Some(manual) => {
+                eprintln!("[llama] GPU layers override via AILOCALMIND_GPU_LAYERS={}", manual);
+                manual
+            }
+            None => {
+                let gpu = gpu_detect::detect_gpu();
+                let layers = gpu_detect::recommended_gpu_layers(&gpu, model_size_for_gpu);
+                eprintln!(
+                    "[llama] GPU: {} ({}MB VRAM, backend={}), offloading {} layers",
+                    gpu.name, gpu.vram_mb, gpu.backend, layers
+                );
+                layers
+            }
+        };
 
         let loaded = tokio::task::spawn_blocking(move || -> Result<LoadedModel, InferenceError> {
             let backend = LlamaBackendInit::init().map_err(|e| {
@@ -420,6 +434,7 @@ impl LlamaCppBackend {
                 backend,
                 model_id: model_id_owned,
                 ctx_size,
+                gpu_layers: n_gpu_layers,
             })
         })
         .await
@@ -730,9 +745,12 @@ impl LocalInference for LlamaCppBackend {
             (false, active_id.clone(), 0)
         };
 
-        let is_loaded = self.loaded_model.try_lock()
-            .map(|g| g.as_ref().map(|l| l.model_id == active_id).unwrap_or(false))
-            .unwrap_or(true);
+        let (is_loaded, gpu_layers) = self.loaded_model.try_lock()
+            .map(|g| match g.as_ref() {
+                Some(l) if l.model_id == active_id => (true, l.gpu_layers),
+                _ => (false, 0),
+            })
+            .unwrap_or((true, 0));
 
         let progress = self.download_progress.load(Ordering::Relaxed);
 
@@ -742,6 +760,7 @@ impl LocalInference for LlamaCppBackend {
             download_progress: progress,
             model_name,
             model_size_bytes: model_size,
+            gpu_layers,
         }
     }
 }
