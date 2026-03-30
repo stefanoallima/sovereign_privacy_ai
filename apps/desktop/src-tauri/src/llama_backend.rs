@@ -9,6 +9,10 @@ use llama_cpp_2::model::{AddBos, LlamaModel, Special};
 use llama_cpp_2::sampling::LlamaSampler;
 use llama_cpp_2::llama_backend::LlamaBackend as LlamaBackendInit;
 use log::info;
+use std::sync::OnceLock;
+
+// Global backend singleton — llama.cpp only allows one init per process
+static LLAMA_BACKEND: OnceLock<LlamaBackendInit> = OnceLock::new();
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::num::NonZeroU32;
@@ -135,7 +139,6 @@ const N_BATCH: u32 = 256;
 
 struct LoadedModel {
     model: LlamaModel,
-    backend: LlamaBackendInit,
     model_id: String,
     ctx_size: u32,
     gpu_layers: u32,
@@ -415,9 +418,11 @@ impl LlamaCppBackend {
         };
 
         let loaded = tokio::task::spawn_blocking(move || -> Result<LoadedModel, InferenceError> {
-            let backend = LlamaBackendInit::init().map_err(|e| {
-                InferenceError::ModelLoadFailed(format!("Failed to init llama backend: {}", e))
-            })?;
+            // Use global backend singleton — init once, reuse forever
+            let backend = LLAMA_BACKEND.get_or_init(|| {
+                eprintln!("[llama] initializing llama backend (one-time)");
+                LlamaBackendInit::init().expect("Failed to init llama backend")
+            });
 
             let model_params = LlamaModelParams::default()
                 .with_n_gpu_layers(n_gpu_layers);
@@ -431,7 +436,6 @@ impl LlamaCppBackend {
 
             Ok(LoadedModel {
                 model,
-                backend,
                 model_id: model_id_owned,
                 ctx_size,
                 gpu_layers: n_gpu_layers,
@@ -493,7 +497,7 @@ impl LlamaCppBackend {
             let mut ctx =
                 loaded
                     .model
-                    .new_context(&loaded.backend, ctx_params)
+                    .new_context(LLAMA_BACKEND.get().expect("backend not initialized"), ctx_params)
                     .map_err(|e| {
                         InferenceError::InferenceFailed(format!(
                             "Failed to create context: {}", e
