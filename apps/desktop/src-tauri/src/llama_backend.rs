@@ -86,19 +86,13 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
             is_downloaded: false,
             local_path: None,
         },
-        LocalModelInfo {
-            id: "qwen3.5-4b".into(),
-            name: "Qwen3.5 4B (Recommended)".into(),
-            filename: "Qwen3.5-4B-Q4_K_M.gguf".into(),
-            url: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf".into(),
-            size_bytes: 2_740_937_888,
-            ctx_size: 16384,
-            description: "Best quality-to-size ratio. Qwen3.5 architecture. Needs ~4 GB RAM.".into(),
-            speed_tier: "medium".into(),
-            intelligence_tier: "very-high".into(),
-            is_downloaded: false,
-            local_path: None,
-        },
+        // NOTE: Qwen3.5 uses a novel SSM+attention hybrid architecture ('qwen35')
+        // that is NOT yet supported by llama-cpp-2 v0.1.x. Disabled until crate update.
+        // LocalModelInfo {
+        //     id: "qwen3.5-4b".into(),
+        //     name: "Qwen3.5 4B (Recommended)".into(),
+        //     ...
+        // },
         LocalModelInfo {
             id: "qwen3-8b".into(),
             name: "Qwen3 8B (Full)".into(),
@@ -376,6 +370,17 @@ impl LlamaCppBackend {
 
         let result = self.do_load_model(&active_id).await;
         self.is_loading.store(false, Ordering::SeqCst);
+
+        // On failure, revert active_model_id to whatever is still loaded
+        if result.is_err() {
+            let guard = self.loaded_model.lock().await;
+            if let Some(loaded) = guard.as_ref() {
+                let mut active = self.active_model_id.lock().await;
+                eprintln!("[llama] model load failed, reverting active model to {}", loaded.model_id);
+                *active = loaded.model_id.clone();
+            }
+        }
+
         result
     }
 
