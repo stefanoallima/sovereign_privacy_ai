@@ -45,19 +45,7 @@ const DEFAULT_OLLAMA_MODELS: LLMModel[] = [
     isEnabled: true,
     isDefault: false,
   },
-  {
-    id: "local-qwen3.5-4b",
-    provider: "ollama",
-    apiModelId: "qwen3.5-4b",
-    name: "Qwen3.5 4B (Recommended)",
-    contextWindow: 4096,
-    speedTier: "medium",
-    intelligenceTier: "very-high",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    isEnabled: true,
-    isDefault: false,
-  },
+  // Qwen3.5 4B disabled — 'qwen35' architecture not yet supported by llama-cpp-2 v0.1.x
   {
     id: "local-qwen3-8b",
     provider: "ollama",
