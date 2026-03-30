@@ -1,8 +1,19 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Shield, X, Send, History, FileText, Eye, EyeOff } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Shield,
+  X,
+  Send,
+  History,
+  FileText,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import type { PiiReport } from "../../hooks/usePrivacyChat";
 
 export interface HistoryMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
 }
 
@@ -22,6 +33,7 @@ export interface PromptReviewPanelProps {
   contentMode: string;
   attributesCount?: number;
   privacyInfo?: string;
+  piiReport?: PiiReport;
   historyMessages?: HistoryMessage[];
   canvasDocs?: CanvasDoc[];
   onApprove: (editedPrompt: string, opts: SendOptions) => void;
@@ -34,6 +46,7 @@ export function PromptReviewPanel({
   contentMode,
   attributesCount,
   privacyInfo,
+  piiReport,
   historyMessages = [],
   canvasDocs = [],
   onApprove,
@@ -47,30 +60,37 @@ export function PromptReviewPanel({
   const [showCanvasPreview, setShowCanvasPreview] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { textareaRef.current?.focus(); }, []);
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 240)}px`;
     }
   }, [editedPrompt]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         onApprove(editedPrompt, { includeHistory, includeCanvas });
       }
-      if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      }
     },
     [editedPrompt, includeHistory, includeCanvas, onApprove, onCancel]
   );
 
   const originalWords = originalMessage.trim().split(/\s+/).length;
   const processedWords = processedPrompt.trim().split(/\s+/).length;
-  const reductionPercent = originalWords > 0
-    ? Math.round(((originalWords - processedWords) / originalWords) * 100) : 0;
+  const reductionPercent =
+    originalWords > 0
+      ? Math.round(((originalWords - processedWords) / originalWords) * 100)
+      : 0;
   const isEdited = editedPrompt !== processedPrompt;
 
   return (
@@ -79,8 +99,12 @@ export function PromptReviewPanel({
       <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border)/0.3)] bg-[hsl(var(--secondary)/0.3)]">
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-green-500" />
-          <span className="text-sm font-semibold text-[hsl(var(--foreground))]">Privacy Review</span>
-          <span className="text-xs text-[hsl(var(--muted-foreground))]">— Review what will be sent to cloud</span>
+          <span className="text-sm font-semibold text-[hsl(var(--foreground))]">
+            Privacy Review
+          </span>
+          <span className="text-xs text-[hsl(var(--muted-foreground))]">
+            — Review what will be sent to cloud
+          </span>
         </div>
         <button
           onClick={onCancel}
@@ -97,11 +121,16 @@ export function PromptReviewPanel({
           onClick={() => setShowOriginal(!showOriginal)}
           className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors w-full text-left"
         >
-          {showOriginal ? <ChevronDown className="h-3 w-3 flex-shrink-0" /> : <ChevronRight className="h-3 w-3 flex-shrink-0" />}
+          {showOriginal ? (
+            <ChevronDown className="h-3 w-3 flex-shrink-0" />
+          ) : (
+            <ChevronRight className="h-3 w-3 flex-shrink-0" />
+          )}
           <span className="font-medium">Your original message</span>
           {!showOriginal && (
             <span className="truncate opacity-60 flex-1">
-              "{originalMessage.slice(0, 80)}{originalMessage.length > 80 ? '...' : ''}"
+              "{originalMessage.slice(0, 80)}
+              {originalMessage.length > 80 ? "..." : ""}"
             </span>
           )}
         </button>
@@ -114,7 +143,8 @@ export function PromptReviewPanel({
         {/* Editable sanitized prompt */}
         <div>
           <label className="text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1.5 block">
-            Current message (cloud will see this) {isEdited && <span className="text-amber-500">(edited)</span>}
+            Current message (cloud will see this){" "}
+            {isEdited && <span className="text-amber-500">(edited)</span>}
           </label>
           <textarea
             ref={textareaRef}
@@ -123,7 +153,7 @@ export function PromptReviewPanel({
             onKeyDown={handleKeyDown}
             className="w-full rounded-lg border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--background))] px-3 py-2.5 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--ring)/0.5)] focus:ring-1 focus:ring-[hsl(var(--ring)/0.3)] resize-none transition-colors"
             rows={3}
-            style={{ minHeight: '72px', maxHeight: '240px' }}
+            style={{ minHeight: "72px", maxHeight: "240px" }}
           />
         </div>
 
@@ -136,21 +166,27 @@ export function PromptReviewPanel({
             count={historyMessages.length}
             unit="message"
             included={includeHistory}
-            onToggle={() => setIncludeHistory(v => !v)}
+            onToggle={() => setIncludeHistory((v) => !v)}
             showPreview={showHistoryPreview}
-            onTogglePreview={() => setShowHistoryPreview(v => !v)}
+            onTogglePreview={() => setShowHistoryPreview((v) => !v)}
             disabled={historyMessages.length === 0}
           >
             {showHistoryPreview && historyMessages.length > 0 && (
               <div className="max-h-40 overflow-y-auto space-y-1.5 px-3 pb-2.5">
                 {historyMessages.slice(-6).map((m, i) => (
-                  <div key={i} className={`text-[11px] rounded-lg px-2.5 py-1.5 ${m.role === 'user'
-                    ? 'bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--foreground-muted))]'
-                    : 'bg-[hsl(var(--secondary)/0.5)] text-[hsl(var(--muted-foreground))]'}`}>
+                  <div
+                    key={i}
+                    className={`text-[11px] rounded-lg px-2.5 py-1.5 ${
+                      m.role === "user"
+                        ? "bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--foreground-muted))]"
+                        : "bg-[hsl(var(--secondary)/0.5)] text-[hsl(var(--muted-foreground))]"
+                    }`}
+                  >
                     <span className="font-semibold uppercase tracking-wider text-[11px] opacity-60 mr-1.5">
-                      {m.role === 'user' ? 'You' : 'AI'}
+                      {m.role === "user" ? "You" : "AI"}
                     </span>
-                    {m.content.slice(0, 120)}{m.content.length > 120 ? '…' : ''}
+                    {m.content.slice(0, 120)}
+                    {m.content.length > 120 ? "…" : ""}
                   </div>
                 ))}
                 {historyMessages.length > 6 && (
@@ -169,15 +205,18 @@ export function PromptReviewPanel({
             count={canvasDocs.length}
             unit="document"
             included={includeCanvas}
-            onToggle={() => setIncludeCanvas(v => !v)}
+            onToggle={() => setIncludeCanvas((v) => !v)}
             showPreview={showCanvasPreview}
-            onTogglePreview={() => setShowCanvasPreview(v => !v)}
+            onTogglePreview={() => setShowCanvasPreview((v) => !v)}
             disabled={canvasDocs.length === 0}
           >
             {showCanvasPreview && canvasDocs.length > 0 && (
               <div className="px-3 pb-2.5 space-y-1">
-                {canvasDocs.map(doc => (
-                  <div key={doc.id} className="flex items-center gap-2 text-[11px] text-[hsl(var(--muted-foreground))]">
+                {canvasDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center gap-2 text-[11px] text-[hsl(var(--muted-foreground))]"
+                  >
                     <FileText className="h-3 w-3 flex-shrink-0 text-[hsl(var(--violet))]" />
                     <span className="truncate">{doc.title}</span>
                   </div>
@@ -187,14 +226,51 @@ export function PromptReviewPanel({
           </ContextToggleRow>
         </div>
 
+        {/* PII Report */}
+        {piiReport && piiReport.totalRedactions > 0 && (
+          <div className="flex items-center gap-2 flex-wrap p-2 rounded-lg bg-red-500/5 border border-red-500/10">
+            <Shield className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+            <span className="text-[11px] font-medium text-red-400">
+              {piiReport.totalRedactions} redaction
+              {piiReport.totalRedactions !== 1 ? "s" : ""}
+            </span>
+            <span className="text-[11px] text-[hsl(var(--muted-foreground))]">
+              from
+            </span>
+            {piiReport.contentSources.map((src, i) => (
+              <span
+                key={src}
+                className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-500/10 text-red-300 text-[10px] font-medium"
+              >
+                {src}
+                {i < piiReport.contentSources.length - 1 && (
+                  <span className="ml-1 opacity-50">·</span>
+                )}
+              </span>
+            ))}
+            <div className="flex items-center gap-1.5 ml-1 flex-wrap">
+              {piiReport.categories.map((c) => (
+                <span
+                  key={c.label}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[hsl(var(--muted)))] text-[10px] text-[hsl(var(--muted-foreground))] font-medium"
+                >
+                  {c.label.replace(/_/g, " ").toLowerCase()}
+                  <span className="opacity-60">{c.count}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Info badges */}
         <div className="flex items-center gap-3 flex-wrap">
           {attributesCount != null && attributesCount > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[11px] font-medium">
-              {attributesCount} attribute{attributesCount !== 1 ? 's' : ''} extracted
+              {attributesCount} attribute{attributesCount !== 1 ? "s" : ""}{" "}
+              extracted
             </span>
           )}
-          {contentMode === 'attributes_only' && (
+          {contentMode === "attributes_only" && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[11px] font-medium">
               No PII in prompt
             </span>
@@ -205,7 +281,9 @@ export function PromptReviewPanel({
             </span>
           )}
           {privacyInfo && (
-            <span className="text-[11px] text-[hsl(var(--muted-foreground))]">{privacyInfo}</span>
+            <span className="text-[11px] text-[hsl(var(--muted-foreground))]">
+              {privacyInfo}
+            </span>
           )}
         </div>
 
@@ -222,7 +300,9 @@ export function PromptReviewPanel({
               Cancel
             </button>
             <button
-              onClick={() => onApprove(editedPrompt, { includeHistory, includeCanvas })}
+              onClick={() =>
+                onApprove(editedPrompt, { includeHistory, includeCanvas })
+              }
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-600/25 transition-colors active:scale-95"
             >
               <Send className="h-3.5 w-3.5" />
@@ -261,13 +341,16 @@ function ContextToggleRow({
   children?: React.ReactNode;
 }) {
   return (
-    <div className={`bg-[hsl(var(--background)/0.4)] ${disabled ? 'opacity-40' : ''}`}>
+    <div
+      className={`bg-[hsl(var(--background)/0.4)] ${disabled ? "opacity-40" : ""}`}
+    >
       <div className="flex items-center gap-2.5 px-3 py-2.5">
         <span className="text-[hsl(var(--muted-foreground))]">{icon}</span>
         <span className="flex-1 text-[12px] font-medium text-[hsl(var(--foreground-muted))]">
           {label}
           <span className="ml-1.5 text-[hsl(var(--muted-foreground)/0.6)] font-normal">
-            ({count} {unit}{count !== 1 ? 's' : ''})
+            ({count} {unit}
+            {count !== 1 ? "s" : ""})
           </span>
         </span>
         {/* Preview toggle */}
@@ -275,23 +358,31 @@ function ContextToggleRow({
           <button
             onClick={onTogglePreview}
             className="flex items-center justify-center h-6 w-6 rounded-md text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))] transition-colors"
-            title={showPreview ? 'Hide preview' : 'Preview'}
+            title={showPreview ? "Hide preview" : "Preview"}
           >
-            {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            {showPreview ? (
+              <EyeOff className="h-3 w-3" />
+            ) : (
+              <Eye className="h-3 w-3" />
+            )}
           </button>
         )}
         {/* Include toggle */}
         <button
           onClick={onToggle}
           disabled={disabled}
-          title={included ? 'Exclude from cloud request' : 'Include in cloud request'}
+          title={
+            included ? "Exclude from cloud request" : "Include in cloud request"
+          }
           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-            included ? 'bg-green-500' : 'bg-[hsl(var(--border))]'
-          } ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            included ? "bg-green-500" : "bg-[hsl(var(--border))]"
+          } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
         >
-          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-[hsl(var(--card))] shadow transition-transform ${
-            included ? 'translate-x-4' : 'translate-x-0.5'
-          }`} />
+          <span
+            className={`inline-block h-3.5 w-3.5 rounded-full bg-[hsl(var(--card))] shadow transition-transform ${
+              included ? "translate-x-4" : "translate-x-0.5"
+            }`}
+          />
         </button>
       </div>
       {children}
