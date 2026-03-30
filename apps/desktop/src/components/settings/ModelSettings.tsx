@@ -62,6 +62,7 @@ export function ModelSettings() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [modelsDir, setModelsDir] = useState("");
+  const [gpuInfo, setGpuInfo] = useState<{ available: boolean; name: string; vram_mb: number; backend: string } | null>(null);
 
   const loadModels = useCallback(async () => {
     try {
@@ -78,6 +79,9 @@ export function ModelSettings() {
 
   useEffect(() => {
     loadModels();
+    invoke<{ available: boolean; name: string; vram_mb: number; backend: string }>('get_gpu_info')
+      .then(setGpuInfo)
+      .catch(() => {});
   }, [loadModels]);
 
   // Poll during local model download
@@ -227,6 +231,28 @@ export function ModelSettings() {
           Runs entirely on your machine. Download and manage local models below.
         </p>
 
+        {/* GPU Status */}
+        {gpuInfo && (
+          <div className={`flex items-center gap-2 rounded-lg border p-2.5 mb-3 ${
+            gpuInfo.available
+              ? 'border-[hsl(var(--status-safe-border))] bg-[hsl(var(--status-safe-bg))]'
+              : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'
+          }`}>
+            <GpuIcon available={gpuInfo.available} />
+            <span className="text-xs font-medium">
+              {gpuInfo.available
+                ? `GPU: ${gpuInfo.name} (${gpuInfo.vram_mb >= 1024 ? (gpuInfo.vram_mb / 1024).toFixed(0) + 'GB' : gpuInfo.vram_mb + 'MB'} VRAM) · ${gpuInfo.backend.toUpperCase()}`
+                : 'CPU Only'
+              }
+            </span>
+            {gpuInfo.available && (
+              <span className="ml-auto text-[11px] text-[hsl(var(--status-safe))]">
+                Auto-offload active
+              </span>
+            )}
+          </div>
+        )}
+
         {!hasAnyLocalModel && (
           <div className="rounded-lg bg-[hsl(var(--status-caution-bg))] border border-[hsl(var(--status-caution-border))] p-3 mb-3">
             <p className="text-xs text-[hsl(var(--status-caution))] font-medium">
@@ -373,6 +399,32 @@ export function ModelSettings() {
         </div>
       </section>
     </div>
+  );
+}
+
+function GpuIcon({ available }: { available: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={available ? "hsl(var(--status-safe))" : "currentColor"}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <rect x="9" y="9" width="6" height="6" />
+      <line x1="9" y1="1" x2="9" y2="4" />
+      <line x1="15" y1="1" x2="15" y2="4" />
+      <line x1="9" y1="20" x2="9" y2="23" />
+      <line x1="15" y1="20" x2="15" y2="23" />
+      <line x1="20" y1="9" x2="23" y2="9" />
+      <line x1="20" y1="14" x2="23" y2="14" />
+      <line x1="1" y1="9" x2="4" y2="9" />
+      <line x1="1" y1="14" x2="4" y2="14" />
+    </svg>
   );
 }
 

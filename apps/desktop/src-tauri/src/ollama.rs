@@ -289,6 +289,7 @@ impl LocalInference for OllamaClient {
             download_progress: if available { 100 } else { 0 },
             model_name: self.model.clone(),
             model_size_bytes: 0,
+            gpu_layers: 0,
         }
     }
 }

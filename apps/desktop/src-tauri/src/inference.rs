@@ -33,6 +33,8 @@ pub struct ModelStatus {
     pub download_progress: u8,
     pub model_name: String,
     pub model_size_bytes: u64,
+    /// Number of model layers offloaded to GPU (0 = CPU-only)
+    pub gpu_layers: u32,
 }
 
 /// Unified trait for local inference backends (llama.cpp or Ollama)
