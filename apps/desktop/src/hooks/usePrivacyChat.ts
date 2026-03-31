@@ -875,10 +875,43 @@ export function usePrivacyChat() {
               .join("\n\n")
           : undefined;
 
+
+      // --- RAG Knowledge Base Retrieval ---
+      let ragDocumentContent = documentContent;
+      const localPersonaKbIds = targetPersona?.knowledgeBaseIds || [];
+      if (localPersonaKbIds.length > 0) {
+        try {
+          const kbChunks = await invoke<Array<{
+            text: string;
+            doc_id: string;
+            kb_id: string;
+            relevance_score: number | null;
+          }>>("search_knowledge", {
+            query: content.trim(),
+            kbIds: localPersonaKbIds,
+            topK: 5,
+          });
+
+          if (kbChunks.length > 0) {
+            const kbContext = kbChunks
+              .map((chunk, i) => "[Source " + (i + 1) + "] " + chunk.text)
+              .join("\n\n");
+            const kbSection = "## Knowledge Base Context\n" + kbContext;
+            ragDocumentContent = ragDocumentContent
+              ? ragDocumentContent + "\n\n" + kbSection
+              : kbSection;
+            console.log("[RAG] Retrieved " + kbChunks.length + " chunks for local inference");
+          }
+        } catch (err) {
+          console.warn("[RAG] Knowledge retrieval failed:", err);
+          // Non-fatal - continue without RAG context
+        }
+      }
+
       const fullPrompt = buildLocalPrompt({
         systemMsg: buildSystemPrompt(targetPersona),
         summary: conversation?.summary,
-        documentContent,
+        documentContent: ragDocumentContent,
         history: history.map((m) => ({
           role: m.role === "user" ? "user" : "assistant",
           content: m.content,
@@ -1087,6 +1120,41 @@ export function usePrivacyChat() {
           }
         } catch (error) {
           console.error("Failed to retrieve memories:", error);
+        }
+      }
+
+      // --- RAG Knowledge Base Retrieval ---
+      const personaKbIds = targetPersona?.knowledgeBaseIds || [];
+      if (personaKbIds.length > 0) {
+        try {
+          const kbChunks = await invoke<Array<{
+            text: string;
+            doc_id: string;
+            kb_id: string;
+            relevance_score: number | null;
+          }>>("search_knowledge", {
+            query: content,
+            kbIds: personaKbIds,
+            topK: 5,
+          });
+
+          if (kbChunks.length > 0) {
+            const kbContext = kbChunks
+              .map((chunk, i) => "[Source " + (i + 1) + "] " + chunk.text)
+              .join("\n\n");
+
+            const redactedKbContext = await maybeRedact(kbContext);
+
+            messages.push({
+              role: "system" as const,
+              content: "Relevant knowledge from your knowledge base:\n\n" + redactedKbContext + "\n\nUse this information to answer the user's question when relevant.",
+            });
+
+            console.log("[RAG] Retrieved " + kbChunks.length + " chunks from " + personaKbIds.length + " knowledge bases");
+          }
+        } catch (err) {
+          console.warn("[RAG] Knowledge retrieval failed:", err);
+          // Non-fatal - continue without RAG context
         }
       }
 
@@ -1751,6 +1819,41 @@ export function usePrivacyChat() {
           }
         } catch (error) {
           console.error("Failed to retrieve memories:", error);
+        }
+      }
+
+      // --- RAG Knowledge Base Retrieval ---
+      const directPersonaKbIds = targetPersona?.knowledgeBaseIds || [];
+      if (directPersonaKbIds.length > 0) {
+        try {
+          const kbChunks = await invoke<Array<{
+            text: string;
+            doc_id: string;
+            kb_id: string;
+            relevance_score: number | null;
+          }>>("search_knowledge", {
+            query: content,
+            kbIds: directPersonaKbIds,
+            topK: 5,
+          });
+
+          if (kbChunks.length > 0) {
+            const kbContext = kbChunks
+              .map((chunk, i) => "[Source " + (i + 1) + "] " + chunk.text)
+              .join("\n\n");
+
+            const redactedKbContext = await maybeRedactDirect(kbContext);
+
+            messages.push({
+              role: "system" as const,
+              content: "Relevant knowledge from your knowledge base:\n\n" + redactedKbContext + "\n\nUse this information to answer the user's question when relevant.",
+            });
+
+            console.log("[RAG] Retrieved " + kbChunks.length + " chunks from " + directPersonaKbIds.length + " knowledge bases");
+          }
+        } catch (err) {
+          console.warn("[RAG] Knowledge retrieval failed:", err);
+          // Non-fatal - continue without RAG context
         }
       }
 

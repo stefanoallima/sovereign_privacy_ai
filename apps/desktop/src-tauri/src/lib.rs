@@ -38,6 +38,9 @@ mod redaction;
 mod redaction_commands;
 mod local_memory;
 mod local_memory_commands;
+mod knowledge_store;
+mod knowledge_commands;
+mod chunker;
 
 use commands::DbState;
 use tts::PiperTts;
@@ -63,6 +66,8 @@ use user_profile::UserProfileStore;
 use user_profile_commands::UserProfileState;
 use local_memory::LocalMemoryStore;
 use local_memory_commands::LocalMemoryState;
+use knowledge_store::KnowledgeStore;
+use knowledge_commands::KnowledgeState;
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -209,6 +214,15 @@ pub fn run() {
             }),
     };
 
+    // Initialize knowledge store (RAG knowledge base storage)
+    let knowledge_state = KnowledgeState {
+        store: KnowledgeStore::new(&profile_data_dir)
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to initialize knowledge store: {}", e);
+                panic!("Critical: knowledge store failed");
+            }),
+    };
+
     // Initialize anonymization service
     let anonymization = AnonymizationService::new()
         .unwrap_or_else(|e| {
@@ -265,6 +279,7 @@ pub fn run() {
         .manage(embedding_state)
         .manage(tokio::sync::Mutex::new(user_profile_state))
         .manage(tokio::sync::Mutex::new(local_memory_state))
+        .manage(tokio::sync::Mutex::new(knowledge_state))
         .invoke_handler(tauri::generate_handler![
             // Settings
             commands::get_setting,
@@ -383,6 +398,14 @@ pub fn run() {
             local_memory_commands::recent_memories,
             local_memory_commands::delete_conversation_memories,
             local_memory_commands::get_memory_count,
+            // Knowledge Base (RAG)
+            knowledge_commands::ingest_document,
+            knowledge_commands::create_knowledge_base,
+            knowledge_commands::list_knowledge_bases,
+            knowledge_commands::delete_knowledge_base,
+            knowledge_commands::list_kb_documents,
+            knowledge_commands::delete_kb_document,
+            knowledge_commands::search_knowledge,
         ])
         .setup(|app| {
             // Point ort to the bundled ONNX Runtime so GLiNER works on user machines
