@@ -1281,10 +1281,22 @@ ${attachment.textContent}`;
                 attributesCount={pendingReview.processed.attributes_count}
                 privacyInfo={pendingReview.processed.info}
                 piiReport={pendingReview.piiReport}
-                historyMessages={getCurrentMessages().map((m) => ({
-                  role: m.role as "user" | "assistant",
-                  content: m.content,
-                }))}
+                historyMessages={getCurrentMessages().map((m) => {
+                  // Show redacted content so user sees what cloud actually receives
+                  let content = m.content;
+                  const { settings } = useSettingsStore.getState();
+                  if (settings.autoRedactAllContent) {
+                    const profile = selectActiveProfile(useUserContextStore.getState());
+                    const terms = profile?.customRedactTerms || [];
+                    for (const term of terms) {
+                      if (term.value && term.value.length >= 2) {
+                        const escaped = term.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        content = content.replace(new RegExp(escaped, 'gi'), term.replacement);
+                      }
+                    }
+                  }
+                  return { role: m.role as "user" | "assistant", content };
+                })}
                 canvasDocs={
                   currentConversationId
                     ? getDocumentsByConversation(currentConversationId).map(
