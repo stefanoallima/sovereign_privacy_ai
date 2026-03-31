@@ -137,50 +137,113 @@ function rehydrateResponse(
 }
 
 /**
- * Apply custom redaction terms: replace each term's value with its same-length
- * replacement string. This preserves text structure (character count, line breaks)
- * while making the content safe for cloud. The replacement strings are unique
- * and can be mapped back to originals for rehydration.
+ * Call the Rust redaction engine via Tauri invoke.
+ * Falls back to a JS implementation if the Rust command is unavailable.
  */
-function applyCustomRedaction(
+async function rustRedact(
   text: string,
   terms: Array<{ label: string; value: string; replacement: string }>
-): { sanitized: string; mappings: Map<string, string> } {
-  const mappings = new Map<string, string>();
-  let sanitized = text;
-  for (const term of terms) {
-    if (!term.value || !term.replacement) continue;
-    if (sanitized.includes(term.value)) {
-      sanitized = sanitized.split(term.value).join(term.replacement);
-      mappings.set(term.replacement, term.value);
-    }
+): Promise<{
+  text: string;
+  mappings: Map<string, string>;
+  count: number;
+}> {
+  try {
+    const result = await invoke<{
+      text: string;
+      mappings: Record<string, string>;
+      redaction_count: number;
+    }>("redact_text_command", {
+      text,
+      terms: terms.map((t) => ({
+        label: t.label,
+        value: t.value,
+        replacement: t.replacement,
+      })),
+    });
+    return {
+      text: result.text,
+      mappings: new Map(Object.entries(result.mappings)),
+      count: result.redaction_count,
+    };
+  } catch (err) {
+    console.warn(
+      "Rust redact_text_command unavailable, falling back to JS:",
+      err
+    );
+    return jsFallbackRedact(text, terms);
   }
-  return { sanitized, mappings };
 }
 
 /**
- * Apply custom redaction terms to any text (case-insensitive).
- * Used for full-pipeline anonymization of context, history, canvas, and memories.
- * Returns { anonymized: string, mappings: Map<string, string> }
+ * JS fallback redaction (case-insensitive). Used only when Rust backend
+ * is unavailable.
  */
-function redactText(
+function jsFallbackRedact(
   text: string,
   terms: Array<{ label: string; value: string; replacement: string }>
-): { anonymized: string; mappings: Map<string, string> } {
+): { text: string; mappings: Map<string, string>; count: number } {
   const mappings = new Map<string, string>();
   let result = text;
+  let count = 0;
 
   for (const term of terms) {
     if (!term.value || term.value.length < 2) continue;
     const escaped = term.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const regex = new RegExp(escaped, "gi");
-    if (regex.test(result)) {
+    const matches = result.match(regex);
+    if (matches && matches.length > 0) {
+      count += matches.length;
       result = result.replace(regex, term.replacement);
       mappings.set(term.replacement, term.value);
     }
   }
 
-  return { anonymized: result, mappings };
+  return { text: result, mappings, count };
+}
+
+/**
+ * Apply custom redaction terms via the Rust engine (with JS fallback).
+ * Replaces each term's value with its replacement string.
+ * The replacement strings are unique and can be mapped back to originals
+ * for rehydration.
+ */
+async function applyCustomRedaction(
+  text: string,
+  terms: Array<{ label: string; value: string; replacement: string }>
+): Promise<{ sanitized: string; mappings: Map<string, string> }> {
+  const result = await rustRedact(text, terms);
+  return { sanitized: result.text, mappings: result.mappings };
+}
+
+/**
+ * Apply custom redaction terms to any text (case-insensitive) via the Rust
+ * engine. Used for full-pipeline anonymization of context, history, canvas,
+ * and memories.
+ */
+async function redactText(
+  text: string,
+  terms: Array<{ label: string; value: string; replacement: string }>
+): Promise<{
+  anonymized: string;
+  mappings: Map<string, string>;
+  categories: Map<string, number>;
+}> {
+  const result = await rustRedact(text, terms);
+
+  // Derive per-label category counts from which terms matched
+  const categories = new Map<string, number>();
+  for (const [replacement] of result.mappings) {
+    const matchedTerm = terms.find((t) => t.replacement === replacement);
+    if (matchedTerm) {
+      categories.set(
+        matchedTerm.label,
+        (categories.get(matchedTerm.label) || 0) + 1
+      );
+    }
+  }
+
+  return { anonymized: result.text, mappings: result.mappings, categories };
 }
 
 export interface PrivacyStatus {
@@ -211,10 +274,15 @@ export interface PiiCategoryCount {
   count: number;
 }
 
+export interface PiiContentSourceCount {
+  source: string;
+  redactionCount: number;
+}
+
 export interface PiiReport {
   totalRedactions: number;
   categories: PiiCategoryCount[];
-  contentSources: string[];
+  contentSources: PiiContentSourceCount[];
 }
 
 export interface PendingReview {
@@ -954,9 +1022,9 @@ export function usePrivacyChat() {
         selectActiveProfile(useUserContextStore.getState())
           ?.customRedactTerms || [];
       const allMappings = new Map<string, string>(glinerMappings ?? []);
-      const maybeRedact = (text: string): string => {
+      const maybeRedact = async (text: string): Promise<string> => {
         if (!autoRedactAllContent || redactTerms.length === 0) return text;
-        const { anonymized, mappings: newMappings } = redactText(
+        const { anonymized, mappings: newMappings } = await redactText(
           text,
           redactTerms
         );
@@ -982,9 +1050,10 @@ export function usePrivacyChat() {
         conversation?.activeContextIds.includes(ctx.id)
       );
       if (activeContexts.length > 0) {
-        const contextContent = activeContexts
-          .map((ctx) => `## ${ctx.name}\n${maybeRedact(ctx.content)}`)
-          .join("\n\n");
+        const contextParts = activeContexts.map(
+          async (ctx) => `## ${ctx.name}\n${await maybeRedact(ctx.content)}`
+        );
+        const contextContent = (await Promise.all(contextParts)).join("\n\n");
         messages.push({
           role: "system",
           content: `Here is relevant personal context:\n\n${contextContent}`,
@@ -992,17 +1061,28 @@ export function usePrivacyChat() {
       }
 
       // Add memories if enabled
-      if (settings.enableMemory && settings.mem0ApiKey) {
+      if (settings.enableMemory) {
         try {
-          const mem0Client = getMem0Client(settings.mem0ApiKey);
-          const memories = await mem0Client.searchMemories({
-            query: content.trim(),
-            limit: 5,
-          });
-          if (memories.length > 0) {
+          let memoryTexts: string[] = [];
+          if (settings.useLocalMemory) {
+            const results = await invoke<Array<{text: string; relevance_score: number | null}>>('search_memories', {
+              query: content.trim(),
+              topK: 5,
+            });
+            memoryTexts = results.map(m => m.text);
+          } else if (settings.mem0ApiKey) {
+            const mem0Client = getMem0Client(settings.mem0ApiKey);
+            const memories = await mem0Client.searchMemories({
+              query: content.trim(),
+              limit: 5,
+            });
+            memoryTexts = memories.map(m => m.memory);
+          }
+          if (memoryTexts.length > 0) {
+            const formattedMemories = memoryTexts.map((m, i) => `${i + 1}. ${m}`).join('\n');
             messages.push({
               role: "system",
-              content: maybeRedact(formatMemoriesAsContext(memories)),
+              content: await maybeRedact(`Here are relevant memories about the user:\n\n${formattedMemories}`),
             });
           }
         } catch (error) {
@@ -1014,7 +1094,7 @@ export function usePrivacyChat() {
       if (sendOpts?.includeHistory !== false) {
         const history = getCurrentMessages();
         for (const msg of history) {
-          messages.push({ role: msg.role, content: maybeRedact(msg.content) });
+          messages.push({ role: msg.role, content: await maybeRedact(msg.content) });
         }
       }
 
@@ -1039,12 +1119,11 @@ export function usePrivacyChat() {
               return true;
             });
             if (canvasDocs.length > 0) {
-              const canvasContent = canvasDocs
-                .map(
-                  (doc) =>
-                    `## Canvas: ${doc.title}\n${maybeRedact(doc.content)}`
-                )
-                .join("\n\n");
+              const canvasParts = canvasDocs.map(
+                  async (doc) =>
+                    `## Canvas: ${doc.title}\n${await maybeRedact(doc.content)}`
+                );
+              const canvasContent = (await Promise.all(canvasParts)).join("\n\n");
               messages.push({
                 role: "system",
                 content: `The following documents are available as project context:\n\n${canvasContent}`,
@@ -1127,17 +1206,30 @@ export function usePrivacyChat() {
         );
 
         // Store memories if enabled
-        if (settings.enableMemory && settings.mem0ApiKey) {
-          try {
-            const mem0Client = getMem0Client(settings.mem0ApiKey);
-            await mem0Client.addMemories({
-              messages: [
-                { role: "user", content: content.trim() },
-                { role: "assistant", content: fullContent },
-              ],
-            });
-          } catch (error) {
-            console.error("Failed to store memories:", error);
+        if (settings.enableMemory) {
+          if (settings.useLocalMemory) {
+            invoke('add_memory', {
+              text: content.trim(),
+              conversationId: currentConversationId,
+              role: 'user',
+            }).catch(() => {}); // non-blocking
+            invoke('add_memory', {
+              text: fullContent,
+              conversationId: currentConversationId,
+              role: 'assistant',
+            }).catch(() => {}); // non-blocking
+          } else if (settings.mem0ApiKey) {
+            try {
+              const mem0Client = getMem0Client(settings.mem0ApiKey);
+              await mem0Client.addMemories({
+                messages: [
+                  { role: "user", content: content.trim() },
+                  { role: "assistant", content: fullContent },
+                ],
+              });
+            } catch (error) {
+              console.error("Failed to store memories:", error);
+            }
           }
         }
       }
@@ -1212,7 +1304,7 @@ export function usePrivacyChat() {
           replacement: e.placeholder,
         }));
         const { sanitized: vaultSanitized, mappings: vaultMappings } =
-          applyCustomRedaction(textAfterGliner, vaultTerms);
+          await applyCustomRedaction(textAfterGliner, vaultTerms);
         textAfterGliner = vaultSanitized;
         for (const [placeholder, original] of vaultMappings) {
           glinerMappings.set(placeholder, original);
@@ -1231,7 +1323,7 @@ export function usePrivacyChat() {
       const customTerms = activeUserProfile?.customRedactTerms || [];
       if (customTerms.length > 0) {
         const { sanitized: customSanitized, mappings: customMappings } =
-          applyCustomRedaction(textAfterGliner, customTerms);
+          await applyCustomRedaction(textAfterGliner, customTerms);
         textAfterGliner = customSanitized;
         // Merge custom mappings into GLiNER mappings for rehydration
         for (const [placeholder, original] of customMappings) {
@@ -1275,38 +1367,177 @@ export function usePrivacyChat() {
           processed.backend === "hybrid");
 
       if (needsReview) {
-        // Build PII report: aggregate categories from all redaction sources
-        const totalRedactions = glinerMappings.size;
-        let piiReport: PiiReport | undefined;
-        if (totalRedactions > 0) {
-          const categoryMap = new Map<string, number>();
-          const sources: string[] = [];
-          for (const [placeholder] of glinerMappings) {
-            const match = placeholder.match(/\[PII_(\w+)\]/);
-            if (match) {
-              const cat = match[1].replace(/_/g, " ");
-              categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+        // Build comprehensive PII report covering ALL content sources
+        const categoryMap = new Map<string, number>();
+        const sourceCounts: PiiContentSourceCount[] = [];
+
+        // 1. Current message redactions (GLiNER + PII Vault + Privacy Shield)
+        const currentMsgRedactions = glinerMappings.size;
+        if (currentMsgRedactions > 0) {
+          const currentLabel: string[] = [];
+          if (glinerEntityCount > 0) currentLabel.push("GLiNER");
+          if (vaultEntries.length > 0) currentLabel.push("PII Vault");
+          if (customTerms.length > 0) currentLabel.push("Privacy Shield");
+          sourceCounts.push({
+            source: `Current message${currentLabel.length > 0 ? ` (${currentLabel.join(", ")})` : ""}`,
+            redactionCount: currentMsgRedactions,
+          });
+        }
+
+        // Count GLiNER categories from placeholders
+        for (const [placeholder] of glinerMappings) {
+          const match = placeholder.match(/\[PII_(\w+)\]/);
+          if (match) {
+            const cat = match[1].replace(/_/g, " ");
+            categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+          }
+        }
+
+        // 2. Dry-run redactText on other content sources (when autoRedactAllContent is on)
+        const { autoRedactAllContent } = useSettingsStore.getState().settings;
+        const dryRunRedactTerms = activeUserProfile?.customRedactTerms || [];
+
+        if (autoRedactAllContent && dryRunRedactTerms.length > 0) {
+          // History
+          const history = getCurrentMessages();
+          let historyRedactions = 0;
+          for (const msg of history) {
+            const { mappings } = await redactText(msg.content, dryRunRedactTerms);
+            historyRedactions += mappings.size;
+            for (const [, v] of mappings) {
+              const matchedTerm = dryRunRedactTerms.find((t) => t.value === v);
+              if (matchedTerm) {
+                categoryMap.set(
+                  matchedTerm.label,
+                  (categoryMap.get(matchedTerm.label) || 0) + 1
+                );
+              }
             }
           }
-          if (glinerEntityCount > 0) sources.push("Current message (GLiNER)");
-          if (
-            vaultEntries.length > 0 &&
-            vaultEntries.some((e) => content.includes(e.text))
-          )
-            sources.push("PII Vault");
-          if (
-            customTerms.length > 0 &&
-            customTerms.some((t) => content.includes(t.value))
-          )
-            sources.push("Privacy Shield terms");
-          piiReport = {
-            totalRedactions,
-            categories: Array.from(categoryMap.entries()).map(
-              ([label, count]) => ({ label, count })
-            ),
-            contentSources: sources,
-          };
+          if (historyRedactions > 0) {
+            sourceCounts.push({ source: "History", redactionCount: historyRedactions });
+          }
+
+          // Contexts
+          const conversation = getCurrentConversation();
+          const activeContexts = contexts.filter((ctx) =>
+            conversation?.activeContextIds.includes(ctx.id)
+          );
+          let contextRedactions = 0;
+          for (const ctx of activeContexts) {
+            const { mappings } = await redactText(ctx.content, dryRunRedactTerms);
+            contextRedactions += mappings.size;
+            for (const [, v] of mappings) {
+              const matchedTerm = dryRunRedactTerms.find((t) => t.value === v);
+              if (matchedTerm) {
+                categoryMap.set(
+                  matchedTerm.label,
+                  (categoryMap.get(matchedTerm.label) || 0) + 1
+                );
+              }
+            }
+          }
+          if (contextRedactions > 0) {
+            sourceCounts.push({ source: "Context", redactionCount: contextRedactions });
+          }
+
+          // Memories
+          if (settings.enableMemory) {
+            try {
+              let memText = "";
+              if (settings.useLocalMemory) {
+                const results = await invoke<Array<{text: string; relevance_score: number | null}>>('search_memories', {
+                  query: content.trim(),
+                  topK: 5,
+                });
+                if (results.length > 0) {
+                  memText = results.map((m, i) => `${i + 1}. ${m.text}`).join('\n');
+                  memText = `Here are relevant memories about the user:\n\n${memText}`;
+                }
+              } else if (settings.mem0ApiKey) {
+                const mem0Client = getMem0Client(settings.mem0ApiKey);
+                const memories = await mem0Client.searchMemories({
+                  query: content.trim(),
+                  limit: 5,
+                });
+                if (memories.length > 0) {
+                  memText = formatMemoriesAsContext(memories);
+                }
+              }
+              if (memText) {
+                const { mappings } = await redactText(memText, dryRunRedactTerms);
+                if (mappings.size > 0) {
+                  sourceCounts.push({ source: "Memories", redactionCount: mappings.size });
+                  for (const [, v] of mappings) {
+                    const matchedTerm = dryRunRedactTerms.find((t) => t.value === v);
+                    if (matchedTerm) {
+                      categoryMap.set(
+                        matchedTerm.label,
+                        (categoryMap.get(matchedTerm.label) || 0) + 1
+                      );
+                    }
+                  }
+                }
+              }
+            } catch {
+              // memory preview failed silently
+            }
+          }
+
+          // Canvas documents
+          try {
+            const { useCanvasStore } = await import("@/stores/canvas");
+            const convId = currentConversationId;
+            if (convId) {
+              const canvasState = useCanvasStore.getState();
+              const convDocs = canvasState.getDocumentsByConversation(convId);
+              const projectId = getCurrentConversation()?.projectId;
+              const projectDocs = projectId
+                ? canvasState.getDocumentsByProject(projectId)
+                : [];
+              const allDocs = [
+                ...convDocs,
+                ...projectDocs.filter(
+                  (pd) => !convDocs.some((cd) => cd.id === pd.id)
+                ),
+              ];
+              let canvasRedactions = 0;
+              for (const doc of allDocs) {
+                const { mappings } = await redactText(doc.content, dryRunRedactTerms);
+                canvasRedactions += mappings.size;
+                for (const [, v] of mappings) {
+                  const matchedTerm = dryRunRedactTerms.find((t) => t.value === v);
+                  if (matchedTerm) {
+                    categoryMap.set(
+                      matchedTerm.label,
+                      (categoryMap.get(matchedTerm.label) || 0) + 1
+                    );
+                  }
+                }
+              }
+              if (canvasRedactions > 0) {
+                sourceCounts.push({ source: "Canvas", redactionCount: canvasRedactions });
+              }
+            }
+          } catch {
+            // canvas preview failed silently
+          }
         }
+
+        const totalRedactions = sourceCounts.reduce(
+          (sum, s) => sum + s.redactionCount,
+          0
+        );
+        const piiReport: PiiReport | undefined =
+          totalRedactions > 0
+            ? {
+                totalRedactions,
+                categories: Array.from(categoryMap.entries()).map(
+                  ([label, count]) => ({ label, count })
+                ),
+                contentSources: sourceCounts,
+              }
+            : undefined;
 
         // Pause for user review — set pending state
         setPendingReview({
@@ -1442,7 +1673,7 @@ export function usePrivacyChat() {
     let contentToSend = content;
     let directMappings = new Map<string, string>();
     if (customTerms.length > 0) {
-      const { sanitized, mappings } = applyCustomRedaction(
+      const { sanitized, mappings } = await applyCustomRedaction(
         content,
         customTerms
       );
@@ -1460,9 +1691,9 @@ export function usePrivacyChat() {
     const directRedactTerms =
       selectActiveProfile(useUserContextStore.getState())?.customRedactTerms ||
       [];
-    const maybeRedactDirect = (text: string): string => {
+    const maybeRedactDirect = async (text: string): Promise<string> => {
       if (!autoRedactAllContent || directRedactTerms.length === 0) return text;
-      const { anonymized, mappings: newMappings } = redactText(
+      const { anonymized, mappings: newMappings } = await redactText(
         text,
         directRedactTerms
       );
@@ -1484,26 +1715,38 @@ export function usePrivacyChat() {
         conversation?.activeContextIds.includes(ctx.id)
       );
       if (activeContexts.length > 0) {
-        const contextContent = activeContexts
-          .map((ctx) => `## ${ctx.name}\n${maybeRedactDirect(ctx.content)}`)
-          .join("\n\n");
+        const contextParts = activeContexts.map(
+          async (ctx) => `## ${ctx.name}\n${await maybeRedactDirect(ctx.content)}`
+        );
+        const contextContent = (await Promise.all(contextParts)).join("\n\n");
         messages.push({
           role: "system",
           content: `Here is relevant personal context:\n\n${contextContent}`,
         });
       }
 
-      if (settings.enableMemory && settings.mem0ApiKey) {
+      if (settings.enableMemory) {
         try {
-          const mem0Client = getMem0Client(settings.mem0ApiKey);
-          const memories = await mem0Client.searchMemories({
-            query: content.trim(),
-            limit: 5,
-          });
-          if (memories.length > 0) {
+          let memoryTexts: string[] = [];
+          if (settings.useLocalMemory) {
+            const results = await invoke<Array<{text: string; relevance_score: number | null}>>('search_memories', {
+              query: content.trim(),
+              topK: 5,
+            });
+            memoryTexts = results.map(m => m.text);
+          } else if (settings.mem0ApiKey) {
+            const mem0Client = getMem0Client(settings.mem0ApiKey);
+            const memories = await mem0Client.searchMemories({
+              query: content.trim(),
+              limit: 5,
+            });
+            memoryTexts = memories.map(m => m.memory);
+          }
+          if (memoryTexts.length > 0) {
+            const formattedMemories = memoryTexts.map((m, i) => `${i + 1}. ${m}`).join('\n');
             messages.push({
               role: "system",
-              content: maybeRedactDirect(formatMemoriesAsContext(memories)),
+              content: await maybeRedactDirect(`Here are relevant memories about the user:\n\n${formattedMemories}`),
             });
           }
         } catch (error) {
@@ -1515,7 +1758,7 @@ export function usePrivacyChat() {
       for (const msg of history) {
         messages.push({
           role: msg.role,
-          content: maybeRedactDirect(msg.content),
+          content: await maybeRedactDirect(msg.content),
         });
       }
       messages.push({ role: "user", content: contentToSend.trim() });
@@ -1561,17 +1804,30 @@ export function usePrivacyChat() {
         targetPersona?.id
       );
 
-      if (settings.enableMemory && settings.mem0ApiKey) {
-        try {
-          const mem0Client = getMem0Client(settings.mem0ApiKey);
-          await mem0Client.addMemories({
-            messages: [
-              { role: "user", content: content.trim() },
-              { role: "assistant", content: fullContent },
-            ],
-          });
-        } catch (error) {
-          console.error("Failed to store memories:", error);
+      if (settings.enableMemory) {
+        if (settings.useLocalMemory) {
+          invoke('add_memory', {
+            text: content.trim(),
+            conversationId: currentConversationId,
+            role: 'user',
+          }).catch(() => {}); // non-blocking
+          invoke('add_memory', {
+            text: fullContent,
+            conversationId: currentConversationId,
+            role: 'assistant',
+          }).catch(() => {}); // non-blocking
+        } else if (settings.mem0ApiKey) {
+          try {
+            const mem0Client = getMem0Client(settings.mem0ApiKey);
+            await mem0Client.addMemories({
+              messages: [
+                { role: "user", content: content.trim() },
+                { role: "assistant", content: fullContent },
+              ],
+            });
+          } catch (error) {
+            console.error("Failed to store memories:", error);
+          }
         }
       }
 

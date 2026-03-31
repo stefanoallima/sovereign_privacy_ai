@@ -2,7 +2,7 @@
   "version": "1.0",
   "mode": "green",
   "autonomy": "full",
-  "active_change": "green_pii-pipeline-v2_01",
+  "active_change": "green_perf-privacy-opt_01",
   "phase": "build",
   "retry_count": 0,
   "imported_from": null,
@@ -10,7 +10,7 @@
   "gate_score": null,
   "gate_passed": false,
   "stats": {
-    "tasks_completed": 10,
+    "tasks_completed": 15,
     "tasks_stuck": 0,
     "tasks_blocked": 0,
     "total_retries": 0

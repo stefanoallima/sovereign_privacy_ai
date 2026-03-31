@@ -25,6 +25,8 @@ mod rehydration;
 mod rehydration_commands;
 mod gliner;
 mod gliner_commands;
+mod embedding;
+mod embedding_commands;
 mod user_profile;
 mod user_profile_commands;
 mod form_export;
@@ -32,6 +34,10 @@ mod form_export_commands;
 mod form_fill;
 mod form_fill_commands;
 mod support_commands;
+mod redaction;
+mod redaction_commands;
+mod local_memory;
+mod local_memory_commands;
 
 use commands::DbState;
 use tts::PiperTts;
@@ -51,8 +57,12 @@ use attribute_extraction::AttributeExtractor;
 use attribute_extraction_commands::AttributeExtractionState;
 use gliner::GlinerBackend;
 use gliner_commands::GlinerState;
+use embedding::EmbeddingBackend;
+use embedding_commands::EmbeddingState;
 use user_profile::UserProfileStore;
 use user_profile_commands::UserProfileState;
+use local_memory::LocalMemoryStore;
+use local_memory_commands::LocalMemoryState;
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -190,6 +200,15 @@ pub fn run() {
         key_manager: encryption_key.clone(),
     };
 
+    // Initialize local memory store (FTS5-backed conversation memory)
+    let local_memory_state = LocalMemoryState {
+        store: LocalMemoryStore::new(&profile_data_dir)
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to initialize local memory store: {}", e);
+                panic!("Critical: local memory store failed");
+            }),
+    };
+
     // Initialize anonymization service
     let anonymization = AnonymizationService::new()
         .unwrap_or_else(|e| {
@@ -205,6 +224,12 @@ pub fn run() {
         .map_err(|e| eprintln!("[startup] GLiNER unavailable: {e}"))
         .ok();
     let gliner_state = GlinerState(Arc::new(tokio::sync::Mutex::new(gliner_backend)));
+
+    // Initialize embedding backend for local ONNX text embeddings (non-fatal)
+    let embedding_backend = EmbeddingBackend::new()
+        .map_err(|e| eprintln!("[startup] Embedding backend unavailable: {e}"))
+        .ok();
+    let embedding_state = EmbeddingState(Arc::new(tokio::sync::Mutex::new(embedding_backend)));
 
     // Initialize backend routing state (shares inference backend)
     let backend_routing = BackendRoutingState {
@@ -237,7 +262,9 @@ pub fn run() {
         .manage(tokio::sync::Mutex::new(backend_routing))
         .manage(tokio::sync::Mutex::new(attribute_extraction))
         .manage(gliner_state)
+        .manage(embedding_state)
         .manage(tokio::sync::Mutex::new(user_profile_state))
+        .manage(tokio::sync::Mutex::new(local_memory_state))
         .invoke_handler(tauri::generate_handler![
             // Settings
             commands::get_setting,
@@ -330,6 +357,9 @@ pub fn run() {
             gliner_commands::delete_gliner_model,
             gliner_commands::get_gliner_models_dir,
             gliner_commands::detect_pii_with_gliner,
+            // Embedding Models (local ONNX text embeddings)
+            embedding_commands::list_embedding_models,
+            embedding_commands::get_embedding_models_dir,
             // User Profile (encrypted PII storage)
             user_profile_commands::save_user_profile,
             user_profile_commands::backup_redaction_terms,
@@ -344,6 +374,15 @@ pub fn run() {
             form_fill_commands::extract_form_fields,
             form_fill_commands::match_form_fields_to_profile,
             form_fill_commands::compose_reasoning_field,
+            // Redaction
+            redaction_commands::redact_text_command,
+            redaction_commands::rehydrate_text_command,
+            // Local Memory (FTS5 search)
+            local_memory_commands::add_memory,
+            local_memory_commands::search_memories,
+            local_memory_commands::recent_memories,
+            local_memory_commands::delete_conversation_memories,
+            local_memory_commands::get_memory_count,
         ])
         .setup(|app| {
             // Point ort to the bundled ONNX Runtime so GLiNER works on user machines
