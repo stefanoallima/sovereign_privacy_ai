@@ -21,10 +21,13 @@ pub fn redact_text(text: &str, terms: &[RedactTerm]) -> RedactResult {
     let mut mappings = HashMap::new();
     let mut total_matches: usize = 0;
 
-    for term in terms {
-        if term.value.len() < 2 {
-            continue;
-        }
+    // Sort by descending value length to prevent short matches corrupting longer ones
+    let mut sorted_terms: Vec<&RedactTerm> = terms.iter()
+        .filter(|t| t.value.len() >= 2)
+        .collect();
+    sorted_terms.sort_by(|a, b| b.value.len().cmp(&a.value.len()));
+
+    for term in sorted_terms {
         let escaped = regex::escape(&term.value);
         if let Ok(re) = Regex::new(&format!("(?i){}", escaped)) {
             let count = re.find_iter(&redacted).count();
@@ -156,5 +159,26 @@ mod tests {
         assert_eq!(result.text, "[NAME] lives in [CITY]. [NAME] loves [CITY].");
         assert_eq!(result.redaction_count, 4);
         assert_eq!(result.mappings.len(), 2);
+    }
+
+    #[test]
+    fn test_redact_substring_ordering() {
+        let terms = vec![
+            RedactTerm {
+                label: "Name".into(),
+                value: "Jane".into(),
+                replacement: "nam2xxxx".into(),
+            },
+            RedactTerm {
+                label: "Name".into(),
+                value: "Jan".into(),
+                replacement: "nam1xxx".into(),
+            },
+        ];
+        let result = redact_text("Jan and Jane went home.", &terms);
+        // "Jane" should be matched first (longer), then "Jan"
+        assert!(result.text.contains("nam2xxxx"), "Jane should be replaced: {}", result.text);
+        assert!(result.text.contains("nam1xxx"), "Jan should be replaced: {}", result.text);
+        assert!(!result.text.contains("Jan"), "Raw Jan should be gone: {}", result.text);
     }
 }
