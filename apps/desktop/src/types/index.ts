@@ -20,6 +20,7 @@ export interface AppSettings {
   nebiusApiEndpoint: string;
   mem0ApiKey: string;
   enableMemory: boolean;
+  useLocalMemory: boolean;
 
   // Model Preferences
   defaultModelId: string;

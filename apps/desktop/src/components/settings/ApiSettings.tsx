@@ -241,6 +241,22 @@ export function ApiSettings() {
           />
         </div>
 
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="font-medium text-sm">Use local memory</div>
+            <div className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+              Store conversation memories locally instead of mem0 cloud
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={settings.useLocalMemory}
+            onChange={(e) => updateSettings({ useLocalMemory: e.target.checked })}
+            className="h-4 w-4 rounded"
+          />
+        </div>
+
+        {!settings.useLocalMemory && (
         <div>
           <label className="mb-2 block text-sm font-medium">mem0 API Key</label>
           <div className="flex gap-2">
@@ -271,6 +287,7 @@ export function ApiSettings() {
             </a>
           </p>
         </div>
+        )}
       </div>
     </div>
   );

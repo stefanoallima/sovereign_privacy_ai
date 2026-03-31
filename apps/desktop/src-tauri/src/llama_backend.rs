@@ -2,7 +2,7 @@ use crate::inference::{InferenceError, LocalInference, ModelStatus};
 use crate::gpu_detect;
 use async_trait::async_trait;
 use directories::ProjectDirs;
-use llama_cpp_2::context::params::LlamaContextParams;
+use llama_cpp_2::context::params::{KvCacheType, LlamaContextParams};
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::{AddBos, LlamaModel, Special};
@@ -497,7 +497,9 @@ impl LlamaCppBackend {
                 .with_n_ctx(Some(NonZeroU32::new(ctx_size).unwrap()))
                 .with_n_batch(N_BATCH)
                 .with_n_threads(n_threads)
-                .with_n_threads_batch(n_threads);
+                .with_n_threads_batch(n_threads)
+                .with_type_k(KvCacheType::Q8_0)   // quantize K cache — ~50% VRAM saving
+                .with_type_v(KvCacheType::Q8_0);   // quantize V cache — negligible quality loss
 
             let mut ctx =
                 loaded

@@ -109,6 +109,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiEndpoint: "https://api.tokenfactory.nebius.com/v1",
   mem0ApiKey: "",
   enableMemory: false,
+  useLocalMemory: true,
   defaultModelId: "minimax-m2",
   enabledModelIds: DEFAULT_MODELS.map((m) => m.id),
   defaultVoiceId: "en_US-lessac-medium",
@@ -362,7 +363,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 15, // v15: add autoRedactAllContent setting
+      version: 16, // v16: add useLocalMemory setting
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -385,6 +386,7 @@ export const useSettingsStore = create<SettingsStore>()(
             glinerModelId: old.glinerModelId ?? null,
             glinerConfidenceThreshold: old.glinerConfidenceThreshold ?? 0.4,
             autoRedactAllContent: old.autoRedactAllContent ?? true,
+            useLocalMemory: old.useLocalMemory ?? true,
             cloudTrustLevel: old.cloudTrustLevel ?? null,
           },
           models: DEFAULT_MODELS,
