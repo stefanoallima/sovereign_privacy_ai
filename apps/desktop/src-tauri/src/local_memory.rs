@@ -118,7 +118,13 @@ impl LocalMemoryStore {
                 relevance_score: row.get(5)?,
             })
         }).map_err(|e| format!("Search query failed: {}", e))?
-          .filter_map(|r| r.ok())
+          .filter_map(|r| match r {
+              Ok(val) => Some(val),
+              Err(e) => {
+                  log::warn!("Failed to read DB row: {}", e);
+                  None
+              }
+          })
           .collect();
 
         Ok(memories)
@@ -144,7 +150,13 @@ impl LocalMemoryStore {
                 relevance_score: row.get(5)?,
             })
         }).map_err(|e| format!("Recent query failed: {}", e))?
-          .filter_map(|r| r.ok())
+          .filter_map(|r| match r {
+              Ok(val) => Some(val),
+              Err(e) => {
+                  log::warn!("Failed to read DB row: {}", e);
+                  None
+              }
+          })
           .collect();
 
         Ok(memories)
@@ -240,5 +252,15 @@ mod tests {
         let deleted = store.delete_memories_by_conversation("conv-a").unwrap();
         assert_eq!(deleted, 2);
         assert_eq!(store.memory_count().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_search_special_chars() {
+        let (store, _dir) = make_store();
+        store.add_memory("some normal text", None, "user").unwrap();
+        // Search with special chars should not crash
+        let results = store.search_memories("@#$%^&*()", 10).unwrap();
+        // Special chars are stripped, query becomes empty, falls back to recent
+        assert!(!results.is_empty());
     }
 }

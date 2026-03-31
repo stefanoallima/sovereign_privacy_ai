@@ -195,7 +195,7 @@ export function KnowledgeBaseSettings() {
     try {
       setLoading(true);
       setError(null);
-      const kbs = await invoke<KnowledgeBaseInfo[]>("listKnowledgeBases");
+      const kbs = await invoke<KnowledgeBaseInfo[]>("list_knowledge_bases");
       setKnowledgeBases(kbs);
     } catch (err) {
       setError(String(err));
@@ -207,7 +207,7 @@ export function KnowledgeBaseSettings() {
   const loadDocuments = useCallback(async (kbId: string) => {
     try {
       setDocsLoading(kbId);
-      const docs = await invoke<KbDocumentInfo[]>("listKbDocuments", { kbId });
+      const docs = await invoke<KbDocumentInfo[]>("list_kb_documents", { kbId });
       setDocuments((prev) => ({ ...prev, [kbId]: docs }));
     } catch (err) {
       console.error("Failed to load documents:", err);
@@ -224,7 +224,7 @@ export function KnowledgeBaseSettings() {
     if (!newName.trim()) return;
     try {
       setCreating(true);
-      await invoke("createKnowledgeBase", {
+      await invoke("create_knowledge_base", {
         id: generateUUID(),
         name: newName.trim(),
         description: newDescription.trim(),
@@ -242,7 +242,7 @@ export function KnowledgeBaseSettings() {
 
   const handleDeleteKb = async (kb: KnowledgeBaseInfo) => {
     try {
-      await invoke("deleteKnowledgeBase", { id: kb.id });
+      await invoke("delete_knowledge_base", { id: kb.id });
       setDeleteKbConfirm(null);
       setDocuments((prev) => {
         const next = { ...prev };
@@ -258,7 +258,7 @@ export function KnowledgeBaseSettings() {
 
   const handleDeleteDoc = async (doc: KbDocumentInfo) => {
     try {
-      await invoke("deleteKbDocument", { docId: doc.id });
+      await invoke("delete_kb_document", { docId: doc.id });
       setDeleteDocConfirm(null);
       await loadDocuments(doc.kb_id);
       await loadKnowledgeBases();
@@ -296,7 +296,7 @@ export function KnowledgeBaseSettings() {
       setIngestingKbId(kbId);
       setIngestResult(null);
 
-      const result = await invoke<IngestResult>("ingestDocument", {
+      const result = await invoke<IngestResult>("ingest_document", {
         kbId,
         filePath: selected as string,
       });

@@ -84,6 +84,10 @@ impl KnowledgeStore {
             CREATE TRIGGER IF NOT EXISTS kb_chunks_ad AFTER DELETE ON kb_chunks BEGIN
                 INSERT INTO kb_chunks_fts(kb_chunks_fts, rowid, text) VALUES('delete', old.id, old.text);
             END;
+            CREATE TRIGGER IF NOT EXISTS kb_chunks_au AFTER UPDATE ON kb_chunks BEGIN
+                INSERT INTO kb_chunks_fts(kb_chunks_fts, rowid, text) VALUES('delete', old.id, old.text);
+                INSERT INTO kb_chunks_fts(rowid, text) VALUES (new.id, new.text);
+            END;
         ").map_err(|e| format!("Failed to init knowledge DB: {}", e))?;
 
         info!("KnowledgeStore initialized at {}", self.db_path.display());
@@ -131,19 +135,25 @@ impl KnowledgeStore {
                 created_at: row.get(5)?,
             })
         }).map_err(|e| format!("Query failed: {}", e))?
-          .filter_map(|r| r.ok())
+          .filter_map(|r| match r {
+              Ok(val) => Some(val),
+              Err(e) => {
+                  log::warn!("Failed to read DB row: {}", e);
+                  None
+              }
+          })
           .collect();
         Ok(kbs)
     }
 
     pub fn delete_kb(&self, kb_id: &str) -> Result<(), String> {
-        let conn = self.connect()?;
-        conn.execute("DELETE FROM kb_chunks WHERE kb_id = ?1", params![kb_id])
-            .map_err(|e| format!("Delete KB chunks failed: {}", e))?;
-        conn.execute("DELETE FROM kb_documents WHERE kb_id = ?1", params![kb_id])
-            .map_err(|e| format!("Delete KB docs failed: {}", e))?;
-        conn.execute("DELETE FROM knowledge_bases WHERE id = ?1", params![kb_id])
+        let mut conn = self.connect()?;
+        let tx = conn.transaction().map_err(|e| format!("Transaction failed: {}", e))?;
+        tx.execute("DELETE FROM kb_chunks WHERE kb_id = ?1", params![kb_id]).ok();
+        tx.execute("DELETE FROM kb_documents WHERE kb_id = ?1", params![kb_id]).ok();
+        tx.execute("DELETE FROM knowledge_bases WHERE id = ?1", params![kb_id])
             .map_err(|e| format!("Delete KB failed: {}", e))?;
+        tx.commit().map_err(|e| format!("Commit failed: {}", e))?;
         info!("Deleted knowledge base id={}", kb_id);
         Ok(())
     }
@@ -181,7 +191,13 @@ impl KnowledgeStore {
                 created_at: row.get(5)?,
             })
         }).map_err(|e| format!("Query failed: {}", e))?
-          .filter_map(|r| r.ok())
+          .filter_map(|r| match r {
+              Ok(val) => Some(val),
+              Err(e) => {
+                  log::warn!("Failed to read DB row: {}", e);
+                  None
+              }
+          })
           .collect();
         Ok(docs)
     }
@@ -266,7 +282,13 @@ impl KnowledgeStore {
                 relevance_score: row.get(5)?,
             })
         }).map_err(|e| format!("Search query failed: {}", e))?
-          .filter_map(|r| r.ok())
+          .filter_map(|r| match r {
+              Ok(val) => Some(val),
+              Err(e) => {
+                  log::warn!("Failed to read DB row: {}", e);
+                  None
+              }
+          })
           .collect();
 
         Ok(chunks)
@@ -352,5 +374,45 @@ mod tests {
             10,
         ).unwrap();
         assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_search_special_chars_query() {
+        let (store, _dir) = make_store();
+        store.create_kb("kb-1", "KB", "").unwrap();
+        store.add_document("doc-1", "kb-1", "file.txt", "txt").unwrap();
+        store.add_chunks(&[
+            ("doc-1".into(), "kb-1".into(), "some normal text".into(), 0),
+        ]).unwrap();
+        // Search with special chars should return empty, not crash
+        let results = store.search_chunks("@#$%^&*()", &["kb-1".to_string()], 10).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_search_single_char_words() {
+        let (store, _dir) = make_store();
+        store.create_kb("kb-1", "KB", "").unwrap();
+        store.add_document("doc-1", "kb-1", "file.txt", "txt").unwrap();
+        store.add_chunks(&[
+            ("doc-1".into(), "kb-1".into(), "some text here".into(), 0),
+        ]).unwrap();
+        // Words < 2 chars get filtered, should not crash
+        let results = store.search_chunks("I a", &["kb-1".to_string()], 10).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_search_unicode_text() {
+        let (store, _dir) = make_store();
+        store.create_kb("kb-1", "KB", "").unwrap();
+        store.add_document("doc-1", "kb-1", "file.txt", "txt").unwrap();
+        store.add_chunks(&[
+            ("doc-1".into(), "kb-1".into(), "Huur subsidie informatie".into(), 0),
+        ]).unwrap();
+        // Search with unicode text should find it
+        let results = store.search_chunks("subsidie", &["kb-1".to_string()], 10).unwrap();
+        assert!(!results.is_empty());
+        assert!(results[0].text.contains("subsidie"));
     }
 }

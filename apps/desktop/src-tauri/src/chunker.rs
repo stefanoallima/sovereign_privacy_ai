@@ -35,7 +35,7 @@ pub fn chunk_text(text: &str, chunk_size: usize, overlap: usize) -> Vec<TextChun
 
     let mut chunks = Vec::new();
     let mut current_chunk = String::new();
-    let mut current_offset = 0;
+    let mut current_offset: usize = 0;
     let mut chunk_start_offset = 0;
 
     for para in &paragraphs {
@@ -51,11 +51,16 @@ pub fn chunk_text(text: &str, chunk_size: usize, overlap: usize) -> Vec<TextChun
 
             // Start new chunk with overlap from the end of the previous chunk
             if overlap > 0 && current_chunk.len() > overlap {
-                let overlap_text = &current_chunk[current_chunk.len() - overlap..];
+                let start_byte = current_chunk.len() - overlap;
+                // Find nearest valid char boundary
+                let safe_start = (start_byte..current_chunk.len())
+                    .find(|&i| current_chunk.is_char_boundary(i))
+                    .unwrap_or(current_chunk.len());
+                let overlap_text = &current_chunk[safe_start..];
                 // Find a word boundary for cleaner overlap
                 let word_start = overlap_text.find(' ').unwrap_or(0);
                 current_chunk = overlap_text[word_start..].trim().to_string();
-                chunk_start_offset = current_offset - (overlap - word_start);
+                chunk_start_offset = current_offset.saturating_sub(current_chunk.len());
             } else {
                 current_chunk.clear();
                 chunk_start_offset = current_offset;
@@ -117,7 +122,11 @@ fn split_by_sentences(text: &str, chunk_size: usize, overlap: usize) -> Vec<Stri
             chunks.push(current.trim().to_string());
             // Overlap: keep last part
             if overlap > 0 && current.len() > overlap {
-                current = current[current.len() - overlap..].trim().to_string();
+                let start_byte = current.len() - overlap;
+                let safe_start = (start_byte..current.len())
+                    .find(|&i| current.is_char_boundary(i))
+                    .unwrap_or(current.len());
+                current = current[safe_start..].trim().to_string();
             } else {
                 current.clear();
             }
@@ -174,5 +183,15 @@ mod tests {
         let text = "Short text.";
         let chunks = chunk_text_default(text);
         assert_eq!(chunks.len(), 1);
+    }
+
+    #[test]
+    fn test_chunk_multibyte_utf8() {
+        let text = "Héllo wörld, this is a tëst with Dütch characters.\n\nAnother päragraph with übung.";
+        let chunks = chunk_text(text, 40, 10);
+        assert!(!chunks.is_empty());
+        for chunk in &chunks {
+            assert!(chunk.text.is_char_boundary(0));
+        }
     }
 }

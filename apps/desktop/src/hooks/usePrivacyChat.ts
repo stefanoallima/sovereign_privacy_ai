@@ -1277,7 +1277,7 @@ export function usePrivacyChat() {
         if (settings.enableMemory) {
           if (settings.useLocalMemory) {
             invoke('add_memory', {
-              text: content.trim(),
+              text: promptToSend,
               conversationId: currentConversationId,
               role: 'user',
             }).catch(() => {}); // non-blocking
@@ -1291,7 +1291,7 @@ export function usePrivacyChat() {
               const mem0Client = getMem0Client(settings.mem0ApiKey);
               await mem0Client.addMemories({
                 messages: [
-                  { role: "user", content: content.trim() },
+                  { role: "user", content: promptToSend },
                   { role: "assistant", content: fullContent },
                 ],
               });
@@ -1910,7 +1910,7 @@ export function usePrivacyChat() {
       if (settings.enableMemory) {
         if (settings.useLocalMemory) {
           invoke('add_memory', {
-            text: content.trim(),
+            text: contentToSend.trim(),
             conversationId: currentConversationId,
             role: 'user',
           }).catch(() => {}); // non-blocking
@@ -1924,7 +1924,7 @@ export function usePrivacyChat() {
             const mem0Client = getMem0Client(settings.mem0ApiKey);
             await mem0Client.addMemories({
               messages: [
-                { role: "user", content: content.trim() },
+                { role: "user", content: contentToSend.trim() },
                 { role: "assistant", content: fullContent },
               ],
             });

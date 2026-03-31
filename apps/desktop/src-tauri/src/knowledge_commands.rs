@@ -26,6 +26,17 @@ pub async fn ingest_document(
 ) -> Result<IngestResult, String> {
     let path = Path::new(&file_path);
 
+    // Validate file exists and size
+    let metadata = std::fs::metadata(&file_path)
+        .map_err(|e| format!("Cannot access file: {}", e))?;
+    const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50 MB
+    if metadata.len() > MAX_FILE_SIZE {
+        return Err(format!(
+            "File too large ({:.1} MB). Maximum is 50 MB.",
+            metadata.len() as f64 / (1024.0 * 1024.0)
+        ));
+    }
+
     // 1. Parse the file
     let parsed = file_parsers::parse_file(path)
         .map_err(|e| format!("Failed to parse file: {}", e))?;
