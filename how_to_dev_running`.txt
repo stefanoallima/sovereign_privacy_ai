@@ -3,3 +3,10 @@
   $env:Path = $env:Path + ";C:\Users\tucan\.cargo\bin"
   cd C:\Users\tucan\Documents\stefano\hackaton\huggingface_gradio\private_personal_assistant\apps\desktop
   pnpm tauri dev
+
+
+  ###dev working
+  $env:CARGO_TARGET_DIR = "C:\tmp\tb"
+  $env:CMAKE = "C:\Program Files\CMake\bin\cmake.exe"
+  cd C:\Users\tucan\Documents\stefano\hackaton\huggingface_gradio\private_personal_assistant\apps\desktop
+  pnpm tauri dev

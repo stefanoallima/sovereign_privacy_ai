@@ -22,6 +22,10 @@ export interface PersonaLLMConfig {
   anonymization_mode: AnonymizationMode;
   /** Which Ollama model to use (if applicable) */
   local_ollama_model?: string;
+  /** Whether to enable smart cloud delegation when local model is uncertain */
+  enable_cloud_delegation?: boolean;
+  /** Confidence threshold for cloud delegation (0.0-1.0, default 0.5) */
+  cloud_delegation_threshold?: number;
 }
 
 /**

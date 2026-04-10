@@ -1123,6 +1123,7 @@ ${attachment.textContent}`;
                       privacyLevel={message.privacyLevel}
                       piiTypesDetected={message.piiTypesDetected}
                       approvalStatus={message.approvalStatus}
+                      cloudAssisted={message.cloudAssisted}
                       canvasDocTitle={canvasTitle}
                       canvasIntro={message.canvasIntro}
                       onViewCanvas={

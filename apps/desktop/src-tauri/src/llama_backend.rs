@@ -94,6 +94,32 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
         //     ...
         // },
         LocalModelInfo {
+            id: "gemma4-e2b".into(),
+            name: "Gemma 4 E2B (Compact)".into(),
+            filename: "gemma-4-e2b-it-Q8_0.gguf".into(),
+            url: "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-e2b-it-Q8_0.gguf".into(),
+            size_bytes: 4_970_000_000,
+            ctx_size: 32768,
+            description: "Gemma 4 compact. 128K capable, 32K default. Fast multimodal.".into(),
+            speed_tier: "fast".into(),
+            intelligence_tier: "high".into(),
+            is_downloaded: false,
+            local_path: None,
+        },
+        LocalModelInfo {
+            id: "gemma4-e4b".into(),
+            name: "Gemma 4 E4B (Recommended)".into(),
+            filename: "gemma-4-e4b-it-Q4_K_M.gguf".into(),
+            url: "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-e4b-it-Q4_K_M.gguf".into(),
+            size_bytes: 5_340_000_000,
+            ctx_size: 32768,
+            description: "Best local model. 128K capable, 32K default. Multimodal ready.".into(),
+            speed_tier: "medium".into(),
+            intelligence_tier: "very-high".into(),
+            is_downloaded: false,
+            local_path: None,
+        },
+        LocalModelInfo {
             id: "qwen3-8b".into(),
             name: "Qwen3 8B (Full)".into(),
             filename: "Qwen3-8B-Q4_K_M.gguf".into(),
@@ -116,7 +142,9 @@ fn max_gen_tokens(ctx_size: u32) -> usize {
         0..=2048 => 512,
         2049..=4096 => 1024,
         4097..=8192 => 2048,
-        _ => 4096,
+        8193..=16384 => 4096,
+        16385..=65536 => 4096,
+        _ => 8192, // 64K+ context gets 8K generation budget
     }
 }
 
@@ -124,8 +152,11 @@ fn max_gen_tokens(ctx_size: u32) -> usize {
 /// contention on most consumer CPUs.
 const MAX_THREADS: u32 = 4;
 
-/// Batch size for prompt prefill. Smaller = less peak memory on CPU.
-const N_BATCH: u32 = 256;
+/// Batch size for prompt prefill, scaled by context size.
+/// Larger context models benefit from bigger batches during prefill.
+fn batch_size(ctx_size: u32) -> u32 {
+    if ctx_size >= 32768 { 512 } else { 256 }
+}
 
 // ---------------------------------------------------------------------------
 // Backend
@@ -495,7 +526,7 @@ impl LlamaCppBackend {
 
             let ctx_params = LlamaContextParams::default()
                 .with_n_ctx(Some(NonZeroU32::new(ctx_size).unwrap()))
-                .with_n_batch(N_BATCH)
+                .with_n_batch(batch_size(ctx_size))
                 .with_n_threads(n_threads)
                 .with_n_threads_batch(n_threads)
                 .with_type_k(KvCacheType::Q8_0)   // quantize K cache — ~50% VRAM saving
@@ -538,11 +569,12 @@ impl LlamaCppBackend {
 
             // Evaluate prompt in smaller batches for better CPU performance
             let prefill_start = std::time::Instant::now();
-            let mut batch = LlamaBatch::new(N_BATCH as usize, 1);
+            let n_batch = batch_size(ctx_size) as usize;
+            let mut batch = LlamaBatch::new(n_batch, 1);
 
-            for (i, chunk) in tokens_list.chunks(N_BATCH as usize).enumerate() {
+            for (i, chunk) in tokens_list.chunks(n_batch).enumerate() {
                 batch.clear();
-                let offset = i * N_BATCH as usize;
+                let offset = i * n_batch;
                 for (j, &token) in chunk.iter().enumerate() {
                     let pos = (offset + j) as i32;
                     let is_last = offset + j == token_count - 1;
@@ -819,8 +851,33 @@ mod tests {
     #[test]
     fn test_model_registry_has_entries() {
         let registry = local_model_registry();
-        assert!(registry.len() >= 4);
+        assert!(registry.len() >= 6);
         assert!(registry.iter().any(|m| m.id == "qwen3-0.6b"));
         assert!(registry.iter().any(|m| m.id == "qwen3-8b"));
+        assert!(registry.iter().any(|m| m.id == "gemma4-e2b"));
+        assert!(registry.iter().any(|m| m.id == "gemma4-e4b"));
+    }
+
+    #[test]
+    fn test_gemma4_context_size() {
+        let registry = local_model_registry();
+        let e4b = registry.iter().find(|m| m.id == "gemma4-e4b").unwrap();
+        assert_eq!(e4b.ctx_size, 32768);
+        assert_eq!(max_gen_tokens(e4b.ctx_size), 4096);
+    }
+
+    #[test]
+    fn test_max_gen_tokens_large_context() {
+        assert_eq!(max_gen_tokens(32768), 4096);
+        assert_eq!(max_gen_tokens(65536), 4096);
+        assert_eq!(max_gen_tokens(131072), 8192);
+    }
+
+    #[test]
+    fn test_batch_size_scaling() {
+        assert_eq!(batch_size(8192), 256);
+        assert_eq!(batch_size(16384), 256);
+        assert_eq!(batch_size(32768), 512);
+        assert_eq!(batch_size(131072), 512);
     }
 }

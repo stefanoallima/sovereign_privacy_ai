@@ -1,0 +1,62 @@
+# sudd/sudd.yaml — Central agent configuration
+# Change models here, not in agent .md files
+
+# Default escalation ladder (applies to all agents unless overridden)
+escalation:
+  default_tier: free
+  ladder:
+    0-1: free        # GLM, opencode, local models
+    2-3: sonnet      # + Sonnet for validation agents
+    4-5: sonnet      # Sonnet for all agents
+    6-7: opus        # Opus for all agents
+    8: stuck          # Mark STUCK, stop retrying
+
+# Per-agent model assignment
+# Principle: judgment/strategic agents → opus, analytical → sonnet, execution → free
+agents:
+  # JUDGMENT TIER (opus) — these make critical decisions that shape everything downstream
+  solution-explorer: { tier: opus }   # picks the approach — wrong choice wastes the entire change
+  architect:         { tier: opus }   # designs the solution — bad design = bad code
+  deep-think:        { tier: opus }   # alignment validation — catches vision drift
+  decomposer:        { tier: opus }   # breaks down work — bad decomposition = bad tasks
+  persona-validator: { tier: opus }   # THE gate — must catch real issues, not rubber-stamp
+
+  # ANALYTICAL TIER (sonnet) — need reasoning depth but within constrained formats
+  researcher:        { tier: sonnet } # needs to find and evaluate information
+  antigravity:       { tier: sonnet } # back-planning requires working backward from outcomes
+  qa:                { tier: sonnet } # test design needs understanding of edge cases
+  peer-reviewer:     { tier: sonnet } # code review needs technical depth
+  coder:             { tier: sonnet } # implementation needs problem-solving ability
+
+  # EXECUTION TIER (free) — follow templates, check boxes, classify, route
+  persona-detector:  { tier: free }   # pattern matching against consumer types
+  persona-researcher: { tier: free }  # structured research following a template
+  contract-verifier: { tier: free }   # checklist verification against schema
+  handoff-validator: { tier: free }   # checklist verification of outputs
+  blocker-detector:  { tier: free }   # classification into 3 categories
+  learning-engine:   { tier: free }   # append to lessons.md following template
+  context-manager:   { tier: free }   # reads and filters, writes nothing
+  monitor:           { tier: free }   # reads state, flags thresholds
+  task-discoverer:   { tier: free }   # scans codebase, creates proposals
+  ux-tester:         { tier: free }   # follows test script with browser
+
+# Test framework (auto-detected, can be overridden)
+# test_command: "go test ./..."
+
+# Cost mode (determines which tier assignments above are active)
+# balanced:      use the per-agent tiers above (opus/sonnet/free as assigned) — DEFAULT
+# free-first:    override ALL agents to free, escalate only on failure
+# quality-first: override analytical tier to opus (15 opus + 5 free)
+#
+# User sets this explicitly. SUDD never switches cost_mode on its own.
+cost_mode: balanced
+
+# Parallelization strategy for multi-task batches
+# sequential: (DEFAULT) tasks run one at a time in main workspace — reliable, no merge risk
+# worktree:   independent tasks run in parallel git worktrees — faster but requires clean
+#             task boundaries. Only opt in if your tasks truly don't share lock files,
+#             config files, or implicit dependencies. See context-manager.md for details.
+parallelization:
+  mode: sequential
+  # mode: worktree
+

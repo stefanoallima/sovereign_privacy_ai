@@ -29,6 +29,8 @@ interface MessageBubbleProps {
   canvasIntro?: string;
   onViewCanvas?: () => void;
   attachments?: FileAttachment[];
+  /** Whether this response was enhanced by cloud delegation */
+  cloudAssisted?: boolean;
 }
 
 // Helper to get privacy icon for backend mode
@@ -122,6 +124,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   canvasIntro,
   onViewCanvas,
   attachments,
+  cloudAssisted,
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
@@ -259,6 +262,14 @@ export const MessageBubble = React.memo(function MessageBubble({
                   title={backendPrivacy.label}
                 >
                   {backendPrivacy.icon}
+                </span>
+              )}
+              {cloudAssisted && (
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded-full bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] font-medium"
+                  title="This response was enhanced with cloud AI (your data was anonymized)"
+                >
+                  cloud-assisted
                 </span>
               )}
             </div>

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, User, Smartphone, CreditCard, Hash, MapPin, FilePlus, Plus, X, Check } from 'lucide-react';
+import { Shield, User, Smartphone, CreditCard, Hash, MapPin, FilePlus, Plus, X, Check, Eye, EyeOff } from 'lucide-react';
 import { PIIValue } from '@/types/profiles';
 import { useProfileStore } from '@/stores/profiles';
 import { useUserContextStore, selectActiveProfile } from '@/stores/userContext';
+import { invoke } from '@tauri-apps/api/core';
 
 // Available PII categories for manual entry
 const PII_CATEGORIES = [
@@ -21,9 +22,14 @@ export const PIIProfileCard: React.FC = () => {
     const primaryPerson = people.find(p => p.relationship === 'primary');
     const activeUserProfile = useUserContextStore(selectActiveProfile);
     const customTerms = activeUserProfile?.customRedactTerms || [];
+    const [glinerActive, setGlinerActive] = useState<boolean | null>(null);
 
     useEffect(() => {
         fetchProfiles();
+        // Check if any GLiNER model is downloaded
+        invoke<Array<{ is_downloaded: boolean }>>('list_gliner_models')
+            .then(models => setGlinerActive(models.some(m => m.is_downloaded)))
+            .catch(() => setGlinerActive(false));
     }, []);
 
     useEffect(() => {
@@ -69,6 +75,17 @@ export const PIIProfileCard: React.FC = () => {
                     <span className="font-bold text-[hsl(var(--foreground))] text-[11px] tracking-tight uppercase">Privacy Shield</span>
                 </div>
                 <div className="flex items-center gap-1.5">
+                    {glinerActive === true ? (
+                        <span className="flex items-center gap-1 text-[9px] font-bold text-[hsl(var(--status-safe))] bg-[hsl(var(--status-safe-bg))] px-1.5 py-0.5 rounded-md" title="GLiNER PII detection active">
+                            <Eye size={10} />
+                            PII Guard
+                        </span>
+                    ) : glinerActive === false ? (
+                        <span className="flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-md" title="GLiNER not installed — go to Settings > Privacy to download">
+                            <EyeOff size={10} />
+                            No PII Guard
+                        </span>
+                    ) : null}
                     <div className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--status-safe))] animate-pulse" title="Local Encryption Enabled" />
                 </div>
             </div>

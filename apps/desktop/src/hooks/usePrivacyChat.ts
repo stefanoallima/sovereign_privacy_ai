@@ -669,6 +669,8 @@ export function usePrivacyChat() {
     "qwen3-4b": 8192,
     "qwen3.5-4b": 16384,
     "qwen3-8b": 16384,
+    "gemma4-e2b": 32768,
+    "gemma4-e4b": 32768,
   };
   const MAX_GEN: Record<string, number> = {
     "qwen3-0.6b": 1024,
@@ -676,7 +678,12 @@ export function usePrivacyChat() {
     "qwen3-4b": 2048,
     "qwen3.5-4b": 4096,
     "qwen3-8b": 4096,
+    "gemma4-e2b": 4096,
+    "gemma4-e4b": 4096,
   };
+
+  /** Whether a model uses Gemma-style chat template vs ChatML */
+  const isGemmaModel = (modelId: string) => modelId.startsWith("gemma");
 
   /** Build a short system prompt from the persona */
   function buildSystemPrompt(persona: any): string {
@@ -733,6 +740,15 @@ export function usePrivacyChat() {
       budget -= estimateTokens(docBlock) + CHATML_OVERHEAD;
     }
 
+    // Chat template helpers — Gemma uses <start_of_turn>/<end_of_turn>,
+    // Qwen/default uses ChatML <|im_start|>/<|im_end|>
+    const gemma = isGemmaModel(params.modelId);
+    const wrapMsg = (role: string, content: string) =>
+      gemma
+        ? `<start_of_turn>${role}\n${content}<end_of_turn>\n`
+        : `<|im_start|>${role}\n${content}<|im_end|>\n`;
+    const thinkDirective = gemma ? "" : " /no_think";
+
     // Priority 4: Recent history (fill remaining, newest first)
     const historyBlocks: string[] = [];
     const reversedHistory = [...params.history].reverse();
@@ -740,29 +756,26 @@ export function usePrivacyChat() {
       if (msg.content.startsWith("**Airplane Mode Error**")) continue;
       const msgTokens = estimateTokens(msg.content) + CHATML_OVERHEAD;
       if (msgTokens > budget) {
-        // Try truncating this message to fit
         const availChars = Math.floor((budget - CHATML_OVERHEAD) * 3.5);
         if (availChars > 50) {
           historyBlocks.unshift(
-            `<|im_start|>${msg.role}\n${msg.content.slice(0, availChars)}…<|im_end|>\n`
+            wrapMsg(msg.role, msg.content.slice(0, availChars) + "…")
           );
         }
         break;
       }
-      historyBlocks.unshift(
-        `<|im_start|>${msg.role}\n${msg.content}<|im_end|>\n`
-      );
+      historyBlocks.unshift(wrapMsg(msg.role, msg.content));
       budget -= msgTokens;
     }
 
     // Assemble prompt
-    let prompt = `<|im_start|>system\n${sysContent}<|im_end|>\n`;
+    let prompt = wrapMsg(gemma ? "user" : "system", sysContent);
     if (docBlock) {
-      prompt += `<|im_start|>user\n[Reference document]\n${docBlock}<|im_end|>\n`;
+      prompt += wrapMsg("user", `[Reference document]\n${docBlock}`);
     }
     prompt += historyBlocks.join("");
-    prompt += `<|im_start|>user\n${params.userMessage} /no_think<|im_end|>\n`;
-    prompt += `<|im_start|>assistant\n`;
+    prompt += wrapMsg("user", `${params.userMessage}${thinkDirective}`);
+    prompt += gemma ? `<start_of_turn>model\n` : `<|im_start|>assistant\n`;
 
     return prompt;
   }
@@ -787,10 +800,12 @@ export function usePrivacyChat() {
       .map((m) => `${m.role}: ${m.content.slice(0, 200)}`)
       .join("\n");
 
-    const summaryPrompt =
-      `<|im_start|>system\nSummarize this conversation in 2-3 sentences. Focus on key topics discussed, decisions made, and the user's situation. Be factual and concise. /no_think<|im_end|>\n` +
-      `<|im_start|>user\n${transcript}<|im_end|>\n` +
-      `<|im_start|>assistant\n`;
+    const gemma = isGemmaModel(modelId);
+    const summaryPrompt = gemma
+      ? `<start_of_turn>user\nSummarize this conversation in 2-3 sentences. Focus on key topics discussed, decisions made, and the user's situation. Be factual and concise.\n\n${transcript}<end_of_turn>\n<start_of_turn>model\n`
+      : `<|im_start|>system\nSummarize this conversation in 2-3 sentences. Focus on key topics discussed, decisions made, and the user's situation. Be factual and concise. /no_think<|im_end|>\n` +
+        `<|im_start|>user\n${transcript}<|im_end|>\n` +
+        `<|im_start|>assistant\n`;
 
     try {
       const summary = await invoke<string>("ollama_generate", {
@@ -924,26 +939,75 @@ export function usePrivacyChat() {
         `[sendLocalOnly] prompt built: ${fullPrompt.length} chars (~${estimateTokens(fullPrompt)} tokens) model=${localModelId} t=${(performance.now() - t0).toFixed(0)}ms`
       );
 
-      // Retry up to 2 times with increasing delay
+      // Check if persona has cloud delegation enabled
+      const useOrchestration = targetPersona?.enable_cloud_delegation === true;
       let response: string | undefined;
+      let wasCloudAssisted = false;
       let lastErr: unknown;
-      for (let attempt = 1; attempt <= 3; attempt++) {
+
+      if (useOrchestration) {
+        // Use orchestrated generation: local model + optional cloud delegation
+        const settings = useSettingsStore.getState().settings;
+        // Build redaction terms from the user's PII profile so the question
+        // is scrubbed before it ever reaches the cloud.
+        let redactionTerms: { label: string; value: string; replacement: string }[] | null = null;
         try {
-          response = await invoke<string>("ollama_generate", {
+          // UserProfile uses #[serde(rename_all = "camelCase")] so the key is camelCase
+          const profile = await invoke<{ customRedactTerms?: { label: string; value: string; replacement: string }[] } | null>("load_user_profile");
+          if (profile?.customRedactTerms?.length) {
+            redactionTerms = profile.customRedactTerms;
+          }
+        } catch { /* non-fatal — proceed without redaction terms */ }
+
+        try {
+          const result = await invoke<{
+            response: string;
+            cloudAssisted: boolean;
+            uncertainty: { isUncertain: boolean; confidence: number; reason: string; extractedQuestion: string | null };
+            cloudResult?: { cloudResponse: string; success: boolean; modelUsed: string; error?: string; piiRedacted: number };
+            localResponse: string;
+          }>("orchestrated_generate", {
             prompt: fullPrompt,
-            model: localModelId,
+            enableCloudDelegation: true,
+            cloudDelegationThreshold: targetPersona?.cloud_delegation_threshold ?? 0.5,
+            apiKey: settings.nebiusApiKey || null,
+            apiBaseUrl: settings.nebiusApiEndpoint || null,
+            cloudModel: targetPersona?.preferred_model_id || null,
+            redactionTerms,
           });
-          break;
+          response = result.response;
+          wasCloudAssisted = result.cloudAssisted;
+          if (wasCloudAssisted) {
+            console.log(
+              `[sendLocalOnly] cloud delegation triggered: confidence=${result.uncertainty.confidence.toFixed(2)}, reason=${result.uncertainty.reason}`
+            );
+          }
         } catch (err) {
           lastErr = err;
-          const errMsg = err instanceof Error ? err.message : String(err);
-          console.warn(
-            `[sendLocalOnly] attempt ${attempt}/3 failed: ${errMsg}`
-          );
-          if (attempt < 3) {
-            const delay = attempt * 2000;
-            console.log(`[sendLocalOnly] retrying in ${delay}ms…`);
-            await new Promise((r) => setTimeout(r, delay));
+          console.warn("[sendLocalOnly] orchestrated_generate failed, falling back to direct:", err);
+        }
+      }
+
+      // Direct local generation (default path, or fallback from orchestration failure)
+      if (response === undefined) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            response = await invoke<string>("ollama_generate", {
+              prompt: fullPrompt,
+              model: localModelId,
+            });
+            break;
+          } catch (err) {
+            lastErr = err;
+            const errMsg = err instanceof Error ? err.message : String(err);
+            console.warn(
+              `[sendLocalOnly] attempt ${attempt}/3 failed: ${errMsg}`
+            );
+            if (attempt < 3) {
+              const delay = attempt * 2000;
+              console.log(`[sendLocalOnly] retrying in ${delay}ms…`);
+              await new Promise((r) => setTimeout(r, delay));
+            }
           }
         }
       }
@@ -951,7 +1015,7 @@ export function usePrivacyChat() {
         throw lastErr;
       }
 
-      // Strip Qwen3 thinking tags from the response
+      // Strip Qwen3/Gemma thinking tags from the response
       let cleaned = response;
       cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
       if (cleaned.startsWith("</think>")) {
@@ -972,12 +1036,21 @@ export function usePrivacyChat() {
       try {
         await finalizeStreaming(
           currentConversationId!,
-          "local-ollama",
+          wasCloudAssisted ? "cloud-assisted" : "local-ollama",
           estimateTokens(fullPrompt),
           estimateTokens(cleaned),
           latencyMs,
           targetPersona?.id
         );
+
+        // Mark the last assistant message with cloudAssisted flag
+        if (wasCloudAssisted && currentConversationId) {
+          const msgs = getCurrentMessages();
+          const lastMsg = msgs[msgs.length - 1];
+          if (lastMsg?.role === "assistant") {
+            lastMsg.cloudAssisted = true;
+          }
+        }
       } catch (dbErr) {
         console.warn(
           "[sendLocalOnly] finalizeStreaming failed (non-fatal):",
@@ -997,10 +1070,12 @@ export function usePrivacyChat() {
 
       setPrivacyStatus({
         mode: "idle",
-        icon: "✈️",
-        label: "Airplane Mode",
-        explanation: "Message processed locally",
-        hadFallback: false,
+        icon: wasCloudAssisted ? "☁️" : "✈️",
+        label: wasCloudAssisted ? "Cloud-Assisted" : "Airplane Mode",
+        explanation: wasCloudAssisted
+          ? "Local model was uncertain — anonymized question sent to cloud"
+          : "Message processed locally",
+        hadFallback: false, // cloud delegation is intentional, not a fallback
       });
 
       setLoading(false);

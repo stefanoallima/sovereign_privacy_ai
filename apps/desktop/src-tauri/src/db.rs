@@ -53,6 +53,9 @@ pub struct Persona {
     pub preferred_backend: String, // 'nebius' | 'ollama' | 'hybrid'
     pub anonymization_mode: String, // 'none' | 'optional' | 'required'
     pub local_ollama_model: Option<String>,
+    // Smart cloud delegation (orchestration)
+    pub enable_cloud_delegation: bool,
+    pub cloud_delegation_threshold: f64, // 0.0–1.0, default 0.5
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -194,7 +197,10 @@ pub fn init_db() -> Result<Connection> {
             enable_local_anonymizer INTEGER DEFAULT 0,
             preferred_backend TEXT DEFAULT 'nebius',
             anonymization_mode TEXT DEFAULT 'none',
-            local_ollama_model TEXT
+            local_ollama_model TEXT,
+            -- Smart cloud delegation (orchestration)
+            enable_cloud_delegation INTEGER DEFAULT 0,
+            cloud_delegation_threshold REAL DEFAULT 0.5
         );
 
         -- Projects table
@@ -306,7 +312,7 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     "#)?;
 
     // Check if columns exist by trying to query them (safe approach for SQLite)
-    let column_check = conn.query_row(
+    let _column_check = conn.query_row(
         "PRAGMA table_info(personas)",
         [],
         |_| Ok(()),
@@ -328,6 +334,16 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "ALTER TABLE personas ADD COLUMN local_ollama_model TEXT",
+        [],
+    );
+
+    // Migration: Smart cloud delegation columns
+    let _ = conn.execute(
+        "ALTER TABLE personas ADD COLUMN enable_cloud_delegation INTEGER DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE personas ADD COLUMN cloud_delegation_threshold REAL DEFAULT 0.5",
         [],
     );
 
@@ -447,8 +463,8 @@ pub fn get_messages(conn: &Connection, conversation_id: &str) -> Result<Vec<Mess
 // Persona operations
 pub fn create_persona(conn: &Connection, persona: &Persona) -> Result<()> {
     conn.execute(
-        "INSERT INTO personas (id, name, description, system_prompt, voice_id, preferred_model_id, temperature, max_tokens, is_built_in, created_at, updated_at, enable_local_anonymizer, preferred_backend, anonymization_mode, local_ollama_model)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO personas (id, name, description, system_prompt, voice_id, preferred_model_id, temperature, max_tokens, is_built_in, created_at, updated_at, enable_local_anonymizer, preferred_backend, anonymization_mode, local_ollama_model, enable_cloud_delegation, cloud_delegation_threshold)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             persona.id,
             persona.name,
@@ -465,6 +481,8 @@ pub fn create_persona(conn: &Connection, persona: &Persona) -> Result<()> {
             persona.preferred_backend,
             persona.anonymization_mode,
             persona.local_ollama_model,
+            persona.enable_cloud_delegation as i32,
+            persona.cloud_delegation_threshold,
         ],
     )?;
     Ok(())
@@ -472,7 +490,7 @@ pub fn create_persona(conn: &Connection, persona: &Persona) -> Result<()> {
 
 pub fn get_personas(conn: &Connection) -> Result<Vec<Persona>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, description, system_prompt, voice_id, preferred_model_id, temperature, max_tokens, is_built_in, created_at, updated_at, enable_local_anonymizer, preferred_backend, anonymization_mode, local_ollama_model
+        "SELECT id, name, description, system_prompt, voice_id, preferred_model_id, temperature, max_tokens, is_built_in, created_at, updated_at, enable_local_anonymizer, preferred_backend, anonymization_mode, local_ollama_model, enable_cloud_delegation, cloud_delegation_threshold
          FROM personas ORDER BY is_built_in DESC, name ASC"
     )?;
 
@@ -493,6 +511,8 @@ pub fn get_personas(conn: &Connection) -> Result<Vec<Persona>> {
             preferred_backend: row.get(12)?,
             anonymization_mode: row.get(13)?,
             local_ollama_model: row.get(14)?,
+            enable_cloud_delegation: row.get::<_, i32>(15).unwrap_or(0) != 0,
+            cloud_delegation_threshold: row.get::<_, f64>(16).unwrap_or(0.5),
         })
     })?;
 
@@ -507,7 +527,7 @@ pub fn delete_persona(conn: &Connection, id: &str) -> Result<()> {
 
 pub fn update_persona(conn: &Connection, persona: &Persona) -> Result<()> {
     conn.execute(
-        "UPDATE personas SET name = ?, description = ?, system_prompt = ?, voice_id = ?, preferred_model_id = ?, temperature = ?, max_tokens = ?, enable_local_anonymizer = ?, preferred_backend = ?, anonymization_mode = ?, local_ollama_model = ?, updated_at = ? WHERE id = ?",
+        "UPDATE personas SET name = ?, description = ?, system_prompt = ?, voice_id = ?, preferred_model_id = ?, temperature = ?, max_tokens = ?, enable_local_anonymizer = ?, preferred_backend = ?, anonymization_mode = ?, local_ollama_model = ?, enable_cloud_delegation = ?, cloud_delegation_threshold = ?, updated_at = ? WHERE id = ?",
         params![
             persona.name,
             persona.description,
@@ -520,6 +540,8 @@ pub fn update_persona(conn: &Connection, persona: &Persona) -> Result<()> {
             persona.preferred_backend,
             persona.anonymization_mode,
             persona.local_ollama_model,
+            persona.enable_cloud_delegation as i32,
+            persona.cloud_delegation_threshold,
             persona.updated_at,
             persona.id,
         ],
