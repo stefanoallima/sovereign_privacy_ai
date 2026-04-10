@@ -42,6 +42,8 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
       enable_local_anonymizer: false,
       preferred_backend: 'nebius',
       anonymization_mode: 'none',
+      enable_cloud_delegation: false,
+      cloud_delegation_threshold: 0.5,
     }
   );
 
@@ -290,6 +292,64 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
         </div>
       )}
 
+      {/* Smart Cloud Delegation */}
+      {(config.preferred_backend === 'ollama' || config.preferred_backend === 'hybrid') && (
+        <div className="space-y-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)] p-4">
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="enable-cloud-delegation"
+              checked={config.enable_cloud_delegation ?? false}
+              onChange={() =>
+                setConfig({
+                  ...config,
+                  enable_cloud_delegation: !config.enable_cloud_delegation,
+                })
+              }
+              className="mt-1 h-4 w-4 rounded border-[hsl(var(--border))] text-[hsl(var(--primary))]"
+            />
+            <div className="flex-1">
+              <label htmlFor="enable-cloud-delegation" className="font-medium text-[hsl(var(--foreground))]">
+                Smart Cloud Delegation
+              </label>
+              <p className="mt-1 text-sm text-[hsl(var(--foreground-muted))]">
+                When the local model is uncertain, automatically delegate the question to the cloud for a better answer. Your data is anonymized before sending.
+              </p>
+            </div>
+          </div>
+
+          {config.enable_cloud_delegation && (
+            <div className="border-t border-[hsl(var(--border))] pt-4">
+              <label
+                htmlFor="delegation-threshold"
+                className="block text-sm font-medium text-[hsl(var(--foreground-muted))] mb-2"
+              >
+                Confidence Threshold: {((config.cloud_delegation_threshold ?? 0.5) * 100).toFixed(0)}%
+              </label>
+              <input
+                id="delegation-threshold"
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={(config.cloud_delegation_threshold ?? 0.5) * 100}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    cloud_delegation_threshold: parseInt(e.target.value) / 100,
+                  })
+                }
+                className="w-full accent-[hsl(var(--primary))]"
+              />
+              <div className="flex justify-between text-[11px] text-[hsl(var(--foreground-muted))] mt-1">
+                <span>Delegate often (low threshold)</span>
+                <span>Rarely delegate (high threshold)</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Validation Feedback */}
       {!validation.is_valid && (
         <div className="rounded-lg bg-[hsl(var(--status-danger-bg))] border border-[hsl(var(--status-danger-border))] p-4">
@@ -337,6 +397,14 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
             <div className="flex justify-between">
               <dt className="font-medium text-[hsl(var(--foreground-muted))]">Model:</dt>
               <dd className="text-[hsl(var(--foreground))] font-mono text-xs">{config.local_ollama_model}</dd>
+            </div>
+          )}
+          {config.enable_cloud_delegation && (
+            <div className="flex justify-between">
+              <dt className="font-medium text-[hsl(var(--foreground-muted))]">Cloud Delegation:</dt>
+              <dd className="text-[hsl(var(--foreground))]">
+                Enabled ({((config.cloud_delegation_threshold ?? 0.5) * 100).toFixed(0)}% threshold)
+              </dd>
             </div>
           )}
         </dl>

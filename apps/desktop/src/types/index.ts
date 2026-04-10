@@ -97,6 +97,9 @@ export interface Persona {
   preferred_backend?: 'nebius' | 'ollama' | 'hybrid';
   anonymization_mode?: 'none' | 'optional' | 'required';
   local_ollama_model?: string;
+  // Smart cloud delegation (orchestration)
+  enable_cloud_delegation?: boolean;
+  cloud_delegation_threshold?: number;
   // PII Vault requirement (for personas like Tax Advisor)
   requiresPIIVault?: boolean;
 }
@@ -156,6 +159,8 @@ export interface Message {
   privacyLevel?: 'local-only' | 'anonymized' | 'public';
   piiTypesDetected?: string[];
   approvalStatus?: 'pending' | 'approved' | 'rejected';
+  // Cloud delegation
+  cloudAssisted?: boolean;
   // Canvas routing
   canvasDocId?: string;
   canvasIntro?: string;

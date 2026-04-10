@@ -41,6 +41,8 @@ mod local_memory_commands;
 mod knowledge_store;
 mod knowledge_commands;
 mod chunker;
+mod orchestration;
+mod orchestration_commands;
 
 use commands::DbState;
 use tts::PiperTts;
@@ -406,6 +408,9 @@ pub fn run() {
             knowledge_commands::list_kb_documents,
             knowledge_commands::delete_kb_document,
             knowledge_commands::search_knowledge,
+            // Orchestration (smart cloud delegation)
+            orchestration_commands::orchestrated_generate,
+            orchestration_commands::check_response_uncertainty,
         ])
         .setup(|app| {
             // Point ort to the bundled ONNX Runtime so GLiNER works on user machines

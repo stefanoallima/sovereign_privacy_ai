@@ -239,12 +239,13 @@ export function PromptReviewPanel({
             </span>
             {piiReport.contentSources.map((src, i) => (
               <span
-                key={src}
-                className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-500/10 text-red-300 text-[10px] font-medium"
+                key={src.source}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 text-red-300 text-[10px] font-medium"
               >
-                {src}
+                {src.source}
+                <span className="opacity-70">{src.redactionCount}</span>
                 {i < piiReport.contentSources.length - 1 && (
-                  <span className="ml-1 opacity-50">·</span>
+                  <span className="opacity-50">·</span>
                 )}
               </span>
             ))}

@@ -297,7 +297,7 @@ export function ModelSettings() {
                           DOWNLOADED
                         </span>
                       )}
-                      {model.id === 'qwen3-1.7b' && !model.is_downloaded && (
+                      {(model.id === 'gemma4-e4b' || (model.id === 'qwen3-1.7b' && !localModels.some(m => m.id === 'gemma4-e4b'))) && !model.is_downloaded && (
                         <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]">
                           RECOMMENDED
                         </span>
