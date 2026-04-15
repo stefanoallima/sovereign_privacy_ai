@@ -1,7 +1,7 @@
 {
   "active_change": "",
   "audit": {
-    "changes_since_last_audit": 4
+    "changes_since_last_audit": 5
   },
   "auto_session": {
     "started_at": "2026-04-15T16:06:31+02:00",
@@ -38,14 +38,17 @@
         "tasks_completed": 0,
         "tasks_total": 23,
         "exit_code": 1
+      },
+      {
+        "change_id": "green_perf-privacy-opt_01",
+        "outcome": "UNKNOWN",
+        "elapsed_seconds": 39.5986999,
+        "tasks_completed": 0,
+        "tasks_total": 16,
+        "exit_code": 1
       }
     ],
     "queue_remaining": [
-      {
-        "id": "green_perf-privacy-opt_01",
-        "mode": "brown",
-        "source": "proposal"
-      },
       {
         "id": "green_gemma4-orchestration_01",
         "mode": "brown",
@@ -60,7 +63,7 @@
   },
   "autonomy": "full",
   "discovery": {
-    "changes_since_last": 4
+    "changes_since_last": 5
   },
   "gate_passed": false,
   "gate_score": null,
