@@ -1,7 +1,7 @@
 {
   "active_change": "",
   "audit": {
-    "changes_since_last_audit": 2,
+    "changes_since_last_audit": 3,
     "last_audit_at": "2026-04-15T16:42:57+02:00"
   },
   "auto_session": {
@@ -23,14 +23,17 @@
         "tasks_completed": 0,
         "tasks_total": 16,
         "exit_code": 1
+      },
+      {
+        "change_id": "green_local-rag_01",
+        "outcome": "UNKNOWN",
+        "elapsed_seconds": 14.3249097,
+        "tasks_completed": 0,
+        "tasks_total": 23,
+        "exit_code": 1
       }
     ],
     "queue_remaining": [
-      {
-        "id": "green_local-rag_01",
-        "mode": "brown",
-        "source": "proposal"
-      },
       {
         "id": "green_perf-privacy-opt_01",
         "mode": "brown",
@@ -50,7 +53,7 @@
   },
   "autonomy": "full",
   "discovery": {
-    "changes_since_last": 7
+    "changes_since_last": 8
   },
   "gate_passed": false,
   "gate_score": null,
