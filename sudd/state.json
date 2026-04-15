@@ -1,54 +1,38 @@
 {
   "active_change": "",
   "audit": {
-    "changes_since_last_audit": 5
+    "changes_since_last_audit": 1,
+    "last_audit_at": "2026-04-15T16:42:57+02:00"
   },
   "auto_session": {
-    "started_at": "2026-04-15T16:06:31+02:00",
+    "started_at": "2026-04-15T16:57:25+02:00",
     "stop_reason": "",
     "changes_processed": [
       {
-        "change_id": "green_custom-model-hf_01",
-        "outcome": "DONE",
-        "elapsed_seconds": 792.2385456,
-        "tasks_completed": 9,
-        "tasks_total": 9,
-        "exit_code": 0
-      },
-      {
         "change_id": "green_dynamic-gpu_01",
         "outcome": "DONE",
-        "elapsed_seconds": 1206.8265043,
+        "elapsed_seconds": 8.9005238,
         "tasks_completed": 13,
         "tasks_total": 13,
-        "exit_code": 0
-      },
-      {
-        "change_id": "green_pii-pipeline-v2_01",
-        "outcome": "UNKNOWN",
-        "elapsed_seconds": 108.0830915,
-        "tasks_completed": 0,
-        "tasks_total": 16,
-        "exit_code": 1
-      },
-      {
-        "change_id": "green_local-rag_01",
-        "outcome": "UNKNOWN",
-        "elapsed_seconds": 16.9459255,
-        "tasks_completed": 0,
-        "tasks_total": 23,
-        "exit_code": 1
-      },
-      {
-        "change_id": "green_perf-privacy-opt_01",
-        "outcome": "UNKNOWN",
-        "elapsed_seconds": 39.5986999,
-        "tasks_completed": 0,
-        "tasks_total": 16,
         "exit_code": 1
       }
     ],
     "queue_remaining": [
+      {
+        "id": "green_pii-pipeline-v2_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_local-rag_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_perf-privacy-opt_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
       {
         "id": "green_gemma4-orchestration_01",
         "mode": "brown",
@@ -63,7 +47,7 @@
   },
   "autonomy": "full",
   "discovery": {
-    "changes_since_last": 5
+    "changes_since_last": 6
   },
   "gate_passed": false,
   "gate_score": null,
