@@ -1,21 +1,73 @@
 {
-  "version": "1.0",
-  "mode": "green",
+  "active_change": "",
+  "audit": {
+    "changes_since_last_audit": 1
+  },
+  "auto_session": {
+    "started_at": "2026-04-15T16:06:31+02:00",
+    "stop_reason": "",
+    "changes_processed": [
+      {
+        "change_id": "green_custom-model-hf_01",
+        "outcome": "DONE",
+        "elapsed_seconds": 792.2385456,
+        "tasks_completed": 9,
+        "tasks_total": 9,
+        "exit_code": 0
+      }
+    ],
+    "queue_remaining": [
+      {
+        "id": "green_dynamic-gpu_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_pii-pipeline-v2_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_local-rag_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_perf-privacy-opt_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_gemma4-orchestration_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green:vision",
+        "mode": "green",
+        "source": "vision"
+      }
+    ]
+  },
   "autonomy": "full",
-  "active_change": "green_gemma4-orchestration_01",
-  "phase": "validate",
-  "retry_count": 0,
-  "imported_from": null,
-  "tests_passed": true,
-  "gate_score": null,
+  "discovery": {
+    "changes_since_last": 1
+  },
   "gate_passed": false,
+  "gate_score": null,
+  "imported_from": null,
+  "last_command": "sudd:plan",
+  "last_run": "2026-04-15T00:00:00Z",
+  "mode": "green",
+  "phase": "inception",
+  "retry_count": 0,
   "stats": {
-    "tasks_completed": 6,
+    "tasks_completed": 0,
     "tasks_stuck": 0,
     "tasks_blocked": 0,
     "total_retries": 0
   },
   "task_retries": {},
-  "last_command": "sudd:run",
-  "last_run": "2026-04-04T00:00:00Z"
+  "tests_passed": false,
+  "version": "1.0"
 }
