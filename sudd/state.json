@@ -1,7 +1,7 @@
 {
   "active_change": "",
   "audit": {
-    "changes_since_last_audit": 1,
+    "changes_since_last_audit": 2,
     "last_audit_at": "2026-04-15T16:42:57+02:00"
   },
   "auto_session": {
@@ -15,14 +15,17 @@
         "tasks_completed": 13,
         "tasks_total": 13,
         "exit_code": 1
+      },
+      {
+        "change_id": "green_pii-pipeline-v2_01",
+        "outcome": "UNKNOWN",
+        "elapsed_seconds": 8.2317419,
+        "tasks_completed": 0,
+        "tasks_total": 16,
+        "exit_code": 1
       }
     ],
     "queue_remaining": [
-      {
-        "id": "green_pii-pipeline-v2_01",
-        "mode": "brown",
-        "source": "proposal"
-      },
       {
         "id": "green_local-rag_01",
         "mode": "brown",
@@ -47,7 +50,7 @@
   },
   "autonomy": "full",
   "discovery": {
-    "changes_since_last": 6
+    "changes_since_last": 7
   },
   "gate_passed": false,
   "gate_score": null,
