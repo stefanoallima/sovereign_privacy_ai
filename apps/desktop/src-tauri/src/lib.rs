@@ -340,6 +340,12 @@ pub fn run() {
             inference_commands::get_local_download_progress,
             inference_commands::get_local_models_dir,
             inference_commands::get_gpu_info,
+            inference_commands::set_gpu_enabled,
+            inference_commands::is_gpu_enabled,
+            // Custom model management (HuggingFace GGUF)
+            inference_commands::fetch_hf_model_metadata,
+            inference_commands::add_custom_model,
+            inference_commands::remove_custom_model,
             // Anonymization
             anonymization_commands::anonymize_text,
             anonymization_commands::validate_anonymization,

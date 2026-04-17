@@ -38,7 +38,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.2/bin/x64/cublas64_13.dll": "",
+      "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.2/bin/x64/cublasLt64_13.dll": "",
+      "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.2/bin/x64/cudart64_13.dll": ""
+    }
   },
   "plugins": {
     "updater": {
