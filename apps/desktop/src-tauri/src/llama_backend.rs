@@ -16,7 +16,7 @@ static LLAMA_BACKEND: OnceLock<LlamaBackendInit> = OnceLock::new();
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::num::NonZeroU32;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -135,6 +135,188 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
     ]
 }
 
+// ---------------------------------------------------------------------------
+// Custom model storage — user-added GGUF models from HuggingFace
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CustomModelFile {
+    custom_models: Vec<LocalModelInfo>,
+}
+
+pub struct CustomModelStore;
+
+impl CustomModelStore {
+    fn path(models_dir: &Path) -> PathBuf {
+        models_dir.join("custom_models.json")
+    }
+
+    pub fn load(models_dir: &Path) -> Result<Vec<LocalModelInfo>, String> {
+        let path = Self::path(models_dir);
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let data = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read custom models: {}", e))?;
+        let file: CustomModelFile = serde_json::from_str(&data)
+            .map_err(|e| format!("Failed to parse custom models JSON: {}", e))?;
+        Ok(file.custom_models)
+    }
+
+    pub fn save(models_dir: &Path, models: &[LocalModelInfo]) -> Result<(), String> {
+        let file = CustomModelFile {
+            custom_models: models.to_vec(),
+        };
+        let json = serde_json::to_string_pretty(&file)
+            .map_err(|e| format!("Failed to serialize custom models: {}", e))?;
+        std::fs::write(Self::path(models_dir), json)
+            .map_err(|e| format!("Failed to write custom models: {}", e))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// HuggingFace integration — URL parsing and metadata fetching
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HfModelMetadata {
+    pub repo_id: String,
+    pub filename: String,
+    pub name: String,
+    pub description: String,
+    pub inferred_ctx_size: u32,
+}
+
+/// Parse a HuggingFace URL or repo ID into (repo_id, filename).
+///
+/// Supported formats:
+/// - Full URL: `https://huggingface.co/{owner}/{repo}/resolve/main/{filename}`
+/// - Blob URL: `https://huggingface.co/{owner}/{repo}/blob/main/{filename}`
+/// - Short repo ID: `{owner}/{repo}` (filename defaults to first .gguf found)
+pub fn parse_hf_url(url: &str) -> Result<(String, String), String> {
+    let url = url.trim();
+
+    // Full URL format
+    if url.starts_with("https://huggingface.co/") || url.starts_with("http://huggingface.co/") {
+        let path = url
+            .trim_start_matches("https://huggingface.co/")
+            .trim_start_matches("http://huggingface.co/");
+
+        // Expected: {owner}/{repo}/resolve/main/{filename}
+        // or:       {owner}/{repo}/blob/main/{filename}
+        let parts: Vec<&str> = path.splitn(5, '/').collect();
+        if parts.len() >= 5 && (parts[2] == "resolve" || parts[2] == "blob") {
+            let repo_id = format!("{}/{}", parts[0], parts[1]);
+            let filename = parts[4].to_string();
+            if filename.is_empty() {
+                return Err("URL has no filename".into());
+            }
+            return Ok((repo_id, filename));
+        }
+
+        // Might be just https://huggingface.co/{owner}/{repo}
+        if parts.len() >= 2 && !parts[0].is_empty() && !parts[1].is_empty() {
+            let repo_id = format!("{}/{}", parts[0], parts[1]);
+            return Ok((repo_id, String::new()));
+        }
+
+        return Err(format!("Could not parse HuggingFace URL: {}", url));
+    }
+
+    // Short format: owner/repo or owner/repo/filename
+    if url.contains('/') && !url.contains("://") {
+        let parts: Vec<&str> = url.splitn(3, '/').collect();
+        if parts.len() >= 2 && !parts[0].is_empty() && !parts[1].is_empty() {
+            let repo_id = format!("{}/{}", parts[0], parts[1]);
+            let filename = if parts.len() == 3 && !parts[2].is_empty() {
+                parts[2].to_string()
+            } else {
+                String::new()
+            };
+            return Ok((repo_id, filename));
+        }
+    }
+
+    Err(format!("Invalid HuggingFace URL or repo ID: {}", url))
+}
+
+/// Fetch model metadata from the HuggingFace API.
+pub async fn fetch_hf_metadata(repo_id: &str) -> Result<HfModelMetadata, String> {
+    let api_url = format!("https://huggingface.co/api/models/{}", repo_id);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let response = client
+        .get(&api_url)
+        .send()
+        .await
+        .map_err(|e| {
+            if e.is_timeout() {
+                "Couldn't reach HuggingFace. Check your connection.".to_string()
+            } else {
+                format!("Network error: {}", e)
+            }
+        })?;
+
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err("Model not found on HuggingFace. Check the URL.".into());
+    }
+    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        return Err("Too many requests. Try again later.".into());
+    }
+    if !response.status().is_success() {
+        return Err(format!("HuggingFace error: HTTP {}", response.status()));
+    }
+
+    let body: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse HF API response: {}", e))?;
+
+    let model_id = body["modelId"]
+        .as_str()
+        .unwrap_or(repo_id)
+        .to_string();
+
+    // Derive a friendly name from the model ID
+    let name = model_id
+        .split('/')
+        .last()
+        .unwrap_or(&model_id)
+        .to_string();
+
+    let description = body["description"]
+        .as_str()
+        .map(|d| d.chars().take(200).collect::<String>())
+        .unwrap_or_default();
+
+    // Try to find a .gguf filename from siblings
+    let filename = body["siblings"]
+        .as_array()
+        .and_then(|siblings| {
+            siblings.iter().find_map(|s| {
+                let fname = s["rfilename"].as_str()?;
+                if fname.ends_with(".gguf") {
+                    Some(fname.to_string())
+                } else {
+                    None
+                }
+            })
+        })
+        .unwrap_or_default();
+
+    Ok(HfModelMetadata {
+        repo_id: model_id,
+        filename,
+        name,
+        description,
+        inferred_ctx_size: 8192,
+    })
+}
+
 /// Max generation tokens, scaled by context size.
 /// Larger context → more room for the model to think and respond.
 fn max_gen_tokens(ctx_size: u32) -> usize {
@@ -181,6 +363,10 @@ pub struct LlamaCppBackend {
     is_loading: Arc<AtomicBool>,
     /// Which model ID should be loaded / is active
     active_model_id: Arc<Mutex<String>>,
+    /// Whether GPU acceleration is enabled (user toggle)
+    gpu_enabled: Arc<AtomicBool>,
+    /// Last generation speed in tokens/second
+    last_gen_speed_tps: Arc<std::sync::atomic::AtomicU32>,
 }
 
 impl LlamaCppBackend {
@@ -213,6 +399,8 @@ impl LlamaCppBackend {
             download_progress: Arc::new(AtomicU8::new(0)),
             is_loading: Arc::new(AtomicBool::new(false)),
             active_model_id: Arc::new(Mutex::new(initial_model)),
+            gpu_enabled: Arc::new(AtomicBool::new(true)),
+            last_gen_speed_tps: Arc::new(std::sync::atomic::AtomicU32::new(0)),
         })
     }
 
@@ -226,15 +414,35 @@ impl LlamaCppBackend {
     }
 
     /// List all models with their download status populated.
+    /// Merges hardcoded registry with user-added custom models.
     pub fn list_models(&self) -> Vec<LocalModelInfo> {
-        local_model_registry().into_iter().map(|mut m| {
+        let mut models: Vec<LocalModelInfo> = local_model_registry().into_iter().map(|mut m| {
             let path = self.model_path(&m.filename);
             m.is_downloaded = path.exists() && path.metadata().map(|md| md.len() > 1_000_000).unwrap_or(false);
             if m.is_downloaded {
                 m.local_path = Some(path.to_string_lossy().into_owned());
             }
             m
-        }).collect()
+        }).collect();
+
+        // Append custom models
+        if let Ok(custom) = CustomModelStore::load(&self.models_dir) {
+            for mut m in custom {
+                let path = self.model_path(&m.filename);
+                m.is_downloaded = path.exists() && path.metadata().map(|md| md.len() > 1_000_000).unwrap_or(false);
+                if m.is_downloaded {
+                    m.local_path = Some(path.to_string_lossy().into_owned());
+                }
+                models.push(m);
+            }
+        }
+
+        models
+    }
+
+    /// Get the models directory path.
+    pub fn models_dir(&self) -> &Path {
+        &self.models_dir
     }
 
     pub fn models_dir_string(&self) -> String {
@@ -248,8 +456,7 @@ impl LlamaCppBackend {
 
     /// Set the active model. The actual load/unload happens lazily in load_model_if_needed().
     pub async fn set_active_model(&self, model_id: &str) -> Result<(), InferenceError> {
-        let registry = local_model_registry();
-        if !registry.iter().any(|m| m.id == model_id) {
+        if !self.list_models().iter().any(|m| m.id == model_id) {
             return Err(InferenceError::ModelNotFound(format!("Unknown model: {}", model_id)));
         }
         let mut active = self.active_model_id.lock().await;
@@ -262,8 +469,8 @@ impl LlamaCppBackend {
 
     /// Download a specific model by ID.
     pub async fn download_model_by_id(&self, model_id: &str) -> Result<(), InferenceError> {
-        let registry = local_model_registry();
-        let info = registry.iter().find(|m| m.id == model_id)
+        let all_models = self.list_models();
+        let info = all_models.iter().find(|m| m.id == model_id)
             .ok_or_else(|| InferenceError::ModelNotFound(format!("Unknown model: {}", model_id)))?;
 
         let path = self.model_path(&info.filename);
@@ -344,8 +551,8 @@ impl LlamaCppBackend {
 
     /// Delete a downloaded model.
     pub fn delete_model(&self, model_id: &str) -> Result<(), InferenceError> {
-        let registry = local_model_registry();
-        let info = registry.iter().find(|m| m.id == model_id)
+        let all_models = self.list_models();
+        let info = all_models.iter().find(|m| m.id == model_id)
             .ok_or_else(|| InferenceError::ModelNotFound(format!("Unknown model: {}", model_id)))?;
 
         let path = self.model_path(&info.filename);
@@ -362,8 +569,37 @@ impl LlamaCppBackend {
         self.download_progress.load(Ordering::Relaxed)
     }
 
-    fn get_active_model_info_sync(active_id: &str) -> Option<LocalModelInfo> {
-        local_model_registry().into_iter().find(|m| m.id == active_id)
+    /// Get whether GPU acceleration is enabled.
+    pub fn is_gpu_enabled(&self) -> bool {
+        self.gpu_enabled.load(Ordering::Relaxed)
+    }
+
+    /// Toggle GPU acceleration. Unloads the current model so it reloads
+    /// with the new GPU layer count on next inference.
+    pub async fn set_gpu_enabled(&self, enabled: bool) {
+        let prev = self.gpu_enabled.swap(enabled, Ordering::Relaxed);
+        if prev != enabled {
+            eprintln!("[llama] GPU enabled: {} → {}", prev, enabled);
+            // Force model reload with new GPU settings
+            let mut guard = self.loaded_model.lock().await;
+            *guard = None;
+        }
+    }
+
+    /// Last generation speed in tokens/second.
+    pub fn last_gen_speed_tps(&self) -> f32 {
+        f32::from_bits(self.last_gen_speed_tps.load(Ordering::Relaxed))
+    }
+
+    fn get_active_model_info_sync(active_id: &str, models_dir: &Path) -> Option<LocalModelInfo> {
+        // Check hardcoded registry first
+        if let Some(m) = local_model_registry().into_iter().find(|m| m.id == active_id) {
+            return Some(m);
+        }
+        // Check custom models
+        CustomModelStore::load(models_dir)
+            .ok()
+            .and_then(|custom| custom.into_iter().find(|m| m.id == active_id))
     }
 
     async fn load_model_if_needed(&self) -> Result<(), InferenceError> {
@@ -416,7 +652,7 @@ impl LlamaCppBackend {
     }
 
     async fn do_load_model(&self, model_id: &str) -> Result<(), InferenceError> {
-        let info = Self::get_active_model_info_sync(model_id)
+        let info = Self::get_active_model_info_sync(model_id, &self.models_dir)
             .ok_or_else(|| InferenceError::ModelNotFound(format!("Unknown model: {}", model_id)))?;
 
         let model_path = self.model_path(&info.filename);
@@ -432,24 +668,30 @@ impl LlamaCppBackend {
         let ctx_size = info.ctx_size;
         let model_id_owned = model_id.to_string();
 
-        // GPU auto-detection: use env override if set, otherwise auto-detect
+        // GPU auto-detection: check user toggle, env override, or auto-detect
+        let gpu_user_enabled = self.gpu_enabled.load(Ordering::Relaxed);
         let model_size_for_gpu = info.size_bytes;
-        let n_gpu_layers = match std::env::var("AILOCALMIND_GPU_LAYERS")
-            .ok()
-            .and_then(|v| v.parse::<u32>().ok())
-        {
-            Some(manual) => {
-                eprintln!("[llama] GPU layers override via AILOCALMIND_GPU_LAYERS={}", manual);
-                manual
-            }
-            None => {
-                let gpu = gpu_detect::detect_gpu();
-                let layers = gpu_detect::recommended_gpu_layers(&gpu, model_size_for_gpu);
-                eprintln!(
-                    "[llama] GPU: {} ({}MB VRAM, backend={}), offloading {} layers",
-                    gpu.name, gpu.vram_mb, gpu.backend, layers
-                );
-                layers
+        let n_gpu_layers = if !gpu_user_enabled {
+            eprintln!("[llama] GPU disabled by user toggle — using CPU only");
+            0
+        } else {
+            match std::env::var("AILOCALMIND_GPU_LAYERS")
+                .ok()
+                .and_then(|v| v.parse::<u32>().ok())
+            {
+                Some(manual) => {
+                    eprintln!("[llama] GPU layers override via AILOCALMIND_GPU_LAYERS={}", manual);
+                    manual
+                }
+                None => {
+                    let gpu = gpu_detect::detect_gpu();
+                    let layers = gpu_detect::recommended_gpu_layers(&gpu, model_size_for_gpu);
+                    eprintln!(
+                        "[llama] GPU: {} ({}MB VRAM, backend={}), offloading {} layers",
+                        gpu.name, gpu.vram_mb, gpu.backend, layers
+                    );
+                    layers
+                }
             }
         };
 
@@ -506,6 +748,7 @@ impl LlamaCppBackend {
 
         let prompt_owned = prompt.to_string();
         let loaded_model = self.loaded_model.clone();
+        let speed_tps = self.last_gen_speed_tps.clone();
 
         tokio::task::spawn_blocking(move || -> Result<String, InferenceError> {
             let start = std::time::Instant::now();
@@ -678,10 +921,12 @@ impl LlamaCppBackend {
             let gen_ms = gen_start.elapsed().as_millis();
             let n_gen = n_cur as usize - token_count;
             let total_ms = start.elapsed().as_millis();
+            let tps = if gen_ms > 0 { n_gen as f64 / (gen_ms as f64 / 1000.0) } else { 0.0 };
             eprintln!("[llama] generation: {} tokens in {}ms ({:.1} tok/s), total: {}ms",
-                n_gen, gen_ms,
-                if gen_ms > 0 { n_gen as f64 / (gen_ms as f64 / 1000.0) } else { 0.0 },
-                total_ms);
+                n_gen, gen_ms, tps, total_ms);
+
+            // Record speed for frontend display
+            speed_tps.store((tps as f32).to_bits(), Ordering::Relaxed);
 
             let output = String::from_utf8_lossy(&output_bytes).into_owned();
 
@@ -730,8 +975,7 @@ fn extract_json_object(text: &str) -> Option<String> {
 #[async_trait]
 impl LocalInference for LlamaCppBackend {
     async fn is_available(&self) -> bool {
-        let registry = local_model_registry();
-        registry.iter().any(|m| self.is_file_downloaded(&m.filename))
+        self.list_models().iter().any(|m| self.is_file_downloaded(&m.filename))
     }
 
     async fn generate(&self, prompt: &str, _model: &str) -> Result<String, InferenceError> {
@@ -747,8 +991,8 @@ impl LocalInference for LlamaCppBackend {
     }
 
     async fn ensure_model(&self, model_name: &str) -> Result<(), InferenceError> {
-        let registry = local_model_registry();
-        let info = registry.iter()
+        let all_models = self.list_models();
+        let info = all_models.iter()
             .find(|m| m.id == model_name || m.filename == model_name)
             .cloned();
 
@@ -780,7 +1024,7 @@ impl LocalInference for LlamaCppBackend {
 
     async fn get_model_status(&self) -> ModelStatus {
         let active_id = self.active_model_id.lock().await.clone();
-        let info = Self::get_active_model_info_sync(&active_id);
+        let info = Self::get_active_model_info_sync(&active_id, &self.models_dir);
 
         let (is_downloaded, model_name, model_size) = if let Some(info) = &info {
             (self.is_file_downloaded(&info.filename), info.filename.clone(), info.size_bytes)
@@ -804,6 +1048,8 @@ impl LocalInference for LlamaCppBackend {
             model_name,
             model_size_bytes: model_size,
             gpu_layers,
+            gpu_enabled: self.gpu_enabled.load(Ordering::Relaxed),
+            last_gen_speed_tps: self.last_gen_speed_tps(),
         }
     }
 }
@@ -879,5 +1125,88 @@ mod tests {
         assert_eq!(batch_size(16384), 256);
         assert_eq!(batch_size(32768), 512);
         assert_eq!(batch_size(131072), 512);
+    }
+
+    // -----------------------------------------------------------------------
+    // Custom model tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_parse_hf_url_full() {
+        let (repo, file) = parse_hf_url(
+            "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-e4b-it-Q4_K_M.gguf"
+        ).unwrap();
+        assert_eq!(repo, "ggml-org/gemma-4-E4B-it-GGUF");
+        assert_eq!(file, "gemma-4-e4b-it-Q4_K_M.gguf");
+    }
+
+    #[test]
+    fn test_parse_hf_url_blob() {
+        let (repo, file) = parse_hf_url(
+            "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/blob/main/llama-2-7b.Q4_K_M.gguf"
+        ).unwrap();
+        assert_eq!(repo, "TheBloke/Llama-2-7B-GGUF");
+        assert_eq!(file, "llama-2-7b.Q4_K_M.gguf");
+    }
+
+    #[test]
+    fn test_parse_hf_url_short_repo() {
+        let (repo, file) = parse_hf_url("ggml-org/gemma-4-E4B-it-GGUF").unwrap();
+        assert_eq!(repo, "ggml-org/gemma-4-E4B-it-GGUF");
+        assert_eq!(file, "");
+    }
+
+    #[test]
+    fn test_parse_hf_url_invalid() {
+        assert!(parse_hf_url("not-a-url").is_err());
+        assert!(parse_hf_url("").is_err());
+    }
+
+    #[test]
+    fn test_custom_model_store_roundtrip() {
+        let dir = std::env::temp_dir().join("ailocalmind_test_custom");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Clean up any previous test file
+        let path = CustomModelStore::path(&dir);
+        let _ = std::fs::remove_file(&path);
+
+        // Load from non-existent file should return empty
+        let models = CustomModelStore::load(&dir).unwrap();
+        assert!(models.is_empty());
+
+        // Save and reload
+        let test_models = vec![LocalModelInfo {
+            id: "custom-test-model".into(),
+            name: "Test Model".into(),
+            filename: "test.gguf".into(),
+            url: "https://example.com/test.gguf".into(),
+            size_bytes: 1000,
+            ctx_size: 4096,
+            description: "Test".into(),
+            speed_tier: "fast".into(),
+            intelligence_tier: "high".into(),
+            is_downloaded: false,
+            local_path: None,
+        }];
+        CustomModelStore::save(&dir, &test_models).unwrap();
+
+        let loaded = CustomModelStore::load(&dir).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].id, "custom-test-model");
+        assert_eq!(loaded[0].name, "Test Model");
+
+        // Cleanup
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
+    }
+
+    #[test]
+    fn test_custom_model_id_prefix() {
+        // Verify that custom model IDs always start with "custom-"
+        let repo_id = "ggml-org/gemma-4-E4B-it-GGUF";
+        let id = format!("custom-{}", repo_id.replace('/', "-").to_lowercase());
+        assert!(id.starts_with("custom-"));
+        assert_eq!(id, "custom-ggml-org-gemma-4-e4b-it-gguf");
     }
 }

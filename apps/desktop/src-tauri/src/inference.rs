@@ -35,6 +35,10 @@ pub struct ModelStatus {
     pub model_size_bytes: u64,
     /// Number of model layers offloaded to GPU (0 = CPU-only)
     pub gpu_layers: u32,
+    /// Whether GPU acceleration is enabled by the user
+    pub gpu_enabled: bool,
+    /// Last generation speed in tokens/second (0.0 if no generation yet)
+    pub last_gen_speed_tps: f32,
 }
 
 /// Unified trait for local inference backends (llama.cpp or Ollama)

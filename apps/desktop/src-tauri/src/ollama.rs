@@ -290,6 +290,8 @@ impl LocalInference for OllamaClient {
             model_name: self.model.clone(),
             model_size_bytes: 0,
             gpu_layers: 0,
+            gpu_enabled: false,
+            last_gen_speed_tps: 0.0,
         }
     }
 }

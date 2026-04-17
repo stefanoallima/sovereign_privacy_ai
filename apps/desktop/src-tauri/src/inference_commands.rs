@@ -1,6 +1,6 @@
 use crate::inference::{LocalInference, ModelStatus};
 use crate::gpu_detect;
-use crate::llama_backend::{LlamaCppBackend, LocalModelInfo};
+use crate::llama_backend::{LlamaCppBackend, LocalModelInfo, HfModelMetadata, CustomModelStore, parse_hf_url, fetch_hf_metadata};
 use crate::ollama::{PIIExtraction, DynamicPIIExtraction};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -530,6 +530,137 @@ pub async fn get_local_models_dir(
 #[tauri::command]
 pub async fn get_gpu_info() -> Result<gpu_detect::GpuInfo, String> {
     Ok(gpu_detect::detect_gpu())
+}
+
+/// Toggle GPU acceleration on/off. Triggers model reload with new GPU settings.
+#[tauri::command]
+pub async fn set_gpu_enabled(
+    enabled: bool,
+    state: State<'_, LlamaBackendState>,
+) -> Result<(), String> {
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or("Local backend not available")?;
+    backend.set_gpu_enabled(enabled).await;
+    Ok(())
+}
+
+/// Get whether GPU acceleration is currently enabled.
+#[tauri::command]
+pub async fn is_gpu_enabled(
+    state: State<'_, LlamaBackendState>,
+) -> Result<bool, String> {
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or("Local backend not available")?;
+    Ok(backend.is_gpu_enabled())
+}
+
+// ---------------------------------------------------------------------------
+// Custom model commands (HuggingFace GGUF)
+// ---------------------------------------------------------------------------
+
+/// Fetch metadata for a HuggingFace model URL
+#[tauri::command]
+pub async fn fetch_hf_model_metadata(url: String) -> Result<HfModelMetadata, String> {
+    let (repo_id, filename) = parse_hf_url(&url)?;
+    let mut meta = fetch_hf_metadata(&repo_id).await?;
+    // If the user provided a specific filename, use it instead of auto-detected
+    if !filename.is_empty() {
+        meta.filename = filename;
+    }
+    Ok(meta)
+}
+
+/// Add a custom model from a HuggingFace URL
+#[tauri::command]
+pub async fn add_custom_model(
+    url: String,
+    name: Option<String>,
+    ctx_size: Option<u32>,
+    description: Option<String>,
+    speed_tier: Option<String>,
+    intelligence_tier: Option<String>,
+    state: State<'_, LlamaBackendState>,
+) -> Result<LocalModelInfo, String> {
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or("Local backend not available")?;
+    let models_dir = backend.models_dir().to_path_buf();
+    drop(guard);
+
+    let (repo_id, parsed_filename) = parse_hf_url(&url)?;
+
+    // Try to get metadata from HF API; fall back to defaults
+    let meta = fetch_hf_metadata(&repo_id).await.ok();
+
+    let filename = if !parsed_filename.is_empty() {
+        parsed_filename
+    } else if let Some(ref m) = meta {
+        if !m.filename.is_empty() {
+            m.filename.clone()
+        } else {
+            return Err("Could not determine GGUF filename. Please provide a direct link to a .gguf file.".into());
+        }
+    } else {
+        return Err("Could not determine GGUF filename. Please provide a direct link to a .gguf file.".into());
+    };
+
+    let model_name = name.unwrap_or_else(|| {
+        meta.as_ref().map(|m| m.name.clone()).unwrap_or_else(|| repo_id.clone())
+    });
+
+    // Build download URL
+    let download_url = if url.starts_with("http") {
+        url.clone()
+    } else {
+        format!("https://huggingface.co/{}/resolve/main/{}", repo_id, filename)
+    };
+
+    // Generate a unique ID with custom- prefix
+    let id = format!("custom-{}", repo_id.replace('/', "-").to_lowercase());
+
+    let model_info = LocalModelInfo {
+        id: id.clone(),
+        name: model_name,
+        filename,
+        url: download_url,
+        size_bytes: 0, // Unknown until download
+        ctx_size: ctx_size.unwrap_or_else(|| meta.as_ref().map(|m| m.inferred_ctx_size).unwrap_or(8192)),
+        description: description.unwrap_or_else(|| meta.as_ref().map(|m| m.description.clone()).unwrap_or_default()),
+        speed_tier: speed_tier.unwrap_or_else(|| "medium".into()),
+        intelligence_tier: intelligence_tier.unwrap_or_else(|| "high".into()),
+        is_downloaded: false,
+        local_path: None,
+    };
+
+    // Load existing, check for duplicates, append, save
+    let mut custom = CustomModelStore::load(&models_dir).unwrap_or_default();
+    if custom.iter().any(|m| m.id == id) {
+        return Err(format!("Custom model '{}' already exists", id));
+    }
+    custom.push(model_info.clone());
+    CustomModelStore::save(&models_dir, &custom)?;
+
+    Ok(model_info)
+}
+
+/// Remove a custom model by ID
+#[tauri::command]
+pub async fn remove_custom_model(
+    id: String,
+    state: State<'_, LlamaBackendState>,
+) -> Result<(), String> {
+    let guard = state.0.lock().await;
+    let backend = guard.as_ref().ok_or("Local backend not available")?;
+    let models_dir = backend.models_dir().to_path_buf();
+    drop(guard);
+
+    let mut custom = CustomModelStore::load(&models_dir)?;
+    let before = custom.len();
+    custom.retain(|m| m.id != id);
+    if custom.len() == before {
+        return Err(format!("Custom model '{}' not found", id));
+    }
+    CustomModelStore::save(&models_dir, &custom)?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

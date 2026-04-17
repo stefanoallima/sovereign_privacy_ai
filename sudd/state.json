@@ -1,55 +1,39 @@
 {
   "active_change": "",
   "audit": {
-    "changes_since_last_audit": 5,
-    "last_audit_at": "2026-04-15T16:42:57+02:00"
+    "changes_since_last_audit": 0,
+    "last_audit_at": "2026-04-15T16:58:40+02:00"
   },
   "auto_session": {
-    "started_at": "2026-04-15T16:57:25+02:00",
+    "started_at": "2026-04-16T11:15:12+02:00",
     "stop_reason": "",
-    "changes_processed": [
-      {
-        "change_id": "green_dynamic-gpu_01",
-        "outcome": "DONE",
-        "elapsed_seconds": 8.9005238,
-        "tasks_completed": 13,
-        "tasks_total": 13,
-        "exit_code": 1
-      },
-      {
-        "change_id": "green_pii-pipeline-v2_01",
-        "outcome": "UNKNOWN",
-        "elapsed_seconds": 8.2317419,
-        "tasks_completed": 0,
-        "tasks_total": 16,
-        "exit_code": 1
-      },
-      {
-        "change_id": "green_local-rag_01",
-        "outcome": "UNKNOWN",
-        "elapsed_seconds": 14.3249097,
-        "tasks_completed": 0,
-        "tasks_total": 23,
-        "exit_code": 1
-      },
-      {
-        "change_id": "green_perf-privacy-opt_01",
-        "outcome": "UNKNOWN",
-        "elapsed_seconds": 8.2353469,
-        "tasks_completed": 0,
-        "tasks_total": 16,
-        "exit_code": 1
-      },
-      {
-        "change_id": "green_gemma4-orchestration_01",
-        "outcome": "UNKNOWN",
-        "elapsed_seconds": 10.5071845,
-        "tasks_completed": 0,
-        "tasks_total": 0,
-        "exit_code": 1
-      }
-    ],
+    "changes_processed": [],
     "queue_remaining": [
+      {
+        "id": "green_dynamic-gpu_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_pii-pipeline-v2_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_local-rag_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_perf-privacy-opt_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_gemma4-orchestration_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
       {
         "id": "green:vision",
         "mode": "green",

@@ -122,8 +122,8 @@ mod tests {
             vram_mb: 6144,
             backend: "cuda".into(),
         };
-        // 8GB model → partial offload on 6GB GPU
-        let layers = recommended_gpu_layers(&gpu, 8_000_000_000);
+        // 14GB model → partial offload on 6GB GPU (65% of 14GB = 9.1GB > 5.6GB available)
+        let layers = recommended_gpu_layers(&gpu, 14_000_000_000);
         assert!(layers > 0);
         assert!(layers < 999);
     }
