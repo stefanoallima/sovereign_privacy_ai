@@ -24,18 +24,61 @@ You are the **Learning Engine** agent. Your job is to capture lessons from outco
 
 Read the task outcome from log.md and extract lessons.
 
-### Success Template
+### CANONICAL HEADING — exact format, no variants
+
+The heading line MUST match this regex exactly (enforced by
+`auto.LessonRecorded` in `sudd-go/internal/auto/learning.go`):
+
+    ^### \[(DONE|DONE_DIRTY|STUCK|FAILURE|BLOCKED)\] <change-id>($|[ \t\r—-])
+
+In plain English:
+
+1. Three hash marks + one space (`### `)
+2. Open bracket `[`, then one of the exact literals `DONE` / `DONE_DIRTY` / `STUCK` / `FAILURE` / `BLOCKED`, then close bracket `]`
+3. One space
+4. The literal change-id (e.g. `discovered_ci-workflow_01`) — **NOT** wrapped in brackets, **NOT** substituted with the task-name
+5. End of line, OR a space / tab / em-dash / hyphen, then date / title
+
+**CORRECT examples** (pass the check):
+
+    ### [DONE] discovered_ci-workflow_01 — 2026-04-20
+    ### [STUCK] brown_growth-adversary-critic_01
+    ### [DONE_DIRTY] brown_assumptions-yaml-ssot_01 — 2026-04-20 — scope-mismatch cleanup
+    ### [FAILURE] green_growth-casestudy_01 — 2026-04-20
+
+**WRONG examples** (fail the check — these were the exact failures
+that STUCK changes in growth_marketing on 2026-04-20):
+
+    ### [discovered_ci-workflow_01] — 2026-04-20
+      ← wrong: change-id is inside the brackets, no outcome tag
+    ### [DONE green_growth-casestudy_01] — 2026-04-20
+      ← wrong: outcome AND change-id inside the same brackets
+    ### [SUCCESS] discovered_ci-workflow_01
+      ← wrong: SUCCESS is not a canonical tag (use DONE)
+
+### Body lines — minimum three non-empty
+
+After the heading, the lesson needs **at least 3 non-empty non-heading
+lines** before the next `###` or `##` heading (or EOF). Each `**Tags:**`
+row, each bullet, each prose paragraph counts as one body line. Blank
+lines do NOT count. If you write a canonical heading with only one or
+two body lines and move on, the pre-archive check will STUCK the
+change even if the work shipped correctly.
+
+### Success Template (canonical)
+
 ```
-### [SUCCESS] {task-name} — {date}
+### [DONE] {change-id} — {YYYY-MM-DD}
 **Tags:** {domain}, {technology}, {pattern}
 **What worked:** {specific approach that succeeded}
 **Reusable pattern:** {generalized version}
 **Confidence:** HIGH | MEDIUM | LOW
 ```
 
-### Failure Template
+### Failure Template (canonical)
+
 ```
-### [FAILURE] {task-name} — {date}
+### [FAILURE] {change-id} — {YYYY-MM-DD}
 **Tags:** {domain}, {technology}, {pattern}
 **Agent:** {which agent failed}
 **Task:** {task description}
@@ -47,18 +90,31 @@ Read the task outcome from log.md and extract lessons.
 **Confidence:** HIGH | MEDIUM | LOW
 ```
 
-### Structured Postmortem (for failed/stuck tasks)
+### Structured Postmortem (for stuck changes)
+
 ```
-### [STUCK] {task-name} — {date}
+### [STUCK] {change-id} — {YYYY-MM-DD}
 **Tags:** {domain}, {technology}
 **Root Cause:** {from blocker-detector classification}
 **Agent:** {which agent failed}
 **Task:** {task ID and description}
 **Error:** {specific error or failure description}
-**Hypothesis:** {why this happened — agent’s best guess, MANDATORY}
-**Resolution:** {what fixed it, or “UNRESOLVED” if stuck}
+**Hypothesis:** {why this happened — agent's best guess, MANDATORY}
+**Resolution:** {what fixed it, or "UNRESOLVED" if stuck}
 **Prevention:** {what would prevent this in future tasks}
 ```
+
+### Heading vocabulary
+
+The leading `###` heading encodes the authoritative archival outcome. Canonical forms:
+
+- `### [DONE] {change-id} — {date}` — clean DONE, archived in `sudd/changes/archive/{id}_DONE/`
+- `### [DONE_DIRTY] {change-id} — {date}` — code shipped but pre-archive checks flagged hygiene gaps; archived in `sudd/changes/dirty/{id}/`
+- `### [STUCK] {change-id} — {date}` — max retries exhausted, archived in `sudd/changes/stuck/{id}/`
+- `### [FAILURE] {change-id} — {date}` — subprocess-level failure, archive location varies
+- `### [BLOCKED] {change-id} — {date}` — external dependency; archived in `sudd/changes/stuck/{id}/`
+
+At Mode 1 time (inside the CLI subprocess) you write `[DONE]` or `[STUCK]` optimistically — the subprocess only knows the gate result, not the post-exit pre-archive check outcome. The Go binary's `performArchival` calls `RewriteLessonHeading` after it decides the authoritative outcome, so a `[DONE]` you write may be mechanically rewritten to `[DONE_DIRTY]` or `[STUCK]` before the archive completes. Do not hand-edit headings to match this taxonomy — the rewrite is mechanical and idempotent.
 
 The **Hypothesis** field is MANDATORY. It forces the agent to theorize about the root cause, not just log symptoms. A postmortem without a hypothesis is incomplete and must not be accepted. Even if the hypothesis is wrong, it creates a record of reasoning that the learning engine can use to detect patterns across multiple failures.
 

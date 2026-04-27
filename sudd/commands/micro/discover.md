@@ -1,5 +1,5 @@
 ---
-name: sudd:discover
+name: sudd-discover
 description: Run discovery pipeline — explore codebase, find gaps, generate proposals
 phase: inception
 macro: false
@@ -30,7 +30,7 @@ SKIP discovery if ALL of:
   3. last_git_sha == current HEAD (no code changes)
 
 FORCE discovery if ANY of:
-  - User explicitly invoked /sudd:discover
+  - User explicitly invoked /sudd-discover
   - Called with --force flag
   - No previous discovery (last_run_at is empty)
   - Called from port.md (auto_on_port context)
@@ -96,7 +96,7 @@ Log: "Discovery complete. {N} proposals generated from {M} gaps."
 
 **ALWAYS update state.** The Go binary may also update these fields after this
 subprocess exits, but that only happens when invoked via `sudd auto`. When
-invoked from `/sudd:run green` or standalone, this is the ONLY update path.
+invoked from `/sudd-run green` or standalone, this is the ONLY update path.
 Writing these fields is idempotent — double-writing is safe.
 
 ```
@@ -116,23 +116,23 @@ In `sudd/sudd.yaml`:
 discovery:
   run_every_n_changes: 3        # run after every N archived changes
   min_interval_minutes: 5       # minimum minutes between discovery runs
-  auto_on_empty_queue: true     # auto-trigger when sudd:auto queue is empty
-  auto_on_port: true            # auto-trigger after sudd:port completes
+  auto_on_empty_queue: true     # auto-trigger when sudd-auto queue is empty
+  auto_on_port: true            # auto-trigger after sudd-port completes
 ```
 
 ## INTEGRATION POINTS
 
 This command is called from three places:
 
-1. **`/sudd:auto`** — when queue is empty and `discovery.auto_on_empty_queue` is true
-2. **`/sudd:port`** — after port completes and `discovery.auto_on_port` is true
-3. **`/sudd:run green`** — before creating the first change (replaces the single-change Step 2)
-4. **Manual** — user runs `/sudd:discover` directly
+1. **`/sudd-auto`** — when queue is empty and `discovery.auto_on_empty_queue` is true
+2. **`/sudd-port`** — after port completes and `discovery.auto_on_port` is true
+3. **`/sudd-run green`** — before creating the first change (replaces the single-change Step 2)
+4. **Manual** — user runs `/sudd-discover` directly
 
 ## INCREMENTAL CHANGES COUNTER
 
-The `changes_since_last` counter is incremented by `/sudd:done` (or the done-phase logic
-inside `/sudd:run`). Every time a change is archived (DONE or STUCK), the counter goes up by 1.
+The `changes_since_last` counter is incremented by `/sudd-done` (or the done-phase logic
+inside `/sudd-run`). Every time a change is archived (DONE or STUCK), the counter goes up by 1.
 When discovery runs, the counter resets to 0.
 
 This means discovery triggers based on work completed, not time elapsed.

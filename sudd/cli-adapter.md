@@ -38,9 +38,9 @@ opencode run -m "{provider}/{model}" --format json --dir "{project_dir}" "{promp
 
 Call a SUDD skill/command from within the CLI session.
 
-**claude:** `/sudd:run {args}` — skills in `.claude/skills/sudd-*/SKILL.md`
+**claude:** `/sudd-run {args}` — skills in `.claude/skills/sudd-*/SKILL.md`
 
-**crush:** `/sudd:run {args}` — skills in `.crush/skills/sudd-*/SKILL.md`
+**crush:** `/sudd-run {args}` — skills in `.crush/skills/sudd-*/SKILL.md`
 
 **opencode:** `/sudd-run {args}` — commands in `.opencode/command/sudd-*.md` (hyphens, not colons)
 
@@ -50,12 +50,12 @@ How `sudd auto` (Go binary) starts a CLI session for a change.
 
 **claude:**
 ```
-claude -p "/sudd:run brown {change-id}" --max-turns 200
+claude -p "/sudd-run brown {change-id}" --max-turns 200
 ```
 
 **crush:**
 ```
-crush run -y "/sudd:run brown {change-id}"
+crush run -y "/sudd-run brown {change-id}"
 ```
 
 **opencode:**

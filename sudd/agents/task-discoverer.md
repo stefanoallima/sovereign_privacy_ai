@@ -188,3 +188,27 @@ This allows future discovery/audit runs to skip gaps that already have active pr
 3. **Dependencies first.** If change B depends on change A, change A should be higher priority.
 4. **tasks.md is the single source of truth** for completion tracking. Every change MUST have one.
 5. **Never create duplicate proposals.** Check active changes AND gap source references before creating.
+6. **Personas before queue (v3.8.18, AC #7).** For every proposal you create, also populate `sudd/changes/active/{id}/personas/` with at least one persona file that represents the specific consumer this change serves. Do not leave discovered proposals without personas — the build loop assumes `personas/` is populated for per-task micro-persona generation.
+
+   **How to populate:** Either
+   - (a) Write the persona inline yourself when the consumer is obvious (e.g., the alignment-report gap already identified the consumer), OR
+   - (b) Leave a stub in `active/{id}/personas/{consumer-type}.md` containing at least an `## Identity` and `## Objectives` section, and let the orchestrator's Step 0d dispatch `persona-researcher` to enrich it.
+
+   **Persona stub template** (minimum viable for (b)):
+
+   ```markdown
+   # Persona: {consumer-name}
+
+   ## Identity
+   - Name: {placeholder — will be enriched}
+   - Role: {role derived from gap, e.g. "API integrator", "dashboard user"}
+   - Context: {what they're doing when they hit this gap}
+
+   ## Objectives
+   1. {the specific objective this change serves}
+
+   ## Deal-Breakers
+   1. {what would make this change fail from this consumer's perspective}
+   ```
+
+   A proposal without a persona file in `active/{id}/personas/` fails the discovery contract and will be flagged by `sudd doctor` Personas row downstream.

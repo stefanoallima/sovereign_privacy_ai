@@ -17,7 +17,7 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-log() { echo -e "${BLUE}[sudd:sync]${NC} $1"; }
+log() { echo -e "${BLUE}[sudd-sync]${NC} $1"; }
 ok() { echo -e "${GREEN}â${NC} $1"; }
 warn() { echo -e "${YELLOW}â ${NC} $1"; }
 err() { echo -e "${RED}â${NC} $1" >&2; }
@@ -33,7 +33,7 @@ sync_opencode() {
         local name=$(basename "$cmd" .md)
         local dest="$target/sudd-$name.md"
         cp "$cmd" "$dest"
-        sed -i '' "s/^name: sudd:.*/name: sudd-$name/" "$dest"
+        sed -i "s/^name: sudd:.*/name: sudd-$name/" "$dest"
         ok "opencode: sudd-$name"
     done
 
@@ -43,29 +43,9 @@ sync_opencode() {
         local name=$(basename "$cmd" .md)
         local dest="$target/sudd-$name.md"
         cp "$cmd" "$dest"
-        sed -i '' "s/^name: sudd:.*/name: sudd-$name/" "$dest"
+        sed -i "s/^name: sudd:.*/name: sudd-$name/" "$dest"
         ok "opencode: sudd-$name"
     done
-}
-
-# Skill description lookup (bash 3.2 compatible — no associative arrays)
-get_skill_desc() {
-    case "$1" in
-        run)      echo "Full autonomous SUDD workflow. Use when the user wants to build a feature end-to-end autonomously." ;;
-        new)      echo "Create a new change proposal. Use when the user wants to start a new feature or fix." ;;
-        plan)     echo "Create specs, design, and tasks for a change. Use when the user wants to plan implementation." ;;
-        apply)    echo "Implement tasks from the task list. Use when the user wants to start building." ;;
-        test)     echo "Run tests and validate implementation. Use when the user wants to test code." ;;
-        gate)     echo "Persona validation gate. Use when the user wants to validate if work is ready." ;;
-        done)     echo "Archive completed or stuck change. Use when implementation is complete." ;;
-        port)     echo "Import or upgrade SUDD. Use when the user wants to upgrade or migrate." ;;
-        chat)     echo "Thinking partner mode. Use when the user wants to explore ideas." ;;
-        status)   echo "Show SUDD state and progress. Use when the user wants to check status." ;;
-        init)     echo "Initialize SUDD in a project. Use when setting up SUDD for the first time." ;;
-        add-task) echo "Add a new change proposal to the backlog." ;;
-        auto)     echo "Fully autonomous mode. Use when you want to process all queued changes in sequence." ;;
-        *)        echo "SUDD $1 command." ;;
-    esac
 }
 
 # Sync to Claude Code CLI — generate skills (v3.1)
@@ -79,14 +59,28 @@ sync_claude() {
         ok "Removed old .claude/commands/sudd/"
     fi
 
+    # Skill descriptions
+    declare -A SKILL_DESC
+    SKILL_DESC[run]="Full autonomous SUDD workflow. Use when the user wants to build a feature end-to-end autonomously."
+    SKILL_DESC[new]="Create a new change proposal. Use when the user wants to start a new feature or fix."
+    SKILL_DESC[plan]="Create specs, design, and tasks for a change. Use when the user wants to plan implementation."
+    SKILL_DESC[apply]="Implement tasks from the task list. Use when the user wants to start building."
+    SKILL_DESC[test]="Run tests and validate implementation. Use when the user wants to test code."
+    SKILL_DESC[gate]="Persona validation gate. Use when the user wants to validate if work is ready."
+    SKILL_DESC[done]="Archive completed or stuck change. Use when implementation is complete."
+    SKILL_DESC[port]="Import or upgrade SUDD. Use when the user wants to upgrade or migrate."
+    SKILL_DESC[chat]="Thinking partner mode. Use when the user wants to explore ideas."
+    SKILL_DESC[status]="Show SUDD state and progress. Use when the user wants to check status."
+    SKILL_DESC[init]="Initialize SUDD in a project. Use when setting up SUDD for the first time."
+    SKILL_DESC[add-task]="Add a new change proposal to the backlog."
+
     for cmd_file in "$SUDD_DIR/commands/micro/"*.md "$SUDD_DIR/commands/macro/"*.md; do
         if [ ! -f "$cmd_file" ]; then continue; fi
         local cmd_name=$(basename "$cmd_file" .md)
         local skill_dir="$SKILLS_DIR/sudd-$cmd_name"
         mkdir -p "$skill_dir"
 
-        local desc
-        desc="$(get_skill_desc "$cmd_name")"
+        local desc="${SKILL_DESC[$cmd_name]:-SUDD $cmd_name command}"
 
         # Write SKILL.md with frontmatter + command content
         {
@@ -99,50 +93,34 @@ sync_claude() {
             echo "  version: \"3.1\""
             echo "---"
             echo ""
-            # Strip original YAML frontmatter if present (between --- markers)
-            awk 'BEGIN{skip=0; first=1} /^---$/{if(first){skip=1; first=0; next} if(skip){skip=0; next}} skip{next} {print}' "$cmd_file"
+            cat "$cmd_file"
         } > "$skill_dir/SKILL.md"
 
         ok "claude: sudd-$cmd_name"
     done
 }
 
-# Sync to Crush CLI — generate skills in .crush/skills/ (SKILL.md format)
+# Sync to Crush CLI
 sync_crush() {
-    local SUDD_DIR="$PROJECT_ROOT/sudd"
-    local SKILLS_DIR="$PROJECT_ROOT/.crush/skills"
+    local target="$PROJECT_ROOT/.crush/commands"
+    mkdir -p "$target"
+    
+    for cmd in "$SUDD_COMMANDS/macro"/*.md; do
+        [ -f "$cmd" ] || continue
+        local name=$(basename "$cmd" .md)
+        local dest="$target/sudd-$name.md"
+        cp "$cmd" "$dest"
+        sed -i "s/^name: sudd:.*/name: sudd-$name/" "$dest"
+        ok "crush: sudd-$name"
+    done
 
-    # Remove old commands directory if it exists
-    if [ -d "$PROJECT_ROOT/.crush/commands" ]; then
-        rm -rf "$PROJECT_ROOT/.crush/commands"
-        ok "Removed old .crush/commands/"
-    fi
-
-    for cmd_file in "$SUDD_DIR/commands/micro/"*.md "$SUDD_DIR/commands/macro/"*.md; do
-        if [ ! -f "$cmd_file" ]; then continue; fi
-        local cmd_name=$(basename "$cmd_file" .md)
-        local skill_dir="$SKILLS_DIR/sudd-$cmd_name"
-        mkdir -p "$skill_dir"
-
-        local desc
-        desc="$(get_skill_desc "$cmd_name")"
-
-        # Write SKILL.md with frontmatter + command content
-        {
-            echo "---"
-            echo "name: sudd:$cmd_name"
-            echo "description: $desc"
-            echo "license: MIT"
-            echo "metadata:"
-            echo "  author: sudd"
-            echo "  version: \"3.3\""
-            echo "---"
-            echo ""
-            # Strip original YAML frontmatter if present (between --- markers)
-            awk 'BEGIN{skip=0; first=1} /^---$/{if(first){skip=1; first=0; next} if(skip){skip=0; next}} skip{next} {print}' "$cmd_file"
-        } > "$skill_dir/SKILL.md"
-
-        ok "crush: sudd:$cmd_name"
+    for cmd in "$SUDD_COMMANDS/micro"/*.md; do
+        [ -f "$cmd" ] || continue
+        local name=$(basename "$cmd" .md)
+        local dest="$target/sudd-$name.md"
+        cp "$cmd" "$dest"
+        sed -i "s/^name: sudd:.*/name: sudd-$name/" "$dest"
+        ok "crush: sudd-$name"
     done
 }
 
@@ -312,7 +290,7 @@ sync_update() {
     local iso_timestamp
     iso_timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)"
 
-    local sudd_version="3.1.0"
+    local sudd_version="3.0.0"
 
     printf 'version: %s
 source: %s

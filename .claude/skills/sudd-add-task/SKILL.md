@@ -4,12 +4,12 @@ description: "Add a new change proposal to the backlog."
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.0"
+  version: "3.8.34"
 ---
 
 Add a new change proposal to the SUDD backlog.
 
-**Input**: Description of what to build (after `/sudd:add-task`).
+**Input**: Description of what to build (after `/sudd-add-task`).
 
 **Change ID Format**: `task_{name}_{seq:02d}`
 
@@ -55,5 +55,5 @@ Change proposal created: sudd/changes/active/{id}/
   - proposal.md
   - tasks.md
 Persona: {persona-name}
-Run /sudd:run to process it, or /sudd:run {id} for just this change.
+Run /sudd-run to process it, or /sudd-run {id} for just this change.
 ```

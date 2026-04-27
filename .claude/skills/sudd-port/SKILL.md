@@ -4,7 +4,7 @@ description: "Import or upgrade SUDD. Use when the user wants to upgrade or migr
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.0"
+  version: "3.8.34"
 ---
 
 Port existing artifacts from other frameworks into SUDD structure. Supports 4 framework types with auto-detection and multi-framework merge.
@@ -12,12 +12,12 @@ Port existing artifacts from other frameworks into SUDD structure. Supports 4 fr
 **Safety**: Original files are NEVER deleted or modified. Port creates copies only. All ported artifacts are tagged with their source for traceability.
 
 **Input**:
-- `/sudd:port` — auto-detect framework(s)
-- `/sudd:port openspec` — from OpenSpec structure
-- `/sudd:port bmad` — from BMAD structure
-- `/sudd:port prd` — from Generic/PRD document
-- `/sudd:port superpowers` — from Superpowers structure
-- `/sudd:port merge` — force merge of all detected frameworks
+- `/sudd-port` — auto-detect framework(s)
+- `/sudd-port openspec` — from OpenSpec structure
+- `/sudd-port bmad` — from BMAD structure
+- `/sudd-port prd` — from Generic/PRD document
+- `/sudd-port superpowers` — from Superpowers structure
+- `/sudd-port merge` — force merge of all detected frameworks
 
 ---
 
@@ -38,7 +38,7 @@ Scan the project root for signature files/directories. Check ALL of the followin
 When 2+ frameworks detected:
 - Auto-select highest priority framework for primary port
 - Display resolution with override options
-- In merge mode (`/sudd:port merge`): port all, merge in priority order (highest first)
+- In merge mode (`/sudd-port merge`): port all, merge in priority order (highest first)
 - Existing BMAD+PRD dedup rule (Guardrail 6) still applies
 
 ```
@@ -74,7 +74,7 @@ Framework Detection
 
 Detected: 2 frameworks
 Resolution: Port OpenSpec (highest priority). BMAD artifacts available for merge.
-Override: /sudd:port merge (combine all), /sudd:port bmad (use BMAD only)
+Override: /sudd-port merge (combine all), /sudd-port bmad (use BMAD only)
 ```
 
 ### 1c. Ensure SUDD directories exist
@@ -107,7 +107,7 @@ If interactive: wait for user confirmation before writing.
 
 ### Dry-Run Mode
 
-If `--dry-run` flag is present (parsed from input args: `/sudd:port --dry-run` or `/sudd:port {framework} --dry-run`):
+If `--dry-run` flag is present (parsed from input args: `/sudd-port --dry-run` or `/sudd-port {framework} --dry-run`):
 
 1. Run ALL detection, decomposition, and mapping logic normally
 2. Instead of writing files, collect all would-be writes into a preview list
@@ -140,7 +140,7 @@ If `--dry-run` flag is present (parsed from input args: `/sudd:port --dry-run` o
 
 ### 1e. Handle results
 
-- **0 detected**: "No recognized framework found. Options: (1) Specify framework manually: `/sudd:port bmad`, `/sudd:port prd`, `/sudd:port openspec`, `/sudd:port superpowers`, (2) Start fresh with `/sudd:new`"
+- **0 detected**: "No recognized framework found. Options: (1) Specify framework manually: `/sudd-port bmad`, `/sudd-port prd`, `/sudd-port openspec`, `/sudd-port superpowers`, (2) Start fresh with `/sudd-new`"
 - **1 detected**: Auto-proceed with that framework
 - **2+ detected**:
   - **Autonomous mode**: Auto-select highest priority framework (per priority table above), log: "Auto-selected {framework} (priority {N}). Other frameworks available for merge."
@@ -155,8 +155,8 @@ If `--dry-run` flag is present (parsed from input args: `/sudd:port --dry-run` o
       3. Port from {second} only
       ...
     ```
-- **Explicit arg** (e.g., `/sudd:port bmad`): Skip detection, use specified framework
-- **`/sudd:port merge`**: Force merge of all detected frameworks
+- **Explicit arg** (e.g., `/sudd-port bmad`): Skip detection, use specified framework
+- **`/sudd-port merge`**: Force merge of all detected frameworks
 
 ### 1f. Git Checkpoint
 
@@ -165,7 +165,7 @@ Before writing any ported files (after detection, preview, and dry-run check):
 1. Check if in a git repo: `git rev-parse --git-dir 2>/dev/null`
 2. If yes:
    - Stage any unstaged changes: `git add -A`
-   - Commit: `git commit -m "chore(sudd:port): pre-port checkpoint" --allow-empty`
+   - Commit: `git commit -m "chore(sudd-port): pre-port checkpoint" --allow-empty`
    - Log: "Git checkpoint created — revert with: git reset --hard HEAD~1"
 3. If not in git repo: log warning "Not in git repo — no rollback available"
 4. If `--dry-run` mode: skip checkpoint entirely (no files will be written)
@@ -282,14 +282,17 @@ docs/stories/{epic}/{story}/ACCEPTANCE_CRITERIA.md → success criteria
    - If no explicit personas found, create a single persona from project name + "User" (e.g., "VinumAI User") with role inferred from project type (e.g., "wine recommendation user")
 
 3. **Epic → Change mapping**:
+
+   **NNN (global creation order)**: Before creating any change directory, count all existing directories in `changes/active/`, `changes/archive/`, and `changes/stuck/`. NNN = that total + 1 (increment for each new change created in this session), zero-padded to 3 digits.
+
    - **If `docs/epics/` exists AND has subdirectories**: Each subdirectory → one SUDD change
-     - Change ID: `brown_port-{epic-name}_01` (sanitize: lowercase, replace spaces/underscores with hyphens, strip non-alphanumeric except hyphens)
+     - Change ID: `{NNN}_brown_port-{epic-name}_01` (sanitize: lowercase, replace spaces/underscores with hyphens, strip non-alphanumeric except hyphens)
      - Epic description → `proposal.md`
    - **If `docs/epics/` exists but is empty** (or contains only README): treat as "doesn't exist", fall through
    - **If `docs/stories/` exists (no epics/)**:
      - With subdirectories: each subdir → one SUDD change
      - Flat (just .md files): all stories → tasks in one change
-   - **If neither exists (or both empty)**: Create single change `brown_port-bmad_01` from PRD content
+   - **If neither exists (or both empty)**: Create single change `{NNN}_brown_port-bmad_01` from PRD content
 
 4. **Story → Task mapping**: For each story found:
    - `story.md` content → task description in `tasks.md`
@@ -340,7 +343,7 @@ AGENTS.md / CLAUDE.md / GEMINI.md → sudd/memory/lessons.md (coding conventions
 2. **PRD Decomposition**: Use the same KEYWORD TABLE and **Confidence Scoring** from STEP 3 (BMAD), subsection 1 "PRD Decomposition". For each `##`/`###` header, match keywords to route sections to vision/personas/specs/design. Apply the same confidence scoring (definite/probable/ambiguous/uncertain) and log ambiguous sections to log.md. The difference from BMAD: no epic/story structure to process.
 
    - If PRD has **no recognizable section headers** → treat entire document as `sudd/vision.md`
-   - Create single change: `brown_port-prd_01`
+   - Create single change: `{NNN}_brown_port-prd_01`
    - Add `<!-- ported from: prd [PRD.md] -->` at top of each output
 
 3. **Supplementary files** (if they exist):
@@ -442,7 +445,7 @@ reference/*.md                           → sudd/memory/lessons.md (one entry p
 4. **Plan files**: Glob `.claude/` for files matching `*plan*.md` or `*implementation*.md`:
    - For each found file:
      - Sanitize filename for change ID: lowercase, replace spaces/underscores with hyphens, strip non-alphanumeric except hyphens
-     - Create `sudd/changes/active/brown_port-{sanitized-name}_01/proposal.md`
+     - Create `sudd/changes/active/{NNN}_brown_port-{sanitized-name}_01/proposal.md`
      - Write: source tag + file content as proposal body
      - Create empty `specs.md`, `design.md`, `tasks.md`, `log.md` placeholders
    - If no plan files found: skip silently (this step is optional)
@@ -564,7 +567,7 @@ Create/update `sudd/state.json` with ALL required fields:
     "tasks_blocked": 0,
     "total_retries": 0
   },
-  "last_command": "sudd:port",
+  "last_command": "sudd-port",
   "last_run": "{ISO-8601-timestamp}"
 }
 ```
@@ -735,28 +738,8 @@ State: brown mode, {phase} phase
 imported_from: {framework}
 
 Review the ported artifacts, then:
-  /sudd:status    — check what was created
-  /sudd:discover  — explore codebase and find gaps (auto-runs if discovery.auto_on_port)
-  /sudd:run       — start autonomous workflow
-```
-
-### Post-Port Discovery (v3.4)
-
-After port output, if `sudd.yaml → discovery.auto_on_port` is true (default):
-
-```
-Invoke /sudd:discover --force
-  → codebase-explorer: generates codebase-manifest.json
-  → alignment-reviewer: compares manifest vs ported docs
-  → task-discoverer: creates proposals from gaps
-
-This validates that ported artifacts match code reality and generates
-a backlog of actionable changes before /sudd:run begins.
-```
-
-If `auto_on_port` is false, suggest it in the output:
-```
-  💡 Run /sudd:discover to find gaps between docs and code
+  /sudd-status  — check what was created
+  /sudd-run     — start autonomous workflow
 ```
 
 ### Multi-framework merge
@@ -776,16 +759,15 @@ State: brown mode, build phase
 imported_from: openspec+bmad
 
 Review the ported artifacts, then:
-  /sudd:status    — check what was created
-  /sudd:discover  — explore codebase and find gaps
-  /sudd:run       — start autonomous workflow
+  /sudd-status  — check what was created
+  /sudd-run     — start autonomous workflow
 
 
 ---
 
 ## MODE: UPGRADE (SUDD version migration)
 
-**Input**: `/sudd:port --upgrade`
+**Input**: `/sudd-port --upgrade`
 
 Upgrades existing SUDD installation from older version to current.
 
@@ -806,8 +788,8 @@ Upgrades existing SUDD installation from older version to current.
    - persona-detector.md, persona-researcher.md, decomposer.md
    - coder.md, contract-verifier.md, persona-validator.md
 
-4. **Remove deprecated** (1):
-   - handoff-validator.md
+4. **Remove deprecated** (0):
+   - (none — v3.0 retirements are already reflected in the shipped sudd.yaml and commands; integration-reviewer subsumes the retired boundary-validation agent)
 
 5. **Copy updated commands**:
    - apply.md, plan.md, gate.md, test.md (micro)
@@ -815,7 +797,7 @@ Upgrades existing SUDD installation from older version to current.
 
 6. **Update standards.md**: Add task-level scoring section
 
-7. **Update sudd.yaml**: Add new agents, remove handoff-validator
+7. **Update sudd.yaml**: Add new agents. Remove any lingering references to retired v3.0 validation agents in foreign frameworks (the shipped sudd.yaml already reflects these retirements — integration-reviewer subsumes the boundary-validation role).
 
 8. **Update state.json**: Add `sudd_version: "3.0"`
 

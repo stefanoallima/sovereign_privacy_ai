@@ -4,35 +4,70 @@ description: "Fully autonomous mode. Use when you want to process all queued cha
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.0"
+  version: "3.8.34"
 ---
 
 Fully autonomous mode. Processes all proposed changes in sequence,
 each in a fresh CLI session.
 
-## EXECUTION
+## EXECUTION — FIRE AND FORGET
 
-When this command is invoked, run the following via the Bash tool:
+**CRITICAL**: dispatch the binary with `run_in_background: true` and
+IMMEDIATELY return control to the user. Do NOT tail the log, do NOT
+sleep-and-cat, do NOT poll for progress, do NOT "imagine" while
+waiting. The binary is self-contained — it launches its own fresh CLI
+subprocess per change, enforces budgets, handles crashes, and writes
+reports to `sudd/auto-reports/{date}/`. Staying active in this shell
+burns tokens on passive tail-watching while the real work happens in
+children you don't control. The user invokes `/sudd-status` on their
+schedule — that is the only acceptable monitoring channel.
+
+**Run via Bash with `run_in_background: true`**:
 
 ```bash
 sudd auto
 ```
 
-If `sudd` is not on PATH, try:
+Then reply with exactly one line confirming dispatch:
+
+> Launched `sudd auto` in the background. Run `/sudd-status` any time to check progress, or read `sudd/auto-reports/{today}/summary.md` when the session ends.
+
+Then STOP. Do not read the log. Do not call Bash again. Do not enter a
+wait loop. The next user message is your next input.
+
+### Fallback if `sudd` is not on PATH
 
 ```bash
 sudd-go/bin/sudd auto
 ```
 
-If the binary doesn't exist, build it first:
+### Build-then-run if the binary doesn't exist
 
 ```bash
 cd sudd-go && make build && cd .. && sudd-go/bin/sudd auto
 ```
 
-The binary handles everything from here — queue building, subprocess
-launching, budget enforcement, crash recovery, and morning report.
-This CLI session can end after launching the binary.
+Same rule after either fallback: dispatch, one-line reply, stop.
+
+### Preflight gate (v3.8.11+)
+
+`sudd auto` runs `sudd doctor` as step 0 and refuses to start on any
+blocker (missing CLI, broken auth, degraded sudd.yaml, missing MCP
+tool). Results are cached per-device for 12h keyed by git SHA + yaml
+hash, so subsequent sessions on the same day skip preflight. Flags:
+
+- `--fresh`    — ignore cache, rerun all checks
+- `--probe`    — additionally send a 1-token prompt through each tier
+                 (catches silent plan/quota issues, ~3 tokens total)
+- `--skip-preflight` — escape hatch; use only when you have a reason
+
+### Vision.md auto-inference (v3.8.12+)
+
+Each spawned `sudd-run` subprocess begins with a vision-check step.
+If `sudd/vision.md` is empty, the subprocess synthesizes one from the
+repo's README, PROJECT_REPORT, AGENTS.md, top-level markdown, and
+package.json before doing any actual work. Populated vision.md is
+always preserved — never overwritten by update or by this step.
 
 ## CONFIGURATION
 
@@ -61,12 +96,12 @@ Set to empty string `""` to pass no extra flags.
 2. Scans changes/active/ for proposals with status: proposed
 3. Resumes any in-progress change first
 4. Launches a fresh CLI session per change (claude or opencode)
-5. Each change follows /sudd:run workflow: plan -> apply -> test -> gate -> done
+5. Each change follows /sudd-run workflow: plan -> apply -> test -> gate -> done
 6. After each change: increments discovery.changes_since_last counter
 7. After each change: checks time/count budgets
 8. **After green:vision completes**: re-scans queue (discovery may have created new proposals)
 9. **On empty queue**: runs discovery pipeline if auto_on_empty_queue is enabled (v3.4)
-   - Launches CLI subprocess with "/sudd:discover"
+   - Launches CLI subprocess with "/sudd-discover"
    - Re-scans queue after discovery completes
    - If new proposals found: continues processing
    - If still empty: truly done
@@ -78,8 +113,8 @@ Set to empty string `""` to pass no extra flags.
 The auto loop triggers discovery in two scenarios:
 
 ### Scenario 1: After green:vision
-When the green:vision entry completes, /sudd:run's Step 2 may have invoked
-/sudd:discover internally. The auto binary re-scans the queue to pick up
+When the green:vision entry completes, /sudd-run's Step 2 may have invoked
+/sudd-discover internally. The auto binary re-scans the queue to pick up
 any proposals created during that subprocess.
 
 ### Scenario 2: Empty queue

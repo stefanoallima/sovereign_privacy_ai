@@ -7,7 +7,7 @@ tags: [sudd, tasks, changes]
 
 Add a new change proposal to the SUDD backlog.
 
-**Input**: Description of what to build (after `/sudd:add-task`).
+**Input**: Description of what to build (after `/sudd-add-task`).
 
 **Change ID Format**: `task_{name}_{seq:02d}`
 
@@ -53,5 +53,5 @@ Change proposal created: sudd/changes/active/{id}/
   - proposal.md
   - tasks.md
 Persona: {persona-name}
-Run /sudd:run to process it, or /sudd:run {id} for just this change.
+Run /sudd-run to process it, or /sudd-run {id} for just this change.
 ```

@@ -18,7 +18,7 @@ See `sudd/standards.md` → Activation Protocol
 
 ---
 
-**Entry point**: Called by `/sudd:apply` after coder step, before wiring-checker. Part of the per-task validation squad (contract-verifier → wiring-checker → integration-reviewer → micro-persona-validator).
+**Entry point**: Called by `/sudd-apply` after coder step, before wiring-checker. Part of the per-task validation squad (contract-verifier → wiring-checker → integration-reviewer → micro-persona-validator).
 
 You verify that code outputs ACTUALLY match the contracts defined in the handoff-contracts.md and OpenSpec specs. You are the bridge between "what was promised" and "what was delivered."
 

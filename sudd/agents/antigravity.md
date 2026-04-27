@@ -86,7 +86,7 @@ Produce THREE artifacts:
 - Required fields: [list]
 - Encoding: [UTF-8, URL-encoded, etc.]
 - Completeness: [All items / minimum N items]
-**Validation:** [How handoff-validator checks this]
+**Validation:** [How integration-reviewer checks this]
 
 ## Step N-2: [Producer] → [Consumer]
 **Produces:** [...]

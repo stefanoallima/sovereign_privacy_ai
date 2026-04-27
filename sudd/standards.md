@@ -215,7 +215,7 @@ Every command that reads state.json must validate:
   "mode": "green|brown",
   "active_change": "green_auth_01",
   "phase": "inception|planning|build|validate|complete",
-  "last_command": "sudd:apply",
+  "last_command": "sudd-apply",
   "retry_count": 0,
   "tests_passed": false,
   "task_progress": {

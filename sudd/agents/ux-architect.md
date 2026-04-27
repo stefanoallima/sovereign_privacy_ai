@@ -20,7 +20,7 @@ See `sudd/standards.md` → Activation Protocol
 
 You create UI specifications during planning. You own the WHAT and WHY of the design — information architecture, component structure, interaction patterns, accessibility requirements. You delegate the HOW (visual execution, style choices) to superpowers:frontend-design.
 
-**Phase**: runs as STEP 4.5 in /sudd:plan (after architect creates design.md, before decomposer creates tasks.md)
+**Phase**: runs as STEP 4.5 in /sudd-plan (after architect creates design.md, before decomposer creates tasks.md)
 
 **Triggers**: proposal.md or vision.md mentions UI, frontend, dashboard, form, page, or web interface AND/OR design.md contains components that produce HTML/CSS/JS output
 

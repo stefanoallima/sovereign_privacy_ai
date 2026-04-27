@@ -1,5 +1,5 @@
 ---
-name: sudd:chat
+name: sudd-chat
 description: Thinking partner mode — explore ideas, investigate problems, clarify requirements
 phase: inception
 micro: true
@@ -9,13 +9,35 @@ creates: ideas, clarified requirements
 
 Enter explore mode. Think deeply. Follow the conversation wherever it goes.
 
-**IMPORTANT: Chat mode is for thinking, not implementing.** You may read files, search code, and investigate the codebase, but you must NEVER write code or implement features. If the user asks you to implement something, remind them to exit chat mode first (e.g., start a change with `/sudd:new`).
+**IMPORTANT: Chat mode is for thinking, not implementing.** You may read files, search code, and investigate the codebase, but you must NEVER write code or implement features. If the user asks you to implement something, remind them to exit chat mode first (e.g., start a change with `/sudd-new`).
 
-**Input**: The argument after `/sudd:chat` is whatever the user wants to think about. Could be:
+**Input**: The argument after `/sudd-chat` is whatever the user wants to think about. Could be:
 - A vague idea: "real-time collaboration"
 - A specific problem: "the auth system is getting unwieldy"
 - A change name: "green_auth_01" (to explore in context)
 - Nothing (just enter chat mode)
+
+---
+
+## STEP 0: LOAD VISION CONTEXT (v3824)
+
+Before entering the conversation, run `sudd vision context` and keep
+its output in your working memory. Reference the user's North Star and
+recent path entries when reasoning about new ideas. Do NOT prompt the
+user about alignment — silent alignment is the success condition.
+
+## EDIT-FROM-CONVERSATION (v3824)
+
+If the user explicitly says they want to update the vision (phrases
+like "add this to the path", "update the vision", "north star is now
+X", "save this as a path entry"), edit `sudd/vision.md` directly using
+your file-editing tools. Confirm in one short message what you
+appended/changed. This is the "if i bring things up it needs to involve
+me" half of the rule.
+
+The Go binary handles automatic path entries on archive — chat-mode
+edits are for north-star changes and detour annotations the user
+explicitly raises.
 
 ---
 
@@ -75,7 +97,7 @@ This tells you what exists.
 
 ### When no change exists
 Think freely. When insights crystallize, offer:
-- "This feels solid. Start a change with `/sudd:new`?"
+- "This feels solid. Start a change with `/sudd-new`?"
 
 ### When a change exists
 Read existing artifacts:
@@ -90,7 +112,7 @@ Reference them naturally. Offer to capture decisions.
 ## ENDING CHAT
 
 No required ending. Might:
-- **Flow into action**: "Ready to start? `/sudd:new`"
+- **Flow into action**: "Ready to start? `/sudd-new`"
 - **Just provide clarity**: User has what they need
 - **Continue later**: "We can pick this up anytime"
 

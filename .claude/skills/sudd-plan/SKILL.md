@@ -4,14 +4,14 @@ description: "Create specs, design, and tasks for a change. Use when the user wa
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.0"
+  version: "3.8.34"
 ---
 
 Create detailed specifications, design, and implementation tasks for a change.
 
 **Input**:
-- `/sudd:plan` — use active change
-- `/sudd:plan {change-id}` — specific change
+- `/sudd-plan` — use active change
+- `/sudd-plan {change-id}` — specific change
 
 ---
 
@@ -23,12 +23,12 @@ cat sudd/state.json
 
 If no active change:
 1. Check `sudd/changes/active/` for available changes
-2. If none: "No changes found. Run `/sudd:new` first."
+2. If none: "No changes found. Run `/sudd-new` first."
 3. If one: auto-select
 4. If multiple: list and ask
 
 If active change has no proposal:
-- Run `/sudd:new` first (or auto-create if autonomous)
+- Run `/sudd-new` first (or auto-create if autonomous)
 
 ---
 
@@ -55,16 +55,16 @@ lack consumer research get the same discovery pass as green-mode projects.
 If either condition is true, run research agents:
 
 ```
-Dispatch(agent=researcher):
+Task(agent=researcher):
   - Investigate technologies needed
   - Find patterns in codebase
   - Identify standards to follow
 
-Dispatch(agent=persona-detector):
+Task(agent=persona-detector):
   - Discover WHO consumes this output
   - Map consumer chain
 
-Dispatch(agent=persona-researcher):
+Task(agent=persona-researcher):
   - Deep-research each consumer
   - Find deal-breakers, formats, unknown unknowns
 ```
@@ -76,11 +76,11 @@ Aggregate findings.
 In addition to repo-level persona research, create change-level personas:
 
 ```
-Dispatch(agent=persona-detector, scope=change):
+Task(agent=persona-detector, scope=change):
   - Who consumes THIS CHANGE's combined output?
   - Write to: sudd/changes/active/{id}/personas/
 
-Dispatch(agent=persona-researcher, scope=change):
+Task(agent=persona-researcher, scope=change):
   - Deep-research each change consumer
   - Write to: sudd/changes/active/{id}/personas/{consumer-name}.md
 ```
@@ -121,6 +121,22 @@ Write `sudd/changes/active/{id}/specs.md`:
 - Schema: 
 - Validation: 
 
+## Handoff Contracts (v3.8.18 — AC #15)
+
+Declare the interface contract between agents so `contract-verifier` can
+enforce each transition. Every active change MUST fill in all four rows.
+
+| From                    | To                    | Contract                                                                                       |
+|-------------------------|-----------------------|-------------------------------------------------------------------------------------------------|
+| coder                   | qa                    | Produced files listed under each task's `Files:` exist, compile, and expose the signatures specs declare. |
+| qa                      | persona-validator     | Tests exist for every Given/When/Then in `tasks/{id}/micro-persona.md`; all referenced fixtures present. |
+| persona-validator       | gate                  | Persona score ≥ 98/100 for every persona in `active/{id}/personas/`; no deal-breakers triggered.         |
+| gate                    | (done/stuck)          | Gate rubric score meets threshold (default 98) AND macro-wiring-checker reports no dangling artifacts.  |
+
+`contract-verifier` runs at each phase transition and HALTs the build loop
+if any row's contract is violated. `macro-wiring-checker` runs at gate
+entry (gate.md Step 0) for change-level reachability.
+
 ## Out of Scope
 - 
 ```
@@ -133,9 +149,6 @@ Write `sudd/changes/active/{id}/design.md`:
 
 ```markdown
 # Design: {change-id}
-
-## Metadata
-sudd_version: 3.3
 
 ## Architecture Overview
 {ASCII diagram of components}
@@ -176,7 +189,7 @@ If the change involves UI (proposal mentions frontend, dashboard, form, page, we
 OR design.md includes components producing HTML/CSS/JS):
 
 ```
-Dispatch(agent=ux-architect):
+Task(agent=ux-architect):
   Input: proposal.md, specs.md, design.md, existing UI patterns, change personas
   Output: ## UI Specification section appended to design.md
 
@@ -188,13 +201,6 @@ Dispatch(agent=ux-architect):
   - Accessibility requirements (WCAG 2.1 AA, focus order, ARIA)
   - Visual direction (delegates to superpowers:frontend-design for execution)
 ```
-
-If change involves UI:
-  Dispatch(agent=ux-designer):
-    Read ## UI Specification from design.md
-    Run ui-ux-pro-max scripts to generate design-system/MASTER.md
-    Generate per-page overrides in design-system/pages/
-    Append ## Design Tokens to design.md
 
 If no UI involvement detected: SKIP this step.
 
@@ -240,7 +246,7 @@ Total: N tasks | Est. effort: {sum}
 After tasks.md is created, generate micro-personas for every task:
 
 ```
-Dispatch(agent=micro-persona-generator):
+Task(agent=micro-persona-generator):
   Input: tasks.md, design.md, specs.md, codebase
   Output: sudd/changes/active/{id}/tasks/{task-id}/micro-persona.md (one per task)
 ```
@@ -252,6 +258,75 @@ for each task T{N} in tasks.md:
 ```
 
 Verify: every task has a micro-persona.md. If any are missing, log warning.
+
+---
+
+## STEP 5.6: RUBRIC ADVERSARY CYCLE (v3.8.18 — AC #12, #13, #14)
+
+A rubric that isn't critiqued before it scores live code tends to pass
+anything and fail nothing. This is what made SUDD v3.1 rubrics rigorous:
+adversarial pressure before the rubric ever runs.
+
+**Max 3 rounds. Exit when the adversary finds nothing meaningful.**
+
+For each task T{N} with a generated micro-persona.md, loop:
+
+```
+Round 1 (rubric v1):
+  Save initial rubric from STEP 5.5 output:
+    cp sudd/changes/active/{id}/tasks/T{N}/micro-persona.md \
+       sudd/changes/active/{id}/rubric-drafts/T{N}_v1.md
+
+  Task(agent=rubric-adversary):
+    Input:  rubric-drafts/T{N}_v1.md
+    Output: rubric-drafts/T{N}_critique_v1.md
+    Looks for: ambiguous criteria, missing edge cases, measurable-ness
+               failures, Given/When/Then that a test can't actually execute.
+
+  If critique is "nothing meaningful" (empty findings or only nits):
+    → Exit loop. Rubric v1 is final. Skip revision.
+  Else:
+    → Proceed to revision.
+
+Round 2 (rubric v2 after critique):
+  Task(agent=code-analyzer-reviewer, mode=rubric-revision):
+    Input:  rubric-drafts/T{N}_v1.md + rubric-drafts/T{N}_critique_v1.md
+    Output: rubric-drafts/T{N}_v2.md (incorporates critique findings)
+
+  Task(agent=rubric-adversary):
+    Input:  rubric-drafts/T{N}_v2.md
+    Output: rubric-drafts/T{N}_critique_v2.md
+
+  If "nothing meaningful":
+    → Exit loop. Write v2 back to tasks/T{N}/micro-persona.md. Final.
+  Else:
+    → Proceed to round 3.
+
+Round 3 (rubric v3 — last pass):
+  Task(agent=code-analyzer-reviewer, mode=rubric-revision):
+    Input:  rubric-drafts/T{N}_v2.md + rubric-drafts/T{N}_critique_v2.md
+    Output: rubric-drafts/T{N}_v3.md
+
+  Round 3 ends the cycle regardless. Write v3 back to
+  tasks/T{N}/micro-persona.md. Log any remaining adversary findings
+  to log.md under "## Rubric Adversary — Unresolved" as known weaknesses.
+```
+
+**Output directory** (AC #14): `sudd/changes/active/{id}/rubric-drafts/` holds the
+full audit trail — every version and every critique — so humans can replay
+the adversarial process. The final rubric lives at
+`tasks/{task-id}/micro-persona.md` as the single source of truth consumed
+by QA and the validation squad.
+
+**Dispatch pattern summary (AC #13):**
+```
+micro-persona-generator (v1) → rubric-adversary (critique v1)
+                              → code-analyzer-reviewer (v2)
+                              → rubric-adversary (critique v2)
+                              → code-analyzer-reviewer (v3)
+                              [exit — max 3 rounds]
+```
+
 ---
 
 ## STEP 6: UPDATE STATE
@@ -260,7 +335,7 @@ Update `sudd/state.json`:
 ```json
 {
   "phase": "build",
-  "last_command": "sudd:plan"
+  "last_command": "sudd-plan"
 }
 ```
 
@@ -286,36 +361,8 @@ Planned: sudd/changes/active/{change-id}/
   Micro-personas: N generated
   Change personas: M researched
 
-Next: Run /sudd:apply to start implementation
+Next: Run /sudd-apply to start implementation
 ```
-
----
-
-## STEP 6: Quality Loops (v3.7)
-
-After planning is complete, run the quality validation loops.
-These are the same loops that /sudd:run invokes (Steps 3b, 4b, 4c).
-
-```
-6a. Persona Early Validation (if personas exist):
-    FOR EACH persona in sudd/changes/active/{id}/personas/:
-      Dispatch(agent=persona-validator, mode=persona-quality)
-      If FAIL → Dispatch(agent=persona-researcher, mode=enrich) → re-validate (max 2)
-    Update state.json: personas_validated = true
-
-6b. Architecture Review (max 2 rounds):
-    Dispatch(agent=peer-reviewer, mode=design-review)
-    If REVISE → Dispatch(agent=architect, mode=revision) → re-review
-    Update state.json: architecture_reviewed = true
-
-6c. Design-Gate:
-    FOR EACH persona: Dispatch(agent=persona-validator, mode=design-gate)
-    If ANY < 70 → Dispatch(agent=architect, mode=revision) → re-gate (max 1)
-    If architect revised tasks.md → regenerate affected micro-personas
-    Update state.json: design_gate_passed = true, design_gate_score = {min}
-```
-
-See run.md Steps 3b, 4b, 4c for full specifications of each loop.
 
 ---
 
@@ -325,5 +372,4 @@ See run.md Steps 3b, 4b, 4c for full specifications of each loop.
 - Run research when artifacts are missing (personas or handoff contracts), regardless of mode
 - Create handoff contracts in specs
 - Tasks should be granular (1-2 hours each)
-- Run quality loops (Step 6) before marking planning complete
 - Update state.json phase to "build"

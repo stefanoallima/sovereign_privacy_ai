@@ -102,7 +102,7 @@ When root cause is `EXTERNAL_DEPENDENCY` AND the dependency requires human actio
 **Task**: {task description}
 **What's needed**: {specific thing — e.g., "OpenAI API key for embeddings endpoint"}
 **Why SUDD can't solve it**: {explanation}
-**How to provide**: {instructions — e.g., "Set OPENAI_API_KEY in .env, then re-run /sudd:run"}
+**How to provide**: {instructions — e.g., "Set OPENAI_API_KEY in .env, then re-run /sudd-run"}
 **Alternatives considered**: {what was tried}
 ```
 

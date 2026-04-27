@@ -32,7 +32,7 @@ Auto-detect project setup: `package.json` → npm install, `go.mod` → go mod d
 1. Rebase worktree branch against current base: `git rebase sudd/{change-id} sudd/{change-id}-{task-id}`
    - Conflict → `git rebase --abort` → mark for sequential re-run
 2. Merge: `git merge sudd/{change-id}-{task-id} --no-ff`
-3. Post-merge: run handoff-validator. Below EXEMPLARY → `git revert HEAD --no-edit`, re-run sequentially
+3. Post-merge: run integration-reviewer (scope=change). Below EXEMPLARY → `git revert HEAD --no-edit`, re-run sequentially
 4. Merge conflict → `git merge --abort`, mark for sequential re-run
 
 ## Cleanup

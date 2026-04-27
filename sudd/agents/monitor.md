@@ -105,7 +105,9 @@ SESSION STATE:
 
 ## Writing Reports
 
-Write health reports to `memory/session-log.md`:
+Write health reports to `sudd/auto-reports/{YYYY-MM-DD}/summary.md` (the
+canonical health source). Session state lives in `sudd/state.json.auto_session`.
+`memory/session-log.md` is retired — do not write to it.
 
 ```markdown
 ---
@@ -125,7 +127,7 @@ Check `## Cost Log` in log.md for the active change:
 ## Confidence Tracking (v3.1)
 
 Track confidence scores from subagent returns:
-- Log each subagent's confidence to session-log.md
+- Log each subagent's confidence to `sudd/auto-reports/{YYYY-MM-DD}/summary.md`
 - Alert if 3+ consecutive LOW confidence returns (suggests systemic issue)
 - Alert if a PASS + LOW confidence was overridden by higher-tier model
 

@@ -4,16 +4,16 @@ description: "Run tests and validate implementation. Use when the user wants to 
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.0"
+  version: "3.8.34"
 ---
 
 Run tests and validate the implementation against specs.
 
 **Input**:
-- `/sudd:test` — run all tests for active change
-- `/sudd:test {change-id}` — test specific change
-- `/sudd:test unit` — unit tests only
-- `/sudd:test integration` — integration tests only
+- `/sudd-test` — run all tests for active change
+- `/sudd-test {change-id}` — test specific change
+- `/sudd-test unit` — unit tests only
+- `/sudd-test integration` — integration tests only
 
 ---
 
@@ -120,12 +120,12 @@ Summary: 2/3 passed, 1 failed
 For each failing test:
 
 ```
-Dispatch(agent=blocker-detector):
+Task(agent=blocker-detector):
   ERROR: {test failure}
   Classify: bug | spec_issue | test_issue
 
 If bug:
-  → Dispatch(agent=coder): fix the bug
+  → Task(agent=coder): fix the bug
   → Re-run test
   → Max 2 quick fixes before escalation
 
@@ -163,15 +163,15 @@ Tests: {change-id}
 
 All tests passing!
 
-If running autonomously (from /sudd:run): proceed directly to gate validation. Do NOT stop.
-If running standalone: Next → /sudd:gate
+If running autonomously (from /sudd-run): proceed directly to gate validation. Do NOT stop.
+If running standalone: Next → /sudd-gate
 ```
 
 ### Update State
 After ALL tests pass:
 Update sudd/state.json:
   - tests_passed = true
-  - last_command = "sudd:test"
+  - last_command = "sudd-test"
 
 ---
 

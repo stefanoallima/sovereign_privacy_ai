@@ -1,0 +1,65 @@
+{
+  "active_change": "",
+  "audit": {
+    "changes_since_last_audit": 0,
+    "last_audit_at": "2026-04-15T16:58:40+02:00"
+  },
+  "auto_session": {
+    "started_at": "2026-04-16T11:15:12+02:00",
+    "stop_reason": "",
+    "changes_processed": [],
+    "queue_remaining": [
+      {
+        "id": "green_dynamic-gpu_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_pii-pipeline-v2_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_local-rag_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_perf-privacy-opt_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_gemma4-orchestration_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green:vision",
+        "mode": "green",
+        "source": "vision"
+      }
+    ]
+  },
+  "autonomy": "full",
+  "discovery": {
+    "changes_since_last": 10
+  },
+  "gate_passed": false,
+  "gate_score": null,
+  "imported_from": null,
+  "last_command": "sudd:plan",
+  "last_run": "2026-04-15T00:00:00Z",
+  "mode": "green",
+  "phase": "inception",
+  "retry_count": 0,
+  "stats": {
+    "tasks_completed": 0,
+    "tasks_stuck": 0,
+    "tasks_blocked": 0,
+    "total_retries": 0
+  },
+  "task_retries": {},
+  "tests_passed": false,
+  "version": "1.0"
+}

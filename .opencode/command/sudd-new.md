@@ -10,19 +10,20 @@ creates: sudd/changes/active/{id}/proposal.md
 Create a new change proposal. First step in the planning phase.
 
 **Input**: 
-- `/sudd:new` — prompt for what to build
-- `/sudd:new "description"` — create from description
-- `/sudd:new {type}_{name}_{seq}` — create with specific ID
+- `/sudd-new` — prompt for what to build
+- `/sudd-new "description"` — create from description
+- `/sudd-new {type}_{name}_{seq}` — create with specific ID
 
-**Change ID format**: `{type}_{name}_{seq:02d}`
-- type: green | brown | fix | refact
+**Change ID format**: `{NNN}_{type}_{name}_{seq:02d}`
+- NNN: global creation order (count all dirs in active/ + archive/ + stuck/, then +1, zero-padded to 3 digits)
+- type: green | brown | fix | refact | discovered
 - name: kebab-case description
 - seq: two-digit sequence number
 
 Examples:
-- `green_auth_01` — new auth system, first greenfield
-- `brown_api-v2_03` — API modification, third change
-- `fix_login-crash_02` — fix login crash, second fix
+- `001_green_auth_01` — first change ever, new auth system
+- `005_brown_api-v2_01` — fifth change overall, API modification
+- `012_fix_login-crash_01` — twelfth change, fix login crash
 
 ---
 
@@ -35,6 +36,21 @@ cat sudd/state.json
 If no active change, proceed. If active change exists:
 - Show current change
 - Ask: "Replace with new change, or continue existing?"
+
+---
+
+## STEP 0: LOAD VISION CONTEXT (v3824)
+
+Run `sudd vision context` and inject the output into your planning
+scratchpad as the section `## Vision Context` BEFORE drafting the
+proposal. This carries the user's North Star and the last 5 directional
+choices into proposal generation.
+
+Do NOT prompt the user about alignment — silent alignment is the success
+condition. The session-end divergence detector handles real divergence
+on its own (only fires after 3 consecutive DIVERGENT changes). When
+`sudd vision context` outputs nothing (vision.md missing/empty), proceed
+without context.
 
 ---
 
@@ -86,9 +102,6 @@ Write `sudd/changes/active/{change-id}/proposal.md`:
 ```markdown
 # Change: {change-id}
 
-## Metadata
-sudd_version: 3.1
-
 ## Status
 proposed
 
@@ -132,7 +145,7 @@ Update `sudd/state.json`:
 {
   "active_change": "{change-id}",
   "phase": "planning",
-  "last_command": "sudd:new"
+  "last_command": "sudd-new"
 }
 ```
 
@@ -144,18 +157,18 @@ Update `sudd/state.json`:
 Created: sudd/changes/active/{change-id}/
 
   proposal.md  ✓ (created)
-  specs.md     ○ (empty, run /sudd:plan)
-  design.md    ○ (empty, run /sudd:plan)
-  tasks.md     ○ (empty, run /sudd:plan)
+  specs.md     ○ (empty, run /sudd-plan)
+  design.md    ○ (empty, run /sudd-plan)
+  tasks.md     ○ (empty, run /sudd-plan)
 
-Next: Run /sudd:plan to create specs and design
+Next: Run /sudd-plan to create specs and design
 ```
 
 ---
 
 ## GUARDRAILS
 
-- Don't create specs/design yet — that's /sudd:plan
+- Don't create specs/design yet — that's /sudd-plan
 - Always check for existing changes first
 - Preserve seq numbering across archive
 - Ask for scope-heavy changes, auto-create for focused ones

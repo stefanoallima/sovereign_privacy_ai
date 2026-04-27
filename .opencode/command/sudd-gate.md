@@ -3,30 +3,52 @@ name: sudd-gate
 description: Persona validation gate — does this deliver value?
 phase: validate
 micro: true
-prereq: sudd:test (tests passing)
+prereq: sudd-test (tests passing)
 creates: validation score
 ---
 
 Persona validation gate. The critical check: does this deliver actual value?
 
 **Input**:
-- `/sudd:gate` — validate active change
-- `/sudd:gate {change-id}` — validate specific change
-- `/sudd:gate {persona}` — validate as specific persona
+- `/sudd-gate` — validate active change
+- `/sudd-gate {change-id}` — validate specific change
+- `/sudd-gate {persona}` — validate as specific persona
 
 ---
 
 ## ORCHESTRATOR CHECK
 
 ## PHASE GUARD
-Read sudd/state.json. If tests_passed != true: STOP. "Run /sudd:test first."
+Read sudd/state.json. If tests_passed != true: STOP. "Run /sudd-test first."
 
 ---
 
-## STEP 0: MACRO-WIRING CHECK (v3.0)
+## STEP 0: MACRO-WIRING CHECK (v3.0, AC #17)
 
 Dispatch(agent=macro-wiring-checker): verify all new code is reachable via git diff + full codebase.
 If ANY dead end, orphaned, or deferred-unresolved → FAIL, log to log.md, route to coder to fix wiring.
+
+---
+
+## STEP 0b: CHANGE-LEVEL CONTRACT VERIFICATION (v3.8.18, AC #16)
+
+Dispatch(agent=contract-verifier, scope=change):
+  - Input: specs.md `## Handoff Contracts` table + git diff vs base + tasks.md.
+  - For each row in the Handoff Contracts table (coder→qa, qa→persona-validator,
+    persona-validator→gate, gate→done/stuck):
+    - Verify every file claimed by the producer in that row actually exists
+      on disk and compiles.
+    - Verify every test/fixture claimed by the producer is discoverable by
+      the test runner.
+  - If ANY row is violated → HALT gate. Write the specific violation to
+    log.md under `## Contract Verification` and route to coder with
+    the named violation (not a generic "scores dropped").
+
+This is a change-level pass that complements the per-task contract-verifier
+already running in apply.md Step 3h. Per-task checks catch a single task's
+output; this checks the aggregated change's handoffs line up with what
+specs.md declared. Skipping this step means a change can pass per-task
+and still be internally inconsistent at merge time.
 
 ---
 
@@ -41,7 +63,7 @@ Read `sudd/changes/active/{id}/specs.md`. Identify all consumers: immediate, dow
 **YOU MUST EXECUTE THESE BASH COMMANDS NOW. Not later. Not optionally. NOW.**
 
 First, resolve the change ID. Read `sudd/state.json` → `active_change` field.
-Or use the change-id argument if provided via `/sudd:gate {change-id}`.
+Or use the change-id argument if provided via `/sudd-gate {change-id}`.
 Substitute `{id}` below with the actual change ID.
 
 ```bash
@@ -481,12 +503,12 @@ Log to log.md under `## Critical Assessment`.
 
 ### PASS (all EXEMPLARY after critical assessment)
 Update log.md with score + timestamp. Update state.json: gate_passed=true, gate_score={min}, phase="complete".
-If autonomous → proceed to archive. If standalone → /sudd:done.
+If autonomous → proceed to archive. If standalone → /sudd-done.
 
 ### FAIL (any consumer below EXEMPLARY)
 Append to log.md `## Accumulated Feedback` → `### Retry {N} — Gate Score: {min}/100` with per-persona scores + issues. Never overwrite previous feedback.
 
-retry_count++. If < 8 → escalate tier, return to /sudd:apply. If >= 8 → STUCK, run /sudd:done.
+retry_count++. If < 8 → escalate tier, return to /sudd-apply. If >= 8 → STUCK, run /sudd-done.
 
 ---
 
@@ -504,7 +526,7 @@ Gate: PASSED ✓
   All consumers validated
   Minimum score: {min}/100 (must be >= 98)
 If autonomous: archiving now...
-If standalone: Run /sudd:done to archive
+If standalone: Run /sudd-done to archive
 ```
 
 ### Fail
@@ -513,7 +535,7 @@ Gate: FAILED ✗
   Lowest: {consumer} ({score}/100)
   Issues: {list}
   Retry: {N}/8 — Escalating to {tier}...
-  Returning to /sudd:apply with feedback
+  Returning to /sudd-apply with feedback
 ```
 
 ---
