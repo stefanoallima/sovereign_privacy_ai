@@ -2,7 +2,7 @@
   "active_change": "",
   "architecture_reviewed": false,
   "audit": {
-    "changes_since_last_audit": 1,
+    "changes_since_last_audit": 2,
     "last_audit_at": "2026-04-15T16:58:40+02:00"
   },
   "auto_session": {
@@ -16,14 +16,17 @@
         "tasks_completed": 16,
         "tasks_total": 16,
         "exit_code": 0
+      },
+      {
+        "change_id": "green_security-hardening_01",
+        "outcome": "DONE",
+        "elapsed_seconds": 1067.2766106,
+        "tasks_completed": 12,
+        "tasks_total": 12,
+        "exit_code": 0
       }
     ],
     "queue_remaining": [
-      {
-        "id": "green_security-hardening_01",
-        "mode": "brown",
-        "source": "proposal"
-      },
       {
         "id": "green:vision",
         "mode": "green",
@@ -35,7 +38,7 @@
   "design_gate_passed": false,
   "design_gate_score": null,
   "discovery": {
-    "changes_since_last": 11
+    "changes_since_last": 12
   },
   "gate_passed": false,
   "gate_score": null,
@@ -49,7 +52,7 @@
   "stats": {
     "stats_seeded": true,
     "tasks_blocked": 0,
-    "tasks_completed": 1,
+    "tasks_completed": 2,
     "tasks_stuck": 0,
     "total_retries": 0
   },
