@@ -1,7 +1,7 @@
 # Change: green_local-rag_01
 
 ## Status
-proposed
+shipped — verified implemented in live code 2026-06-10 (excluded from sudd-auto scan; archive later)
 
 ## Summary
 Implement a fully local, privacy-first RAG (Retrieval Augmented Generation) pipeline. Documents uploaded to persona knowledge bases are chunked, embedded locally (GPU-accelerated via ONNX), stored in SQLite, and retrieved via semantic search during chat. No data leaves the machine. Replaces the current mock knowledge base UI with a working pipeline.

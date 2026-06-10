@@ -1,5 +1,7 @@
 # Vision: SUDD — Simulated User-Driven Development
 
+## North Star
+
 ## Purpose
 
 SUDD ensures code is only "Done" when validated from the **actual user's perspective** — not just "does it compile" but "does it deliver value."
@@ -104,3 +106,5 @@ After 8:   STUCK → log for human, move on
 - Handoff contracts define HOW outputs connect
 - Memory compounds across tasks
 - Autonomous by default, ask only for scope changes
+
+## Current Path

@@ -1,7 +1,7 @@
 # Change: green_gemma4-orchestration_01
 
 ## Status
-proposed
+shipped — verified implemented in live code 2026-06-10 (excluded from sudd-auto scan; archive later)
 
 ## Summary
 Add Gemma 4 E4B model support (128k context, multimodal) and improve the orchestration layer so the local model can intelligently delegate questions to the cloud model.

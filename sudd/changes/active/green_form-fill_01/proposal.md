@@ -1,5 +1,8 @@
 # Proposal: Form-Fill Pipeline
 
+## Status
+shipped — verified implemented in live code 2026-06-10 (excluded from sudd-auto scan; archive later)
+
 ## Problem
 Users need to fill PDF/DOCX forms with personal data, but sharing PII with cloud LLM providers violates the privacy-first guarantee of AILocalMind.
 

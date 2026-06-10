@@ -1,7 +1,7 @@
 # Change: green_perf-privacy-opt_01
 
 ## Status
-proposed
+shipped — verified implemented in live code 2026-06-10 (excluded from sudd-auto scan; archive later)
 
 ## Summary
 Three targeted optimizations: KV cache quantization (50% VRAM savings), Rust-side text redaction (10-50x faster PII removal), and local embeddings to replace mem0 cloud dependency.
