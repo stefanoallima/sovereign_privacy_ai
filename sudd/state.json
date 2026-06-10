@@ -1,36 +1,26 @@
 {
   "active_change": "",
+  "architecture_reviewed": false,
   "audit": {
-    "changes_since_last_audit": 0,
+    "changes_since_last_audit": 1,
     "last_audit_at": "2026-04-15T16:58:40+02:00"
   },
   "auto_session": {
-    "started_at": "2026-04-16T11:15:12+02:00",
+    "started_at": "2026-06-10T21:34:45+02:00",
     "stop_reason": "",
-    "changes_processed": [],
+    "changes_processed": [
+      {
+        "change_id": "green_pii-pipeline-v3_01",
+        "outcome": "DONE",
+        "elapsed_seconds": 968.8792661,
+        "tasks_completed": 16,
+        "tasks_total": 16,
+        "exit_code": 0
+      }
+    ],
     "queue_remaining": [
       {
-        "id": "green_dynamic-gpu_01",
-        "mode": "brown",
-        "source": "proposal"
-      },
-      {
-        "id": "green_pii-pipeline-v2_01",
-        "mode": "brown",
-        "source": "proposal"
-      },
-      {
-        "id": "green_local-rag_01",
-        "mode": "brown",
-        "source": "proposal"
-      },
-      {
-        "id": "green_perf-privacy-opt_01",
-        "mode": "brown",
-        "source": "proposal"
-      },
-      {
-        "id": "green_gemma4-orchestration_01",
+        "id": "green_security-hardening_01",
         "mode": "brown",
         "source": "proposal"
       },
@@ -42,8 +32,10 @@
     ]
   },
   "autonomy": "full",
+  "design_gate_passed": false,
+  "design_gate_score": null,
   "discovery": {
-    "changes_since_last": 10
+    "changes_since_last": 11
   },
   "gate_passed": false,
   "gate_score": null,
@@ -51,12 +43,14 @@
   "last_command": "sudd:plan",
   "last_run": "2026-04-15T00:00:00Z",
   "mode": "green",
+  "personas_validated": false,
   "phase": "inception",
   "retry_count": 0,
   "stats": {
-    "tasks_completed": 0,
-    "tasks_stuck": 0,
+    "stats_seeded": true,
     "tasks_blocked": 0,
+    "tasks_completed": 1,
+    "tasks_stuck": 0,
     "total_retries": 0
   },
   "task_retries": {},
