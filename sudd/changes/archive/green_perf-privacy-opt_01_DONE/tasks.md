@@ -6,7 +6,7 @@
 - **Files**: src-tauri/src/llama_backend.rs
 - **SharedFiles**: none
 - **Description**: Add KV cache quantization to context params. Saves ~50% VRAM.
-- [ ] Add q8_0 KV type to context params
+- [x] Add q8_0 KV type to context params
 
 ## T02: Rust-Side Text Redaction
 - **Effort**: M
@@ -14,10 +14,10 @@
 - **Files**: src-tauri/src/redaction.rs, src-tauri/src/redaction_commands.rs, src-tauri/src/lib.rs
 - **SharedFiles**: src-tauri/src/lib.rs
 - **Description**: Rust redaction engine with Tauri commands. Case-insensitive matching, returns redacted text + mappings.
-- [ ] Create redaction.rs
-- [ ] Create redaction_commands.rs
-- [ ] Register in lib.rs
-- [ ] Add tests
+- [x] Create redaction.rs
+- [x] Create redaction_commands.rs
+- [x] Register in lib.rs
+- [x] Add tests
 
 ## T03: Frontend — Use Rust Redaction
 - **Effort**: M
@@ -25,8 +25,8 @@
 - **Files**: src/hooks/usePrivacyChat.ts
 - **SharedFiles**: none
 - **Description**: Replace inline JS redaction with Rust invoke calls.
-- [ ] Replace JS redaction with Rust invoke
-- [ ] Update both sendWithPrivacy and sendDirect paths
+- [x] Replace JS redaction with Rust invoke
+- [x] Update both sendWithPrivacy and sendDirect paths
 
 ## T04: Local Embedding Model
 - **Effort**: M
@@ -34,9 +34,9 @@
 - **Files**: src-tauri/src/embedding.rs, src-tauri/src/lib.rs
 - **SharedFiles**: src-tauri/src/lib.rs
 - **Description**: ONNX embedding model (all-MiniLM-L6-v2) via ort crate.
-- [ ] Create embedding.rs
-- [ ] Model download + embed_text function
-- [ ] Tauri commands
+- [x] Create embedding.rs
+- [x] Model download + embed_text function
+- [x] Tauri commands
 
 ## T05: Local Memory Store
 - **Effort**: M
@@ -44,9 +44,9 @@
 - **Files**: src-tauri/src/local_memory.rs, src-tauri/src/local_memory_commands.rs, src-tauri/src/lib.rs
 - **SharedFiles**: src-tauri/src/lib.rs
 - **Description**: SQLite memory store with cosine similarity search.
-- [ ] Create local_memory.rs with SQLite schema
-- [ ] add/search/delete memory functions
-- [ ] Tauri commands
+- [x] Create local_memory.rs with SQLite schema
+- [x] add/search/delete memory functions
+- [x] Tauri commands
 
 ## T06: Frontend — Local Memory Integration
 - **Effort**: M
@@ -54,9 +54,9 @@
 - **Files**: src/hooks/usePrivacyChat.ts, src/stores/settings.ts, src/components/settings/PrivacySettings.tsx
 - **SharedFiles**: src/hooks/usePrivacyChat.ts
 - **Description**: Replace mem0 with local memory. Settings toggle.
-- [ ] Add useLocalMemory setting
-- [ ] Replace mem0 calls with local invoke
-- [ ] Settings toggle UI
+- [x] Add useLocalMemory setting
+- [x] Replace mem0 calls with local invoke
+- [x] Settings toggle UI
 
 ## Batches
 ```

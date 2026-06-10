@@ -1,39 +1,19 @@
-<!-- refreshed-at: 2026-04-20T10:34:13Z -->
+<!-- refreshed-at: 2026-06-10T21:55:00Z -->
 # Current State
 
 ## TL;DR
 
-14 active, 8 stuck, 0 dirty, 0 inbox, 0 queued · refreshed 2026-04-20T10:34:13Z
+1 active, 0 stuck, 0 dirty, 0 inbox, 0 queued · refreshed 2026-06-10T21:55:00Z
 
-14 active changes outpace velocity (10 shipped recently), and 8 are stuck — triage the stuck pile before starting new work. Inbox and queue are both empty, so no incoming pressure; the bottleneck is unblocking, not intake.
+The active queue is clean: the five formed AILocalMind changes that had been sitting as "shipped — archive later" debt (form-fill, gemma4-orchestration, local-rag, perf-privacy-opt, pii-pipeline-v2) were verified against live code and archived DONE this session. The only remaining `active/` entry is an empty `brown_night-queue_01` stub (no proposal/specs/design/tasks). Nothing is stuck, queued, or in the inbox — there is no pending build work; intake is the bottleneck, not throughput.
 
 ## Active
 
-- [`discovered_audit_audit-shipped-agent-references_01`](changes/active/discovered_audit_audit-shipped-agent-references_01/) — Add a regression guard in `framework_integrity_test.go` that flags shipped-but-unreferenced agents. Either wire each unreferenced agent in, or delete the file, or add to an explicit allowlist (`unref…
-- [`discovered_audit_cure-dirty-placeholder-followup-marker_01`](changes/active/discovered_audit_cure-dirty-placeholder-followup-marker_01/) — `CureDirty` should either: 1. Write a marker file `LESSON_NEEDED.md` in the change dir when it fills a placeholder, flagging the item for a follow-up human-written lesson, OR 2. Enqueue the change on…
-- [`discovered_audit_cure-stuck-mechanical-lesson-failures_01`](changes/active/discovered_audit_cure-stuck-mechanical-lesson-failures_01/) — Two-part (combined into one proposal): 1. **Manual lesson append**: reconstruct the stats-rollup-deadfield-fix lesson from `sudd/changes/archive/discovered_audit_state-json-stats-rollup_01_DONE/SUMMA…
-- [`discovered_audit_current-state-prose-counts-mismatch_01`](changes/active/discovered_audit_current-state-prose-counts-mismatch_01/) — Extend `AssertTLDRMatchesBody` (in `sudd-go/internal/state/render.go`) to regex-extract quoted counts from prose ("7 stuck", "6 active changes", "11 inbox items") and invalidate the prose when they d…
-- [`discovered_audit_current-state-stuck-bullets-classifier-source_01`](changes/active/discovered_audit_current-state-stuck-bullets-classifier-source_01/) — Update Snapshot's stuck-reason extractor in `sudd-go/internal/state/` to prefer `## Category` + first sentence of `## Probable Root Cause` from STUCK.md; fall back to STUCK_REPORT.md `TimeoutReason`;…
-- [`discovered_audit_default-persona-heading-cleanup_01`](changes/active/discovered_audit_default-persona-heading-cleanup_01/) — Collapse `## Goals` into `## Objectives` in `sudd/personas/default.md`. Keep the best phrasing from each. Mirror the change in the shipped template at `sudd-go/cmd/sudd/templates/sudd/personas/defaul…
-- [`discovered_audit_init-template-variants-sync_01`](changes/active/discovered_audit_init-template-variants-sync_01/) — Regenerate `.claude/commands/sudd/init.md` and `.opencode/command/sudd-init.md` from canonical `sudd/commands/micro/init.md` (same pattern `discovered_handoff-validator-sibling-purge` used for `sudd-…
-- [`discovered_audit_lesson-recorded-timing-bug_01`](changes/active/discovered_audit_lesson-recorded-timing-bug_01/) — Fix the timing race in `LessonRecorded`: the check likely runs before the subprocess flushes writes or reads a stale cached `lessons.md`. Inspect call site and re-read `lessons.md` from disk (uncache…
-- [`discovered_audit_micro-persona-per-task-wiring_01`](changes/active/discovered_audit_micro-persona-per-task-wiring_01/) — 1. During `plan.md`, expand `tasks.md` into `tasks/T1/`, `tasks/T2/`, … subdirs (one file per task). 2. Wire `Dispatch(agent=micro-persona-generator)` per-task into `apply.md` (or `plan.md` task-expa…
-- [`discovered_audit_morning-report-prior-session-stuck_01`](changes/active/discovered_audit_morning-report-prior-session-stuck_01/) — Morning report writer should include a "Prior session — still-STUCK items" section listing any `changes_processed[]` entry from state.json whose change-id still appears in `sudd/changes/stuck/`. This…
-- [`discovered_audit_preflight-warning-structured-output_01`](changes/active/discovered_audit_preflight-warning-structured-output_01/) — Push preflight warnings to the auto-report front matter (YAML block at top of `auto-reports/{date}/summary.md`) so the watcher sees them in the same doc they review at 7am.
-- [`discovered_audit_stuck-classifier-log-tail-fallback_01`](changes/active/discovered_audit_stuck-classifier-log-tail-fallback_01/) — When STUCK_REPORT.md lacks `TimeoutReason`, classifier should fall back to scanning the per-change `log.md` tail for known error substrings. Small heuristic table: - "no browser evidence" / "persona-…
-- [`discovered_audit_stuck-md-classifier-missed-quarantines_01`](changes/active/discovered_audit_stuck-md-classifier-missed-quarantines_01/) — Audit the archival codepaths for ordering bugs; add `BackfillStuckMDs` call at END of every `RunChange` (not just preflight) so any boilerplate STUCK.md gets rewritten with classifier output before t…
-- [`discovered_audit_stuck-reason-extractor-uses-classifier_01`](changes/active/discovered_audit_stuck-reason-extractor-uses-classifier_01/) — Change `collectStuckReasons` in `sudd-go/internal/auto/report.go` to parse `## Category` + first line of `## Probable Root Cause` from classifier STUCK.md. Fall back to STUCK_REPORT.md's `TimeoutReas…
+- [`brown_night-queue_01`](changes/active/brown_night-queue_01/) — Empty stub: only an empty `personas/` dir, no proposal/specs/design/tasks. Never started; candidate to flesh out or discard.
 
 ## Stuck
 
-- [`discovered_audit_archive-clears-zombie-stuck-dirs_01`](changes/stuck/discovered_audit_archive-clears-zombie-stuck-dirs_01/) — - **Timestamp**: 2026-04-19T22:06:22Z
-- [`discovered_audit_lesson-heading-matches-outcome_01`](changes/stuck/discovered_audit_lesson-heading-matches-outcome_01/) — - **Timestamp**: 2026-04-19T21:46:17Z
-- [`discovered_audit_stats-rollup-deadfield-fix_01`](changes/stuck/discovered_audit_stats-rollup-deadfield-fix_01/) — - **Timestamp**: 2026-04-19T21:26:01Z
-- [`discovered_current-state-refresher-session-start`](changes/stuck/discovered_current-state-refresher-session-start/) — - **Timestamp**: 2026-04-20T09:36:33Z
-- [`discovered_handoff-validator-sibling-purge`](changes/stuck/discovered_handoff-validator-sibling-purge/) — - **Timestamp**: 2026-04-20T09:16:36Z
-- [`discovered_persona-autogen-for-sudd-repo`](changes/stuck/discovered_persona-autogen-for-sudd-repo/) — - **Timestamp**: 2026-04-20T10:12:07Z
-- [`discovered_session-log-retired-writer-purge`](changes/stuck/discovered_session-log-retired-writer-purge/) — - **Timestamp**: 2026-04-20T09:24:14Z
-- [`discovered_stuck-triage-classifier-at-write-time`](changes/stuck/discovered_stuck-triage-classifier-at-write-time/) — - **Timestamp**: 2026-04-20T10:01:03Z
+_none_
 
 ## Dirty (shipped, needs cleanup)
 
@@ -41,16 +21,16 @@ _none_
 
 ## Just Shipped (last 10)
 
-- [`brown_v3818-persona-autogen_01`](changes/archive/brown_v3818-persona-autogen_01_DONE/) — SUDD v3.1/v3.2 shipped a rich validation architecture that got wiped by the v3.8.x self-update bug. Every agent file went to 0 bytes, effectively disabling: per-change personas, per-task micro-person…
-- [`discovered_dirty-auto-cure_01`](changes/archive/discovered_dirty-auto-cure_01_DONE/) — `discovered_audit_runner-stuck-requires-reason_01` has been sitting in `sudd/changes/dirty/` since 2026-04-19T21:59:15Z, blocked on a single mechanical fix: `SummaryHasCanonicalHeadings` — a missing…
-- [`discovered_audit_handoff-validator-template-cleanup_01`](changes/archive/discovered_audit_handoff-validator-template-cleanup_01_DONE/) — Remove every `handoff-validator` reference from the shipped templates under `sudd-go/cmd/sudd/templates/.claude/`: drop the `Task(agent=handoff-validator):` line from `commands/sudd/apply.md:86`, rem…
-- [`brown_v3825-inbox-port-reconciliation_01`](changes/archive/brown_v3825-inbox-port-reconciliation_01_DONE/) — brown_v3825-inbox-port-reconciliation_01_DONE
-- [`discovered_audit_runner-stuck-requires-reason_01`](changes/archive/discovered_audit_runner-stuck-requires-reason_01_DONE/) — `state.json.auto_session.changes_processed[3]` (the `done-dirty-outcome-tier_01` change) shipped with outcome=STUCK, exit=0, 36/36 tasks done — but `timeout_reason` is empty and `check_failures` is a…
-- [`discovered_audit_current-state-tldr-filesystem-truth_01`](changes/archive/discovered_audit_current-state-tldr-filesystem-truth_01_DONE/) — `sudd/CURRENT_STATE.md` line 6 TL;DR reports "6 active, 4 stuck" while the filesystem shows 1 active directory under `sudd/changes/active/` and 7 under `sudd/changes/stuck/` — a 40% understatement of…
-- [`discovered_audit_state-json-stats-rollup_01`](changes/archive/discovered_audit_state-json-stats-rollup_01_DONE/) — On `MarkSessionEnd` in `sudd-go/internal/auto/state.go` (or wherever the session-end hook lives — currently `cmd/sudd/auto.go` near the `AutoSession = nil` block), aggregate `auto_session.changes_pro…
-- [`discovered_audit_stuck-report-rendering-gaps_01`](changes/archive/discovered_audit_stuck-report-rendering-gaps_01_DONE/) — Update `sudd-go/internal/auto/checks.go` (and `stuck.go` STUCK_REPORT writer) so every STUCK change produces a STUCK_REPORT.md with a `## Pre-Archive Check Failures` section — even when the stuck cam…
-- [`discovered_audit_session-log-cleanup_01`](changes/archive/discovered_audit_session-log-cleanup_01_DONE/) — Remove or repurpose `sudd/memory/session-log.md`, which still contains the placeholder `(No sessions yet — run /sudd-run to start)` despite dozens of autonomous sessions having completed. Point any r…
-- [`brown_v3823-current-state-doc_01`](changes/archive/brown_v3823-current-state-doc_01_DONE/) — Generate a rolling, high-level operational handoff document at `sudd/CURRENT_STATE.md` that answers the question: **"if sudd wakes up with a cleared context, what's the minimum it needs to know to ac…
+- [`green_pii-pipeline-v2_01`](changes/archive/green_pii-pipeline-v2_01_DONE/) — Closed critical PII gaps: dedup-on-import, PII-vault routing, full-pipeline anonymization of all cloud-bound content (history/context/KB/memories/canvas), and the "auto-redact all cloud-bound content" setting (default ON). Residual hardening shipped via pii-pipeline-v3.
+- [`green_perf-privacy-opt_01`](changes/archive/green_perf-privacy-opt_01_DONE/) — KV cache q8_0 (~50% VRAM saving), Rust-side batch redaction (`redact_messages_command`), and local ONNX embeddings + SQLite replacing the mem0 cloud dependency.
+- [`green_local-rag_01`](changes/archive/green_local-rag_01_DONE/) — Fully local privacy-first RAG: ONNX embedding (`ort`), overlap chunking, SQLite vector store with cosine top-K retrieval injected into chat context. Replaced the mock knowledge-base UI.
+- [`green_gemma4-orchestration_01`](changes/archive/green_gemma4-orchestration_01_DONE/) — Gemma 4 E4B (128k context) as a selectable local model + orchestration layer that delegates anonymized knowledge-gap sub-questions to the cloud model.
+- [`green_form-fill_01`](changes/archive/green_form-fill_01_DONE/) — Privacy-first form-fill pipeline (PDF/DOCX/MD/TXT): LLM analyzes form structure only, simple fields filled locally, reasoning fields composed via placeholder tokens rehydrated on-device, template-preserving export.
+- [`green_security-hardening_01`](changes/archive/green_security-hardening_01_DONE/) — Four adversarial-report findings: plaintext key on disk (F-01), unencrypted PII in anonymization mappings (F-02), disabled CSP (F-03), API-key prefix in logs (F-04).
+- [`green_pii-pipeline-v3_01`](changes/archive/green_pii-pipeline-v3_01_DONE/) — Residual cloud-leak hardening carved out of pii-v2: removed dead leaky path, made GLiNER NER cover all cloud-bound content (not just current message), batched per-message redaction IPC.
+- [`green_dynamic-gpu_01`](changes/archive/green_dynamic-gpu_01_DONE/) — Dynamic GPU detection/configuration.
+- [`green_custom-model-hf_01`](changes/archive/green_custom-model-hf_01_DONE/) — Custom HuggingFace model support.
+- [`ported-superpowers-2026-03-28-form-fill-design`](changes/archive/ported-superpowers-2026-03-28-form-fill-design_SUPERSEDED/) — Early superpowers-ported form-fill design, superseded by green_form-fill_01.
 
 ## Inbox (unpromoted)
 
@@ -62,11 +42,10 @@ _none_
 
 ## Trajectory vs Vision
 
-Recent work shows SUDD fighting to restore its own validation fabric after the v3.8.x self-update regression zeroed out agent files, while simultaneously unsticking mechanical blockers (canonical-heading checks, stale dirty changes), scrubbing shipped templates of dead `handoff-validator` references, reconciling an inbox port, and tightening STUCK-outcome telemetry so a clean exit with empty `timeout_reason` can no longer masquerade as success. Without a stated North Star to triangulate against, directionality can't be judged — but the pattern is clearly repair-and-harden on the autonomous loop's own scaffolding rather than net-new user-facing capability. [MOUNTAIN]
+Note: `sudd/vision.md` currently describes the **SUDD framework itself**, not this repo's actual product (**AILocalMind** — a privacy-first Tauri/React/Rust desktop AI assistant). The vision doc is stale/mismatched and should be re-pointed at AILocalMind before the next planning cycle. Judged against the *real* product, recent trajectory is strongly coherent: a sustained push on the privacy-first core — local RAG, local embeddings/memory (killing the mem0 cloud dependency), full-pipeline PII anonymization, security hardening, plus capability (Gemma 4 128k, form-fill, dynamic GPU). Every shipped change reinforces "PII never leaves the machine." The main gaps are process, not direction: the mismatched vision.md and an empty `brown_night-queue_01` stub. [MOUNTAIN]
 
 ## Health
 
 - Last audit health: _unknown_
-- Last audit at: 2026-04-20T10:33:58Z
-- State doc refreshed: 2026-04-20T10:34:13Z
-
+- Last audit at: 2026-04-15T16:58:40Z
+- State doc refreshed: 2026-06-10T21:55:00Z (manual — `sudd state --refresh` LLM TL;DR/Trajectory generators unavailable in this context)

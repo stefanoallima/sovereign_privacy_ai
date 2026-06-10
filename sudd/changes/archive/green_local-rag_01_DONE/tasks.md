@@ -6,9 +6,9 @@
 - **Files**: src-tauri/src/chunker.rs, src-tauri/src/lib.rs
 - **SharedFiles**: src-tauri/src/lib.rs
 - **Description**: Text chunking with paragraph-aware splitting and overlap. ~512 chars per chunk, 64 char overlap.
-- [ ] Create chunker.rs with chunk_text function
-- [ ] Register module in lib.rs
-- [ ] Tests
+- [x] Create chunker.rs with chunk_text function
+- [x] Register module in lib.rs
+- [x] Tests
 
 ## T02: Rust — Knowledge Base Store (SQLite)
 - **Effort**: M
@@ -16,12 +16,12 @@
 - **Files**: src-tauri/src/knowledge_store.rs, src-tauri/src/knowledge_commands.rs, src-tauri/src/lib.rs
 - **SharedFiles**: src-tauri/src/lib.rs
 - **Description**: SQLite tables for knowledge bases, documents, and chunks. FTS5 search on chunks. CRUD operations + Tauri commands.
-- [ ] Create knowledge_store.rs with SQLite schema (knowledge_bases, kb_documents, kb_chunks tables)
-- [ ] FTS5 virtual table on chunks for text search
-- [ ] create_kb, delete_kb, add_document, delete_document, search_chunks
-- [ ] Create knowledge_commands.rs with Tauri commands
-- [ ] Register in lib.rs
-- [ ] Tests
+- [x] Create knowledge_store.rs with SQLite schema (knowledge_bases, kb_documents, kb_chunks tables)
+- [x] FTS5 virtual table on chunks for text search
+- [x] create_kb, delete_kb, add_document, delete_document, search_chunks
+- [x] Create knowledge_commands.rs with Tauri commands
+- [x] Register in lib.rs
+- [x] Tests
 
 ## T03: Rust — Document Ingestion Pipeline
 - **Effort**: M
@@ -29,8 +29,8 @@
 - **Files**: src-tauri/src/knowledge_commands.rs
 - **SharedFiles**: none
 - **Description**: Tauri command that takes a file path, parses it (existing file_parsers), chunks the text, stores chunks in the knowledge base.
-- [ ] ingest_document command: parse → chunk → store
-- [ ] Return ingestion stats (chunk count, total chars)
+- [x] ingest_document command: parse → chunk → store
+- [x] Return ingestion stats (chunk count, total chars)
 
 ## T04: Frontend — Knowledge Base Management UI
 - **Effort**: M
@@ -38,11 +38,11 @@
 - **Files**: src/components/settings/KnowledgeBaseSettings.tsx
 - **SharedFiles**: none
 - **Description**: Replace mock KnowledgeBaseSettings with real UI. Create/delete KBs, upload documents, show stats.
-- [ ] Replace mock with real Tauri invoke calls
-- [ ] Create KB dialog
-- [ ] Upload document to KB
-- [ ] Show chunk count, document count per KB
-- [ ] Delete KB / document
+- [x] Replace mock with real Tauri invoke calls
+- [x] Create KB dialog
+- [x] Upload document to KB
+- [x] Show chunk count, document count per KB
+- [x] Delete KB / document
 
 ## T05: Frontend — Persona Knowledge Base Assignment
 - **Effort**: S
@@ -50,8 +50,8 @@
 - **Files**: src/components/personas/PersonaKnowledgeTab.tsx
 - **SharedFiles**: none
 - **Description**: Wire the existing persona knowledge tab to real backend. List available KBs, assign to persona.
-- [ ] Replace mock data with invoke calls
-- [ ] Save persona KB assignments
+- [x] Replace mock data with invoke calls
+- [x] Save persona KB assignments
 
 ## T06: Chat Integration — RAG Retrieval
 - **Effort**: M
@@ -59,11 +59,11 @@
 - **Files**: src/hooks/usePrivacyChat.ts
 - **SharedFiles**: src/hooks/usePrivacyChat.ts
 - **Description**: In executePrivacySend, retrieve relevant chunks from persona's knowledge bases and inject as context.
-- [ ] Get persona's knowledgeBaseIds
-- [ ] Search chunks across those KBs using user's query
-- [ ] Inject top-K chunks as system context
-- [ ] Apply PII redaction to retrieved chunks (existing pipeline)
-- [ ] Show "Sources" info in response
+- [x] Get persona's knowledgeBaseIds
+- [x] Search chunks across those KBs using user's query
+- [x] Inject top-K chunks as system context
+- [x] Apply PII redaction to retrieved chunks (existing pipeline)
+- [x] Show "Sources" info in response
 
 ## Batches
 ```

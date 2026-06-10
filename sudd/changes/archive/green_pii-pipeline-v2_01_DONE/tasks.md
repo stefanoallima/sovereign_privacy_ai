@@ -20,7 +20,7 @@
 - **SharedFiles**: none
 - **Description**: Fix handleDynamicConfirm to call setPIIValue for known fields. Ensure Privacy Shield counter reflects PII vault entries.
 - [x] Route known fields to PII vault via setPIIValue — `DocumentUploadWidget.tsx:181-209`
-- [ ] Verify Privacy Shield counter updates — confirm UI binding reads PII vault count
+- [x] Verify Privacy Shield counter updates — confirm UI binding reads PII vault count
 
 ## T03: Auto-Redact Setting — DONE
 - **Effort**: S
@@ -63,10 +63,10 @@
 - **Files**: src/services/privacy-chat-service.ts, src/services/index.ts
 - **SharedFiles**: src/services/index.ts
 - **Description**: `sendPrivacyAwareChat`/`streamPrivacyAwareChat` build the cloud messages array with raw `...history` (no redaction) and are re-exported via services/index.ts with no current caller. Deleting removes a latent leak and dead code; if a caller is ever intended, route it through executePrivacySend's redaction instead.
-- [ ] Confirm no remaining callers (grep across src)
-- [ ] Delete the two functions (or redact history if a caller is intended)
-- [ ] Remove the re-exports from services/index.ts
-- [ ] tsc typecheck passes
+- [x] Confirm no remaining callers (grep across src)
+- [x] Delete the two functions (or redact history if a caller is intended)
+- [x] Remove the re-exports from services/index.ts
+- [x] tsc typecheck passes
 
 ## T07: Symmetric GLiNER coverage on all cloud-bound content (legal-critical)
 - **Effort**: M
@@ -74,11 +74,11 @@
 - **Files**: src/hooks/usePrivacyChat.ts
 - **SharedFiles**: src/hooks/usePrivacyChat.ts
 - **Description**: Only the current message gets GLiNER NER (`detect_pii_with_gliner`); history/context/memories/KB/canvas get term-matching only (`customRedactTerms`). A PII value present in history but never persisted as a term leaks to the cloud. Extend `maybeRedact` to also run GLiNER NER (merge mappings into allMappings). Mind performance — pair with T08 batch and/or cache per-message results.
-- [ ] Extend maybeRedact to run GLiNER NER in addition to term-matching
-- [ ] Apply to history, context, memories, KB, canvas
-- [ ] Merge GLiNER mappings into allMappings for rehydration
-- [ ] Verify no raw PII survives in the cloud payload (inspect assembled messages)
-- [ ] Guard performance (batch / cache)
+- [x] Extend maybeRedact to run GLiNER NER in addition to term-matching
+- [x] Apply to history, context, memories, KB, canvas
+- [x] Merge GLiNER mappings into allMappings for rehydration
+- [x] Verify no raw PII survives in the cloud payload (inspect assembled messages)
+- [x] Guard performance (batch / cache)
 
 ## T08: Use Rust redact_messages batch primitive in executePrivacySend
 - **Effort**: S
@@ -87,9 +87,9 @@
 - **SharedFiles**: src/hooks/usePrivacyChat.ts
 - **Description**: executePrivacySend redacts history with one `redact_text_command` IPC call per message (loop at :1237-1242). The Rust `redact_messages_command` redacts all messages in one call. Wire the history loop to it to cut N IPC crossings to 1 (aligns with perf-privacy-opt).
 - [x] Rust `redact_messages` primitive + `redact_messages_command` + unit tests (9/9 green, this session)
-- [ ] TS: call redact_messages_command for the history batch
-- [ ] Merge returned mappings into allMappings
-- [ ] tsc typecheck passes
+- [x] TS: call redact_messages_command for the history batch
+- [x] Merge returned mappings into allMappings
+- [x] tsc typecheck passes
 
 ## Dependency Graph
 ```
