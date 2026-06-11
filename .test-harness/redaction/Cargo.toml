@@ -1,0 +1,16 @@
+[package]
+name = "redaction-harness"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Detach from any parent cargo workspace so `cargo test` here does NOT pull in
+# the main src-tauri crate graph (llama-cpp-sys-2 / CMake / CUDA build).
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+regex = "1"
+serde = { version = "1", features = ["derive"] }

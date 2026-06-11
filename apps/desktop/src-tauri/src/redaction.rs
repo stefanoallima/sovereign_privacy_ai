@@ -28,8 +28,22 @@ pub fn redact_text(text: &str, terms: &[RedactTerm]) -> RedactResult {
     sorted_terms.sort_by(|a, b| b.value.len().cmp(&a.value.len()));
 
     for term in sorted_terms {
-        let escaped = regex::escape(&term.value);
-        if let Ok(re) = Regex::new(&format!("(?i){}", escaped)) {
+        // Build a whitespace-flexible, case-insensitive pattern: split the value
+        // on whitespace, escape each word literally, and rejoin with `\s+` so a
+        // run of whitespace in the value matches one-or-more whitespace chars in
+        // the text. This keeps the SAME token for the same value across spacing
+        // variants ("Mario Rossi" / "Mario  Rossi" / "Mario\nRossi") that
+        // PDF-extracted documents routinely produce.
+        let pattern = term
+            .value
+            .split_whitespace()
+            .map(regex::escape)
+            .collect::<Vec<_>>()
+            .join(r"\s+");
+        if pattern.is_empty() {
+            continue; // value was whitespace-only — nothing to match
+        }
+        if let Ok(re) = Regex::new(&format!("(?i){}", pattern)) {
             let count = re.find_iter(&redacted).count();
             if count > 0 {
                 mappings.insert(term.replacement.clone(), term.value.clone());
@@ -257,5 +271,45 @@ mod tests {
             Some(&"alice@example.com".to_string())
         );
         assert_eq!(result.redaction_count, 2);
+    }
+
+    #[test]
+    fn test_redact_matches_internal_whitespace_variants() {
+        // PDF-extracted legal documents routinely produce irregular spacing.
+        // The SAME registered value must still be redacted — with the SAME
+        // token — whether the text has one space or several between words,
+        // otherwise the cloud model sees two different people.
+        let terms = vec![RedactTerm {
+            label: "Name".into(),
+            value: "Mario Rossi".into(),
+            replacement: "nam_1______".into(),
+        }];
+        let result = redact_text("Cliente: Mario  Rossi; ancora Mario Rossi.", &terms);
+        assert!(
+            !result.text.contains("Mario"),
+            "raw name (incl. double-spaced) leaked: {}",
+            result.text
+        );
+        assert_eq!(
+            result.text.matches("nam_1______").count(),
+            2,
+            "both spacing variants must map to the same token: {}",
+            result.text
+        );
+        assert_eq!(result.redaction_count, 2);
+    }
+
+    #[test]
+    fn test_redact_matches_across_line_break() {
+        // A name split across a line break (very common in extracted PDFs)
+        // must still match the registered single-space value.
+        let terms = vec![RedactTerm {
+            label: "Name".into(),
+            value: "Mario Rossi".into(),
+            replacement: "nam_1______".into(),
+        }];
+        let result = redact_text("Egregio\nMario\nRossi,", &terms);
+        assert!(!result.text.contains("Rossi"), "raw name leaked: {}", result.text);
+        assert_eq!(result.redaction_count, 1);
     }
 }
