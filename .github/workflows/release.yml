@@ -149,16 +149,15 @@ jobs:
           # Updater signing key
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS code signing + notarization (Developer ID Application certificate).
-          # These secrets must be set in the GitHub repository settings.
-          # If absent, tauri-action skips signing — builds still work but Gatekeeper will
-          # block them on first launch.  See docs/macos-signing.md for setup instructions.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # macOS signing + notarization is intentionally UNSET: no Apple Developer ID
+          # cert is configured as a secret. Defining APPLE_CERTIFICATE from a missing
+          # secret yields an EMPTY string, which makes tauri-action attempt a keychain
+          # import of an empty cert and fail ("security import: failed to import keychain
+          # certificate"). Leaving these unset makes tauri-action build macOS UNSIGNED
+          # (Gatekeeper warns on first launch; users right-click → Open).
+          # To ship signed + notarized macOS builds, add these as repo secrets and
+          # re-add the env entries: APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
+          # APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID.
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
