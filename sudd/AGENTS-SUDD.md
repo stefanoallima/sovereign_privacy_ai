@@ -7,6 +7,70 @@ This project uses **SUDD** (Simulated User-Driven Development) for autonomous
 AI-driven development. The CLI agent IS the orchestrator. Everything else is
 markdown. Code is only "done" when validated from the actual user's perspective.
 
+## Smoke-Test Before You Trust (DEFAULT: VERIFY THE DEPENDENCY)
+
+**Never build on an integration you haven't proven works. Smoke-test first; if
+the smoke test fails, RAISE it loudly and STOP — do not proceed as if it works.**
+
+This rule exists because it was violated expensively: persona-browser shipped
+broken across ~40 framework versions and ~100 `sudd auto` sessions because
+preflight only checked it was *installed*, never that it *functioned*. Presence
+≠ function. An unverified dependency that silently no-ops poisons everything
+built on top of it.
+
+For ANY external API / service / tool, before relying on it, run the staged
+smoke test (cheap → real → build):
+
+1. **Hello-world (auth + endpoint).** The minimal possible call — does the
+   endpoint respond and does auth work? (e.g. a 1-token completion to the
+   configured model with the configured key.) If this fails, nothing downstream
+   can work.
+2. **Plausible-input shape check.** One realistic call with the *kind* of input
+   the real flow sends, and verify the *output shape* is what you'll parse
+   (e.g. a vision model: send an image like browser-use does, confirm it
+   answers). Catches "auth works but the model/payload is wrong."
+3. **Only then build / accept / gate on it.**
+
+**On failure: surface it to the operator BEFORE launching** — a failed smoke
+test is a blocking, loud event, never a warning to scroll past. The Go preflight
+(`sudd doctor`, run automatically before `sudd auto`) enforces this for
+persona-browser via a live LLM smoke test (auth + endpoint + a vision payload);
+a Fail blocks `sudd auto`. Apply the same discipline by hand for any other API
+you wire in.
+
+**Override (proceed despite failure):** once warned, the operator can set
+`SUDD_PROCEED_ON_SMOKE_FAIL=1` to keep moving (stalling token-consuming work
+helps no one). When they do, the loop proceeds BUT writes a loud
+`user_input_required.md` at the project root recording that the dependency is
+broken and unvalidated — so the failure stays visible until fixed, never
+silently forgotten.
+
+## Privacy & Disclosure (DEFAULT: PRIVATE)
+
+**Source and IP are private by default — a demo is the only thing that may be
+public.** A deployed demo *site* (the running app/UI on a public URL — e.g. a
+Render web/static service) MAY be publicly accessible; that is the product users
+are meant to touch. What must NEVER be public is the *source and IP behind it*:
+the GitHub repo, backend code, prompts, scoring rubrics, persona definitions,
+business rules, configs, and credentials. Assume potential cloners across
+GitHub, HuggingFace, npm, etc. are adversaries.
+
+- **Public demo, private source.** A usable demo URL is fine; the code that
+  powers it is not. Serve public demos from a host that keeps the repo private
+  (e.g. Render deploying from a *private* repo) — NOT a public GitHub repo or a
+  public HuggingFace Space, both of which expose their files to anyone.
+- **Keep secrets and logic server-side.** A demo's client bundle is inherently
+  downloadable — never ship prompts, rubrics, business rules, or API keys in
+  frontend code; keep them behind the API.
+- **Repos and Spaces stay private.** Never create, or flip to public, a GitHub
+  repo, HuggingFace Space/model/dataset, gist, or any source mirror. When
+  creating one, default to private (`gh repo create --private`, private Space).
+- **A public push is permanent disclosure.** Anything pushed to a public remote
+  can be cloned, cached, and indexed even after deletion. Treat it as irreversible.
+- **Confirm before ANY public action.** Making a repo/Space public, publishing a
+  package, or pushing to a public remote requires explicit user approval — never
+  do it autonomously, even inside `sudd auto`.
+
 ## Framework Priority
 
 **Default to SUDD for any new change.** If the user says "let's build X" or
@@ -22,6 +86,32 @@ honor that. Otherwise: SUDD.
 **Continuing in-flight foreign work.** If there's an already-in-progress
 openspec/superpowers change, continue it there — don't mid-flight migrate.
 The nightly `sudd auto` sweep will port it to SUDD once it ships.
+
+## Operating Principle: Smoke Test, Don't Ask
+
+SUDD's north star is autonomous operation — **no human babysitting required**.
+Users typically run ~20 projects in parallel; every clarifying question
+breaks flow on the other 19. When you are uncertain about something the
+environment can tell you, ALWAYS probe it instead of asking.
+
+Safe probes — run them, never ask the user to:
+
+- CLI / tool output → `opencode auth list`, `gh pr list`, `git status`,
+  `--help`, `--version`, `which X`, `command -v Y`
+- File contents → read the file
+- Test or build status → run the test / build
+- Env var values → print them
+- Which provider, account, branch, or model is active → query the tool
+
+Only ask the user when:
+
+1. The action is destructive (deletes data, sends a message, force-pushes,
+   spends >$0.10 in API calls).
+2. The answer is a genuine preference between equally valid options.
+3. A smoke test already returned ambiguous or contradictory results.
+
+Pasting "can you run `<read-only command>` and share the output?" is an
+autonomy failure. Run it yourself.
 
 ## Entry Points
 

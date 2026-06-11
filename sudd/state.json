@@ -1,42 +1,50 @@
 {
   "active_change": "",
-  "architecture_reviewed": true,
+  "architecture_reviewed": false,
   "audit": {
     "changes_since_last_audit": 4,
     "last_audit_at": "2026-04-15T16:58:40+02:00"
   },
   "auto_session": {
     "started_at": "2026-06-11T11:32:30+02:00",
-    "stop_reason": "queue_complete",
+    "stop_reason": "",
     "changes_processed": [
-      "green_redaction-completeness_01"
+      {
+        "change_id": "green_redaction-completeness_01",
+        "outcome": "DONE",
+        "elapsed_seconds": 823.555222,
+        "tasks_completed": 13,
+        "tasks_total": 13,
+        "exit_code": 0,
+        "merged_sha": "e11b54c0f310fa960e9e9bd8bcad7c6c0a3001ff"
+      }
     ],
     "queue_remaining": []
   },
   "autonomy": "full",
-  "design_gate_passed": true,
-  "design_gate_score": 100,
+  "design_gate_passed": false,
+  "design_gate_score": null,
   "discovery": {
     "changes_since_last": 14
   },
-  "gate_passed": true,
-  "gate_score": 100,
+  "gate_passed": false,
+  "gate_score": null,
   "imported_from": null,
-  "last_command": "sudd:run",
-  "last_run": "2026-06-11T10:05:00Z",
-  "mode": "brown",
+  "last_command": "sudd:auto",
+  "last_run": "2026-06-10T20:23:21Z",
+  "mode": "green",
   "personas_validated": false,
   "phase": "inception",
   "retry_count": 0,
   "stats": {
     "stats_seeded": true,
     "tasks_blocked": 0,
-    "tasks_completed": 6,
+    "tasks_completed": 4,
     "tasks_stuck": 0,
     "total_retries": 0
   },
   "task_retries": {},
-  "tests_passed": true,
+  "tests_passed": false,
   "version": "1.0",
   "vision_last_processed_at": "2026-06-10T20:22:21Z"
 }

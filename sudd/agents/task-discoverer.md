@@ -164,6 +164,14 @@ After creating all change directories, output a summary:
 
 Before creating a proposal, check for duplicates across ALL sources:
 
+0. **Completed work (MANDATORY FIRST CHECK)**: Read `sudd/changes/archive/*_DONE`,
+   `*_DONE_DIRTY`, AND `sudd/changes/dirty/*` (shipped-with-followup, e.g. browser-miss).
+   If the gap was already completed or shipped (matching endpoint, component, or feature
+   keyword, or a matching `source_gap`), **DISCARD it — do not write a proposal dir at
+   all**. Never create a `*_dup` directory. Regenerating an already-shipped gap and
+   dumping it into stuck/ is the #4 dup-churn waste: it recycles every empty-queue cycle.
+   Only re-propose a completed gap if the code shows it has actually regressed (cite the
+   evidence in the proposal).
 1. **Active changes**: Read `sudd/changes/active/*/proposal.md`. If a proposal already covers
    the same gap (matching endpoint, component, or feature keyword), skip it.
 2. **Alignment report**: If `sudd/alignment-report.md` exists, check its GAP-IDs.
