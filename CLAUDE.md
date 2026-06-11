@@ -22,6 +22,11 @@ export CARGO_TARGET_DIR="C:/tmp/tb"
 export CMAKE="C:/Program Files/CMake/bin/cmake.exe"
 pnpm tauri build
 
+# GPU build is OPT-IN (default is CPU so CI/any machine can build).
+# On a host with the CUDA Toolkit, add the cuda feature:
+pnpm tauri build -- --features cuda
+# (CPU-only is the default and is what the CI release workflow ships.)
+
 # Run Rust tests
 cd src-tauri && cargo test
 ```

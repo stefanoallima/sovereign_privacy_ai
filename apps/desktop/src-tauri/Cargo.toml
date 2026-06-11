@@ -13,6 +13,16 @@ edition = "2021"
 name = "private_assistant_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# GPU acceleration is OPT-IN. The default build is CPU-only so it compiles on
+# any machine / CI runner without a CUDA Toolkit. Forcing `cuda` on by default
+# made llama.cpp's cmake fail with "CUDA Toolkit not found" on every CI release
+# runner (and on macOS, which has no CUDA), breaking releases since v0.2.10.
+# Build a GPU binary on a CUDA host with:
+#   cargo build --features cuda      (or)   pnpm tauri build -- --features cuda
+default = []
+cuda = ["llama-cpp-2/cuda"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -47,7 +57,7 @@ base64 = "0.22"
 hound = "3.5"
 
 # Local LLM inference (embedded llama.cpp)
-llama-cpp-2 = { version = "0.1", features = ["sampler", "cuda"] }
+llama-cpp-2 = { version = "0.1", features = ["sampler"] }  # GPU via `--features cuda` (see [features])
 async-trait = "0.1"
 sha2 = "0.10"
 
