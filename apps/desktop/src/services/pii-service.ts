@@ -74,11 +74,49 @@ export async function anonymizeText(
   piiExtraction: PIIExtraction,
   conversationId: string
 ): Promise<AnonymizationResult> {
-  return invoke('anonymize_text', {
-    text,
-    pii_extraction: piiExtraction,
-    conversation_id: conversationId,
-  });
+  // Vision-consistent anonymization: register each extracted PII value in the
+  // shared profile-wide registry (stable tokens), then redact through the ONE
+  // canonical cloud redactor — so a document gets the SAME token for a value as
+  // chat and every other document. Replaces the Rust anonymize_text path, which
+  // minted per-call random tokens (inconsistent across documents).
+  const { useUserContextStore, selectActiveProfile } = await import(
+    '@/stores/userContext'
+  );
+  const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
+  const extracted: Array<[string, string | undefined]> = [
+    ['BSN', piiExtraction.bsn],
+    ['Name', piiExtraction.name],
+    ['Surname', piiExtraction.surname],
+    ['Phone', piiExtraction.phone],
+    ['Address', piiExtraction.address],
+    ['Email', piiExtraction.email],
+    ['Income', piiExtraction.income],
+  ];
+  for (const [label, value] of extracted) {
+    if (value && value.trim().length >= 2) ensureRedactTerm(label, value);
+  }
+
+  const { redactForCloud } = await import('./cloud-redaction');
+  const { redacted, mappings } = await redactForCloud(text);
+
+  const terms =
+    selectActiveProfile(useUserContextStore.getState())?.customRedactTerms || [];
+  const now = new Date().toISOString();
+  const piiMappings: PiiMapping[] = Array.from(mappings.keys()).map(
+    (placeholder, i) => {
+      const term = terms.find((t) => t.replacement === placeholder);
+      return {
+        id: `${conversationId}-${i}`,
+        conversation_id: conversationId,
+        pii_category: term?.label ?? 'pii',
+        placeholder,
+        is_encrypted: false,
+        created_at: now,
+      };
+    }
+  );
+
+  return { anonymized_text: redacted, mappings: piiMappings };
 }
 
 export interface ValidationResult {

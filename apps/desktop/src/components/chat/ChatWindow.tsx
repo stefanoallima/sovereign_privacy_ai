@@ -496,6 +496,19 @@ export function ChatWindow() {
           settings.nebiusApiKey,
           settings.nebiusApiEndpoint
         );
+        // Redact PII before the title-gen request; rehydrate the returned
+        // title locally. No raw PII leaves the machine for titles.
+        const { redactForCloud, rehydrateFromCloud } = await import(
+          "@/services/cloud-redaction"
+        );
+        const uRes = await redactForCloud(userMsg.slice(0, 400));
+        const aRes = await redactForCloud(
+          stripThinking(assistantMsg).slice(0, 400)
+        );
+        const titleMappings = new Map<string, string>([
+          ...uRes.mappings,
+          ...aRes.mappings,
+        ]);
         const response = await client.chatCompletion({
           model: "Qwen/Qwen3-32B-fast",
           messages: [
@@ -504,19 +517,22 @@ export function ChatWindow() {
               content:
                 "Generate a short, concise title (max 5 words) for this conversation. Reply with ONLY the title, no quotes, no thinking.",
             },
-            { role: "user", content: userMsg.slice(0, 400) },
+            { role: "user", content: uRes.redacted },
             {
               role: "assistant",
-              content: stripThinking(assistantMsg).slice(0, 400),
+              content: aRes.redacted,
             },
           ],
           temperature: 0.3,
           max_tokens: 20,
         });
         const raw = response.choices[0]?.message.content ?? "";
-        const title = stripThinking(raw)
-          .replace(/^["']|["']$/g, "")
-          .trim();
+        const title = rehydrateFromCloud(
+          stripThinking(raw)
+            .replace(/^["']|["']$/g, "")
+            .trim(),
+          titleMappings
+        );
         if (title) await updateConversationTitle(convId, title);
       } catch (error) {
         console.error("Failed to generate title:", error);
