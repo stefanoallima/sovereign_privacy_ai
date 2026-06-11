@@ -61,3 +61,11 @@ qa-automation/
 
 # Test results
 test-results/
+
+# SUDD — runtime/transient artifacts (regenerated; keep out of git)
+sudd/auto-reports/
+sudd/audit/
+sudd/codebase-manifest.json
+sudd/alignment-report.md
+.sudd-backup/
+.sudd-snapshots/
