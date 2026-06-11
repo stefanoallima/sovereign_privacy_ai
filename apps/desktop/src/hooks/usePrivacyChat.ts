@@ -327,6 +327,18 @@ async function maybeGenerateProjectSummary(
         ? `\n\nExisting project documents:\n${allDocs.map((d) => `## ${d.title}\n${d.content}`).join("\n\n")}`
         : "";
 
+    // Redact the transcript + documents through the one registry before they
+    // reach the cloud — consistent tokens, no raw PII in the summary prompt.
+    const { redactForCloud, rehydrateFromCloud } = await import(
+      "@/services/cloud-redaction"
+    );
+    const tRes = await redactForCloud(transcript);
+    const dRes = await redactForCloud(docsContext);
+    const summaryMappings = new Map<string, string>([
+      ...tRes.mappings,
+      ...dRes.mappings,
+    ]);
+
     const { getNebiusClient } = await import("@/services/nebius");
     const client = getNebiusClient(
       settings.nebiusApiKey,
@@ -339,11 +351,11 @@ async function maybeGenerateProjectSummary(
 - Important facts or agreements
 - Open questions
 
-Keep it brief and structured. Use ## headings. Do NOT include filler text.${docsContext}
+Keep it brief and structured. Use ## headings. Do NOT include filler text.${dRes.redacted}
 
 ---
 Transcript:
-${transcript}`;
+${tRes.redacted}`;
 
     const stream = client.streamChatCompletion({
       model: model?.apiModelId || "deepseek-ai/DeepSeek-V3",
@@ -369,7 +381,9 @@ ${transcript}`;
 
     await canvasState.createDocument({
       title,
-      content: summaryContent.trim(),
+      // Rehydrate locally: the stored summary keeps the real values; only
+      // tokens ever went to the cloud.
+      content: rehydrateFromCloud(summaryContent.trim(), summaryMappings),
       conversationId,
       projectId: conversation.projectId,
     });
@@ -1413,7 +1427,10 @@ export function usePrivacyChat() {
           updateStreamingContent(displayed);
         }
 
-        // Rehydrate final content using all collected mappings
+        // Capture the redacted (tokenized) response BEFORE rehydration so memory
+        // stores (incl. cloud mem0) keep tokens, never raw PII.
+        const redactedResponse = fullContent;
+        // Rehydrate final content (for display + local conversation) using all mappings.
         if (allMappings.size > 0) {
           fullContent = rehydrateResponse(fullContent, allMappings);
         }
@@ -1442,7 +1459,7 @@ export function usePrivacyChat() {
               role: 'user',
             }).catch(() => {}); // non-blocking
             invoke('add_memory', {
-              text: fullContent,
+              text: redactedResponse,
               conversationId: currentConversationId,
               role: 'assistant',
             }).catch(() => {}); // non-blocking
@@ -1452,7 +1469,7 @@ export function usePrivacyChat() {
               await mem0Client.addMemories({
                 messages: [
                   { role: "user", content: promptToSend },
-                  { role: "assistant", content: fullContent },
+                  { role: "assistant", content: redactedResponse },
                 ],
               });
             } catch (error) {
