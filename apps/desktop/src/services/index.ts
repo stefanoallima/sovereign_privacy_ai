@@ -46,8 +46,6 @@ export {
 } from './attribute-extraction-service';
 
 export {
-  sendPrivacyAwareChat,
-  streamPrivacyAwareChat,
   previewPrivacyProcessing,
 } from './privacy-chat-service';
 

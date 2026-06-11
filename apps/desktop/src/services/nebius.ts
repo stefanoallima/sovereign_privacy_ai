@@ -84,7 +84,7 @@ export class NebiusClient {
     options: ChatCompletionOptions
   ): AsyncGenerator<string, { inputTokens: number; outputTokens: number }> {
     const url = `${this.baseUrl}/chat/completions`;
-    console.debug(`[Nebius] POST ${url} model=${options.model} key=${this.apiKey ? this.apiKey.slice(0, 8) + '…' : '(none)'}`);
+    console.debug(`[Nebius] POST ${url} model=${options.model} key=${this.apiKey ? 'set' : '(none)'}`);
     const response = await fetch(url, {
       method: "POST",
       headers: {
