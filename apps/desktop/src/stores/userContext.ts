@@ -146,6 +146,10 @@ interface UserContextState {
 
   // Custom redaction terms
   addCustomRedactTerm: (label: string, value: string) => void;
+  /** Get-or-create a redaction term for `value`; returns its stable, profile-wide
+   *  replacement so the same value maps to the same token across every
+   *  conversation and document. */
+  ensureRedactTerm: (label: string, value: string) => string;
   removeCustomRedactTerm: (index: number) => void;
   importCustomRedactTerms: (csv: string) => number;
   clearCustomRedactTerms: () => void;
@@ -369,6 +373,48 @@ export const useUserContextStore = create<UserContextState>()(
           }
           return state;
         });
+      },
+
+      ensureRedactTerm: (label, value) => {
+        const trimmedValue = value.trim();
+        // Too short to redact safely (mirrors the Rust redactor's >= 2 rule).
+        if (trimmedValue.length < 2) return trimmedValue;
+
+        const state = get();
+        const activeProfile = state.profiles.find(
+          (p) => p.id === state.activeProfileId
+        );
+        const currentTerms = activeProfile?.customRedactTerms || [];
+
+        // Same value (case-insensitive) → same replacement, every time.
+        const existing = currentTerms.find(
+          (t) => t.value.toLowerCase() === trimmedValue.toLowerCase()
+        );
+        if (existing) return existing.replacement;
+
+        const trimmedLabel = label.trim();
+        const typeIdx = getNextTypeIndex(trimmedLabel, currentTerms);
+        const replacement = generateReplacementString(
+          trimmedLabel,
+          trimmedValue.length,
+          typeIdx
+        );
+
+        if (state.activeProfileId) {
+          const newTerms = [
+            ...currentTerms,
+            { label: trimmedLabel, value: trimmedValue, replacement },
+          ];
+          set({
+            profiles: state.profiles.map((p) =>
+              p.id === state.activeProfileId
+                ? { ...p, customRedactTerms: newTerms, updatedAt: new Date() }
+                : p
+            ),
+          });
+          backupTermsToRust(newTerms);
+        }
+        return replacement;
       },
 
       removeCustomRedactTerm: (index) => {

@@ -43,8 +43,7 @@ const GLINER_MAX_CHARS = 6000;
 
 async function applyGlinerPiiRedaction(
   text: string,
-  onEntitiesDetected?: (entities: DetectedEntity[]) => void,
-  opts?: { persist?: boolean }
+  onEntitiesDetected?: (entities: DetectedEntity[]) => void
 ): Promise<{
   sanitized: string;
   mappings: Map<string, string>;
@@ -71,13 +70,16 @@ async function applyGlinerPiiRedaction(
     const sorted = [...entities].sort((a, b) => b.start - a.start);
     let sanitized = text;
     const mappings = new Map<string, string>();
-    // Index placeholders per label so multiple entities sharing a label do NOT
-    // collide on one mapping key (which would rehydrate them all to the last
-    // value). e.g. [PII_PERSON_1], [PII_PERSON_2].
-    const labelCounts: Record<string, number> = {};
+
+    // Resolve each detected value to its STABLE, profile-wide replacement via
+    // get-or-create. The same value maps to the same token across every
+    // conversation and document, and distinct values get distinct tokens (so no
+    // same-label collisions). This also persists the term (deduped), so the
+    // fast term-matching pass redacts that value everywhere from now on.
+    const { useUserContextStore } = await import("@/stores/userContext");
+    const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
 
     for (const entity of sorted) {
-      const label = entity.label.toUpperCase().replace(/\s+/g, "_");
       const original = sanitized.substring(entity.start, entity.end);
       // Only replace if text matches what GLiNER detected (sanity check)
       if (
@@ -85,49 +87,14 @@ async function applyGlinerPiiRedaction(
           .toLowerCase()
           .includes(entity.text.toLowerCase().substring(0, 3))
       ) {
-        labelCounts[label] = (labelCounts[label] ?? 0) + 1;
-        const placeholder = `[PII_${label}_${labelCounts[label]}]`;
+        const placeholder = ensureRedactTerm(entity.label, original);
+        // Skip degenerate cases (too short / no stable token formed).
+        if (!placeholder || placeholder === original) continue;
         sanitized =
           sanitized.substring(0, entity.start) +
           placeholder +
           sanitized.substring(entity.end);
         mappings.set(placeholder, original);
-      }
-    }
-
-    // Auto-persist detected PII to Privacy Shield custom redaction terms so
-    // they're redacted in all future messages. Skipped for bulk/history content
-    // (opts.persist === false) to avoid store churn on every send — the
-    // current-message scrub still persists.
-    if (opts?.persist !== false) {
-      try {
-        const { useUserContextStore } = await import("@/stores/userContext");
-        const { addCustomRedactTerm } = useUserContextStore.getState();
-        const { selectActiveProfile } = await import("@/stores/userContext");
-        const existingTerms =
-          selectActiveProfile(useUserContextStore.getState())
-            ?.customRedactTerms || [];
-        const existingValues = new Set(
-          existingTerms.map((t) => t.value.toLowerCase())
-        );
-
-        let added = 0;
-        for (const entity of entities) {
-          const value = entity.text.trim();
-          // Skip very short values (likely false positives) and duplicates
-          if (value.length < 3 || existingValues.has(value.toLowerCase()))
-            continue;
-          addCustomRedactTerm(entity.label, value);
-          existingValues.add(value.toLowerCase());
-          added++;
-        }
-        if (added > 0) {
-          console.log(
-            `[PII auto-persist] Added ${added} new term(s) to Privacy Shield`
-          );
-        }
-      } catch (persistErr) {
-        console.warn("[PII auto-persist] Failed (non-fatal):", persistErr);
       }
     }
 
@@ -1162,7 +1129,7 @@ export function usePrivacyChat() {
       const glinerPass = async (text: string): Promise<string> => {
         if (!autoRedactAllContent || !text || text.trim().length < 3) return text;
         const { sanitized, mappings: glinerMaps } =
-          await applyGlinerPiiRedaction(text, undefined, { persist: false });
+          await applyGlinerPiiRedaction(text);
         for (const [k, v] of glinerMaps) {
           allMappings.set(k, v);
         }
@@ -1645,15 +1612,22 @@ export function usePrivacyChat() {
           });
         }
 
-        // Count GLiNER categories from placeholders
+        // Count current-message redaction categories. GLiNER detections now use
+        // the profile-wide stable term replacements, so map each replacement
+        // back to its term label (fall back to the legacy [PII_X] form).
+        const profileTerms = activeUserProfile?.customRedactTerms || [];
         for (const [placeholder] of glinerMappings) {
-          const match =
-            placeholder.match(/\[PII_(.+?)_\d+\]/) ||
-            placeholder.match(/\[PII_(\w+)\]/);
-          if (match) {
-            const cat = match[1].replace(/_/g, " ");
-            categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+          let cat: string | null = null;
+          const term = profileTerms.find((t) => t.replacement === placeholder);
+          if (term) {
+            cat = term.label;
+          } else {
+            const match =
+              placeholder.match(/\[PII_(.+?)_\d+\]/) ||
+              placeholder.match(/\[PII_(\w+)\]/);
+            if (match) cat = match[1].replace(/_/g, " ");
           }
+          if (cat) categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
         }
 
         // 2. Dry-run redactText on other content sources (when autoRedactAllContent is on)
