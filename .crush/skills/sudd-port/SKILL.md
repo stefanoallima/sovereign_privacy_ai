@@ -4,7 +4,7 @@ description: "Import or upgrade SUDD. Use when the user wants to upgrade or migr
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.34"
+  version: "3.9.26"
 ---
 
 Port existing artifacts from other frameworks into SUDD structure. Supports 4 framework types with auto-detection and multi-framework merge.

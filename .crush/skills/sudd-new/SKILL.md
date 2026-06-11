@@ -4,7 +4,7 @@ description: "Create a new change proposal. Use when the user wants to start a n
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.34"
+  version: "3.9.26"
 ---
 
 Create a new change proposal. First step in the planning phase.

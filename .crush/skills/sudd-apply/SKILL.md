@@ -4,7 +4,7 @@ description: "Implement tasks from the task list. Use when the user wants to sta
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.34"
+  version: "3.9.26"
 ---
 
 Implement tasks from the change’s task list.

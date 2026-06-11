@@ -4,7 +4,7 @@ description: "SUDD audit command."
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.34"
+  version: "3.9.26"
 ---
 
 Platform-wide persona audit. Validates the entire product against repo-level

@@ -4,7 +4,7 @@ description: "Fully autonomous mode. Use when you want to process all queued cha
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.34"
+  version: "3.9.26"
 ---
 
 Fully autonomous mode. Processes all proposed changes in sequence,
@@ -81,14 +81,39 @@ Set in sudd.yaml under `auto:`:
       priority_order: "oldest_first"  # oldest_first | newest_first
       vision_last: true               # vision.md runs last
       cli_override: ""                # auto-detect from tiers.mid.cli
-      cli_flags: "--max-turns 200"    # flags for CLI subprocess
+      cli_flags: ""                   # empty = per-CLI default — see CLI FLAGS NOTE
       max_report_days: 30             # auto-delete reports older than this
 
 ## CLI FLAGS NOTE
 
-The default `cli_flags: "--max-turns 200"` works with `claude`. If using `opencode`
-or another CLI, verify the flags are compatible and update `auto.cli_flags` accordingly.
-Set to empty string `""` to pass no extra flags.
+`cli_flags: ""` (the shipped default) is NOT "no flags" — the Go runner applies a
+per-CLI default. For `claude` the applied default is:
+
+    --dangerously-skip-permissions --max-turns 200
+
+`--dangerously-skip-permissions` is REQUIRED for headless `claude -p`: there is no
+human to answer permission prompts in the autonomous loop, so without it the
+subprocess cannot write files. The consequence is that there is **no per-action
+permission gate** during `sudd auto`.
+
+**Safety floor (containment).** Because permissions are skipped, SUDD ships a
+PreToolUse hook (`.claude/settings.json` → `sudd guard-fs`) that HARD-BLOCKS
+destructive operations (rm / mv / cp / truncate / dd / git clean / find -delete /
+file writes) whose target resolves OUTSIDE the allowed area. Allowed = the
+workspace (the launch repo's parent dir, so the repo **and its sibling repos**
+are fully editable) PLUS the Claude/MCP config allowlist (`~/.claude`,
+`~/.claude.json`, `~/.sudd`; extend with the `SUDD_GUARD_ALLOW` env). Blocked =
+everything else — `~/Downloads`, the broad `~/Documents`, system paths. **Reads**
+are allowed anywhere EXCEPT personal/credential folders (`~/Downloads`,
+`~/Documents`, `~/Desktop`, `~/.ssh`, …) — SUDD must not consume the user's
+documents; the `Read`/`Grep`/`Glob` tools and bash reads are gated for those. The hook runs even under
+`--dangerously-skip-permissions` (hooks are independent of the permission system).
+This is an accident-containment floor, not an adversarial sandbox — for a hard
+boundary, run the loop in a container/VM. It currently covers the `claude` CLI;
+`opencode`/`crush` use different hook models and are not yet gated.
+
+If using `opencode` or another CLI, verify the flags are compatible and update
+`auto.cli_flags`. Set to `""` for the per-CLI default above.
 
 ## WHAT IT DOES
 

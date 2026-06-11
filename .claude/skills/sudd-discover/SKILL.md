@@ -4,7 +4,7 @@ description: "SUDD discover command."
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.34"
+  version: "3.9.26"
 ---
 
 Discovery pipeline. Compares code reality against SUDD docs to find gaps and

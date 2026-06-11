@@ -1,9 +1,9 @@
-<!-- refreshed-at: 2026-06-11T09:32:30Z -->
+<!-- refreshed-at: 2026-06-11T09:47:25Z -->
 # Current State
 
 ## TL;DR
 
-2 active, 0 stuck, 0 dirty, 0 inbox, 0 queued · refreshed 2026-06-11T09:32:30Z
+2 active, 0 stuck, 0 dirty, 0 inbox, 0 queued · refreshed 2026-06-11T09:47:25Z
 
 The active queue is clean: the five formed AILocalMind changes that had been sitting as "shipped — archive later" debt (form-fill, gemma4-orchestration, local-rag, perf-privacy-opt, pii-pipeline-v2) were verified against live code and archived DONE this session. The only remaining `active/` entry is an empty `brown_night-queue_01` stub (no proposal/specs/design/tasks). Nothing is stuck, queued, or in the inbox — there is no pending build work; intake is the bottleneck, not throughput.
 
@@ -22,6 +22,7 @@ _none_
 
 ## Just Shipped (last 10)
 
+- [`green_redaction-completeness_01`](changes/archive/green_redaction-completeness_01_DONE/) — green_redaction-completeness_01
 - [`green_pii-pipeline-v2_01`](changes/archive/green_pii-pipeline-v2_01_DONE/) — green_pii-pipeline-v2_01
 - [`green_perf-privacy-opt_01`](changes/archive/green_perf-privacy-opt_01_DONE/) — green_perf-privacy-opt_01
 - [`green_local-rag_01`](changes/archive/green_local-rag_01_DONE/) — green_local-rag_01
@@ -48,5 +49,5 @@ Note: `sudd/vision.md` currently describes the **SUDD framework itself**, not th
 
 - Last audit health: _unknown_
 - Last audit at: 2026-04-15T14:58:40Z
-- State doc refreshed: 2026-06-11T09:32:30Z
+- State doc refreshed: 2026-06-11T09:47:25Z
 

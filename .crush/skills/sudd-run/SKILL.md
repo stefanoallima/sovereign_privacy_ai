@@ -4,7 +4,7 @@ description: "Full autonomous SUDD workflow. Use when the user wants to build a 
 license: MIT
 metadata:
   author: sudd
-  version: "3.8.34"
+  version: "3.9.26"
 ---
 
 Full autonomous SUDD workflow. Runs the complete loop from vision to done.
@@ -832,6 +832,18 @@ Output:
 ---
 
 ## GUARDRAILS
+
+**Filesystem containment (hard floor).** You may freely create / edit / delete
+inside this repo and its sibling repos (the workspace = the repo's parent dir),
+plus the Claude/MCP config allowlist (`~/.claude`, `~/.claude.json`, `~/.sudd`;
+extend via the `SUDD_GUARD_ALLOW` env). But NEVER run a destructive command
+(`rm`/`mv`/`cp`/`truncate`/`dd`/`git clean`/`find -delete`) or write a file whose
+target resolves OUTSIDE that allowed area — e.g. `~/Downloads`, the broad
+`~/Documents`, or system paths. A PreToolUse hook (`sudd guard-fs`) hard-blocks
+such ops even under `--dangerously-skip-permissions` — operate on an allowed path
+instead of fighting it. Reads are allowed anywhere EXCEPT personal/credential
+folders (`~/Downloads`, `~/Documents`, `~/Desktop`, `~/.ssh`, …) — never consume
+the user's documents; anything SUDD needs already lives in the workspace.
 
 1. **Never ask user** unless scope is unclear or major decision needed. When `SUDD_AUTONOMY=full` (set by `sudd auto`, reflecting `state.json → autonomy`), you MUST NOT stop to ask. Missing prereqs (empty tasks.md, missing personas, absent specs) must be generated autonomously — do NOT print Option A/B/C menus. Only stop when a countable outcome (DONE or STUCK) is reached or retries are exhausted.
 2. **Never skip validation squad** — every task gets contract → wiring → integration → micro-persona check

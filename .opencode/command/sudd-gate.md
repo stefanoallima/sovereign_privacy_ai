@@ -70,6 +70,11 @@ Substitute `{id}` below with the actual change ID.
 # Check 1: persona-test installed?
 persona-test --help >/dev/null 2>&1 && echo "BT_CHECK_1=PASS" || echo "BT_CHECK_1=FAIL: persona-test not installed"
 
+# Check 1b: are the configured models actually REACHABLE? (live 1-token call per model)
+# Catches dead/retired OpenRouter slugs — the silent-failure class that made persona
+# validation a no-op for months. Cheap: ~10s, <1c, no browser.
+persona-test --smoke --quick >/dev/null 2>&1 && echo "BT_CHECK_1b=PASS (models reachable)" || echo "BT_CHECK_1b=FAIL: a configured model is unreachable"
+
 # Check 2: API key set?
 [ -n "$OPENROUTER_API_KEY" ] && echo "BT_CHECK_2=PASS" || echo "BT_CHECK_2=FAIL: OPENROUTER_API_KEY not set"
 
@@ -78,9 +83,16 @@ PERSONA_COUNT=$(ls sudd/changes/active/{id}/personas/*.md 2>/dev/null | wc -l)
 [ "$PERSONA_COUNT" -gt 0 ] && echo "BT_CHECK_3=PASS ($PERSONA_COUNT personas)" || echo "BT_CHECK_3=FAIL: no personas"
 ```
 
-**Read the output.** If ALL three say PASS: browser testing is possible. Continue.
-If ANY says FAIL: log the failure. Browser testing will be skipped for this change.
-Gate score is CAPPED AT 90 (cannot reach EXEMPLARY without browser evidence).
+**Read the output.** If ALL checks PASS: browser testing is possible. Continue.
+
+**BT_CHECK_1b=FAIL is a HARD STOP — do NOT cap at 90, do NOT proceed.** An unreachable
+model is a configuration bug that silently produces ZERO real scoring (the failure that
+went undetected for months). Run `persona-test --smoke --quick` to see which model, fix
+the slug in `persona-browser-agent/persona_browser/config.py` (validate with the same
+command), then re-run the gate.
+
+If BT_CHECK_1, 2, or 3 FAIL: log the failure. Browser testing will be skipped for this
+change. Gate score is CAPPED AT 90 (cannot reach EXEMPLARY without browser evidence).
 
 ---
 
