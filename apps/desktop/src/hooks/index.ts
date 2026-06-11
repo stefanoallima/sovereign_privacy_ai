@@ -4,7 +4,6 @@
  * Export all custom React hooks for the application.
  */
 
-export { useChat } from './useChat';
 export { useVoice } from './useVoice';
 export { useLiveKit } from './useLiveKit';
 export { useGlobalShortcut } from './useGlobalShortcut';

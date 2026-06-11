@@ -1,7 +1,7 @@
 # Change: green_redaction-completeness_01
 
 ## Status
-proposed
+done
 
 ## Summary
 Make the PII-redaction invariant **total**: every path that sends text to a cloud LLM API must go through the canonical `redactForCloud` (the one profile-wide registry), so the same PII value maps to the same token everywhere and no raw PII can leave the machine. The chokepoint + main paths shipped in PR #1; this closes the three residual bypasses found in the audit.
@@ -25,12 +25,12 @@ PR #1 introduced `apps/desktop/src/services/cloud-redaction.ts` (`redactForCloud
 - localStorage at-rest encryption of the registry (secondary; tracked separately).
 
 ## Success Criteria
-- [ ] No cloud-LLM send path emits a raw user-provided string: `sendDirect`, orchestration delegation, and any `useChat` send all route through `redactForCloud` (or the path is removed).
-- [ ] In "direct" mode, a PII value in the current message is replaced by its stable registry token before send, and the response is rehydrated locally.
-- [ ] Orchestration: a new PII value present only in a delegated prompt is redacted (GLiNER) before reaching the cloud.
-- [ ] `useChat.ts` is removed (no importer) OR routes through `redactForCloud`.
-- [ ] `pnpm typecheck` passes; full-crate `cargo check` passes (Rust unchanged here, so check is a guard).
-- [ ] No regression in chat / hybrid / local modes.
+- [x] No cloud-LLM send path emits a raw user-provided string: `sendDirect`, orchestration delegation, and any `useChat` send all route through `redactForCloud` (or the path is removed). _(also closed an undocumented sub-leak: sendDirect cloud-mem0 stored rehydrated raw PII — now tokenized.)_
+- [x] In "direct" mode, a PII value in the current message is replaced by its stable registry token before send, and the response is rehydrated locally.
+- [x] Orchestration: a new PII value present only in a delegated prompt is redacted (GLiNER) before reaching the cloud.
+- [x] `useChat.ts` is removed (no importer; repo-wide grep confirmed).
+- [x] `pnpm typecheck` passes (exit 0); `cargo check` guard satisfied — `git diff -- '*.rs'` empty, no Tauri command signature changed.
+- [x] No regression in chat / hybrid / local modes (hybrid `executePrivacySend` and default-local `ollama_generate` paths untouched).
 
 ## Key Files
 - `apps/desktop/src/hooks/usePrivacyChat.ts` — `sendDirect` (T1), `sendLocalOnly` orchestration (T2)

@@ -959,6 +959,16 @@ export function usePrivacyChat() {
           }
         } catch { /* non-fatal — proceed without redaction terms */ }
 
+        // GLiNER + profile-wide term redaction of the delegated prompt BEFORE it
+        // can reach the cloud. orchestrated_generate applies redactionTerms
+        // server-side but NOT GLiNER, so a brand-new PII value appearing only in
+        // a delegated turn would otherwise leak. Rehydrate the response locally.
+        const { redactForCloud, rehydrateFromCloud } = await import(
+          "@/services/cloud-redaction"
+        );
+        const { redacted: safePrompt, mappings: orchMappings } =
+          await redactForCloud(fullPrompt);
+
         try {
           const result = await invoke<{
             response: string;
@@ -967,7 +977,7 @@ export function usePrivacyChat() {
             cloudResult?: { cloudResponse: string; success: boolean; modelUsed: string; error?: string; piiRedacted: number };
             localResponse: string;
           }>("orchestrated_generate", {
-            prompt: fullPrompt,
+            prompt: safePrompt,
             enableCloudDelegation: true,
             cloudDelegationThreshold: targetPersona?.cloud_delegation_threshold ?? 0.5,
             apiKey: settings.nebiusApiKey || null,
@@ -975,7 +985,12 @@ export function usePrivacyChat() {
             cloudModel: targetPersona?.preferred_model_id || null,
             redactionTerms,
           });
-          response = result.response;
+          // Rehydrate any stable tokens the model echoed back (no-op when none
+          // are present, e.g. a purely local response).
+          response =
+            orchMappings.size > 0
+              ? rehydrateFromCloud(result.response, orchMappings)
+              : result.response;
           wasCloudAssisted = result.cloudAssisted;
           if (wasCloudAssisted) {
             console.log(
@@ -2050,7 +2065,15 @@ export function usePrivacyChat() {
           content: await maybeRedactDirect(msg.content),
         });
       }
-      messages.push({ role: "user", content: contentToSend.trim() });
+
+      // Route the current message through the canonical cloud redactor (GLiNER
+      // + profile-wide terms) so no raw PII leaves the machine even in "direct"
+      // mode, and the same value maps to its stable registry token everywhere.
+      const { redactForCloud } = await import("@/services/cloud-redaction");
+      const { redacted: redactedMessage, mappings: directMsgMappings } =
+        await redactForCloud(contentToSend.trim());
+      for (const [k, v] of directMsgMappings) directMappings.set(k, v);
+      messages.push({ role: "user", content: redactedMessage });
 
       const client = getNebiusClient(
         settings.nebiusApiKey,
@@ -2073,6 +2096,9 @@ export function usePrivacyChat() {
         updateStreamingContent(displayed);
       }
 
+      // Capture the redacted (tokenized) response BEFORE rehydration so memory
+      // stores (incl. cloud mem0) keep tokens, never raw PII.
+      const redactedResponse = fullContent;
       // Rehydrate final content
       if (directMappings.size > 0) {
         fullContent = rehydrateResponse(fullContent, directMappings);
@@ -2094,14 +2120,16 @@ export function usePrivacyChat() {
       );
 
       if (settings.enableMemory) {
+        // Store tokenized text in memory — keeps the invariant (cloud mem0 never
+        // sees raw PII) and matches executePrivacySend's redacted-memory pattern.
         if (settings.useLocalMemory) {
           invoke('add_memory', {
-            text: contentToSend.trim(),
+            text: redactedMessage,
             conversationId: currentConversationId,
             role: 'user',
           }).catch(() => {}); // non-blocking
           invoke('add_memory', {
-            text: fullContent,
+            text: redactedResponse,
             conversationId: currentConversationId,
             role: 'assistant',
           }).catch(() => {}); // non-blocking
@@ -2110,8 +2138,8 @@ export function usePrivacyChat() {
             const mem0Client = getMem0Client(settings.mem0ApiKey);
             await mem0Client.addMemories({
               messages: [
-                { role: "user", content: contentToSend.trim() },
-                { role: "assistant", content: fullContent },
+                { role: "user", content: redactedMessage },
+                { role: "assistant", content: redactedResponse },
               ],
             });
           } catch (error) {
