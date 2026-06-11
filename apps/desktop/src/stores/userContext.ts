@@ -103,6 +103,27 @@ export function generateReplacementString(label: string, valueLength: number, ty
   return core.substring(0, valueLength);
 }
 
+/**
+ * Canonical STORED form of a PII value: NFC-normalize (so accented Italian
+ * names like "Niccolò" coming from different sources collapse to one form),
+ * collapse internal whitespace to single spaces (PDF text extraction yields
+ * "Mario  Rossi"), and trim. Original casing is preserved for display.
+ */
+export function normalizeRedactValue(value: string): string {
+  return value.normalize('NFC').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Canonical KEY for deciding whether two PII values are "the same" for
+ * redaction. Same logical value → same token, EVERYWHERE. Without this the same
+ * person can get two different tokens across documents (a double space, an
+ * NFC/NFD accent, a stray newline), which breaks the narrative consistency the
+ * cloud model depends on. Used by every term-creation path.
+ */
+export function canonicalRedactKey(value: string): string {
+  return normalizeRedactValue(value).toLowerCase();
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -350,17 +371,18 @@ export const useUserContextStore = create<UserContextState>()(
           const activeProfile = state.profiles.find((p) => p.id === state.activeProfileId);
           const currentTerms = activeProfile?.customRedactTerms || [];
           const trimmedLabel = label.trim();
-          const trimmedValue = value.trim();
+          const normalizedValue = normalizeRedactValue(value);
 
-          // Deduplicate: skip if a term with the same value (case-insensitive) already exists
-          const existingValues = new Set(currentTerms.map(t => t.value.toLowerCase()));
-          if (existingValues.has(trimmedValue.toLowerCase())) {
+          // Deduplicate on the canonical key so a manually-added term and a
+          // GLiNER-detected variant of the same value collapse to one token.
+          const existingValues = new Set(currentTerms.map(t => canonicalRedactKey(t.value)));
+          if (existingValues.has(canonicalRedactKey(value))) {
             return state; // Already exists, skip duplicate
           }
 
           const typeIdx = getNextTypeIndex(trimmedLabel, currentTerms);
-          const replacement = generateReplacementString(trimmedLabel, trimmedValue.length, typeIdx);
-          const newTerms = [...currentTerms, { label: trimmedLabel, value: trimmedValue, replacement }];
+          const replacement = generateReplacementString(trimmedLabel, normalizedValue.length, typeIdx);
+          const newTerms = [...currentTerms, { label: trimmedLabel, value: normalizedValue, replacement }];
 
           if (state.activeProfileId) {
             const updatedProfiles = state.profiles.map((p) =>
@@ -376,9 +398,10 @@ export const useUserContextStore = create<UserContextState>()(
       },
 
       ensureRedactTerm: (label, value) => {
-        const trimmedValue = value.trim();
+        const normalizedValue = normalizeRedactValue(value);
         // Too short to redact safely (mirrors the Rust redactor's >= 2 rule).
-        if (trimmedValue.length < 2) return trimmedValue;
+        if (normalizedValue.length < 2) return normalizedValue;
+        const key = canonicalRedactKey(value);
 
         const state = get();
         const activeProfile = state.profiles.find(
@@ -386,9 +409,9 @@ export const useUserContextStore = create<UserContextState>()(
         );
         const currentTerms = activeProfile?.customRedactTerms || [];
 
-        // Same value (case-insensitive) → same replacement, every time.
+        // Same value (case/whitespace/unicode-insensitive) → same replacement, every time.
         const existing = currentTerms.find(
-          (t) => t.value.toLowerCase() === trimmedValue.toLowerCase()
+          (t) => canonicalRedactKey(t.value) === key
         );
         if (existing) return existing.replacement;
 
@@ -396,14 +419,14 @@ export const useUserContextStore = create<UserContextState>()(
         const typeIdx = getNextTypeIndex(trimmedLabel, currentTerms);
         const replacement = generateReplacementString(
           trimmedLabel,
-          trimmedValue.length,
+          normalizedValue.length,
           typeIdx
         );
 
         if (state.activeProfileId) {
           const newTerms = [
             ...currentTerms,
-            { label: trimmedLabel, value: trimmedValue, replacement },
+            { label: trimmedLabel, value: normalizedValue, replacement },
           ];
           set({
             profiles: state.profiles.map((p) =>
@@ -455,19 +478,21 @@ export const useUserContextStore = create<UserContextState>()(
         set((state) => {
           const activeProfile = state.profiles.find((p) => p.id === state.activeProfileId);
           const currentTerms = activeProfile?.customRedactTerms || [];
-          // Deduplicate: skip terms whose value (case-insensitive) already exists
-          const existingValues = new Set(currentTerms.map(t => t.value.toLowerCase()));
+          // Deduplicate on the canonical key (case/whitespace/unicode-insensitive)
+          const existingValues = new Set(currentTerms.map(t => canonicalRedactKey(t.value)));
 
           // Build terms with per-type indexing, tracking counts as we go
           const allSoFar = [...currentTerms];
           const newTerms: CustomRedactTerm[] = [];
           for (const p of parsed) {
-            if (existingValues.has(p.value.toLowerCase())) continue; // skip duplicate
+            const key = canonicalRedactKey(p.value);
+            if (existingValues.has(key)) continue; // skip duplicate
+            const normalizedValue = normalizeRedactValue(p.value);
             const typeIdx = getNextTypeIndex(p.label, allSoFar);
-            const replacement = generateReplacementString(p.label, p.value.length, typeIdx);
-            const term: CustomRedactTerm = { label: p.label, value: p.value, replacement };
+            const replacement = generateReplacementString(p.label, normalizedValue.length, typeIdx);
+            const term: CustomRedactTerm = { label: p.label, value: normalizedValue, replacement };
             allSoFar.push(term); // track for next iteration's count
-            existingValues.add(p.value.toLowerCase()); // track within batch
+            existingValues.add(key); // track within batch
             newTerms.push(term);
           }
           const merged = [...currentTerms, ...newTerms];
