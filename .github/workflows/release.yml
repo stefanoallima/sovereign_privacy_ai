@@ -140,15 +140,36 @@ jobs:
           perl -i -pe "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" apps/desktop/src-tauri/tauri.conf.json
           echo "Building version $VERSION"
 
+      # The TAURI_SIGNING_PRIVATE_KEY secret is base64 that was stored with line-wrapping
+      # (a newline every 76 chars, the default of `base64` without -w0). Tauri's signer
+      # decodes the value as a single base64 string and chokes on the embedded newline
+      # ("failed to decode base64 secret key: Invalid symbol 10, offset 152"), aborting the
+      # build now that bundle.createUpdaterArtifacts is enabled. Strip all whitespace to
+      # recover the single-line base64. This keeps the SAME keypair, so already-installed
+      # clients (which embed the matching pubkey) can still verify updates — the whole point.
+      # Idempotent: a no-op if the secret is already a clean single line.
+      - name: Normalize updater signing key + password
+        shell: bash
+        env:
+          RAW_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RAW_SIGNING_PW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          KEY="$(printf '%s' "$RAW_SIGNING_KEY" | tr -d '[:space:]')"
+          PW="$(printf '%s' "$RAW_SIGNING_PW" | tr -d '\r\n')"
+          echo "::add-mask::$KEY"
+          echo "::add-mask::$PW"
+          echo "TAURI_SIGNING_PRIVATE_KEY=$KEY" >> "$GITHUB_ENV"
+          echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$PW" >> "$GITHUB_ENV"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # MACOSX_DEPLOYMENT_TARGET is set per-target in "Install dependencies (macOS)":
           #   aarch64 → 11.0,  x86_64 → 10.15  (do NOT hardcode it here)
-          # Updater signing key
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Updater signing key + password are injected via $GITHUB_ENV by the
+          # "Normalize updater signing key + password" step above (whitespace-stripped to
+          # recover single-line base64), so they are intentionally NOT set here.
           # macOS signing + notarization is intentionally UNSET: no Apple Developer ID
           # cert is configured as a secret. Defining APPLE_CERTIFICATE from a missing
           # secret yields an EMPTY string, which makes tauri-action attempt a keychain
