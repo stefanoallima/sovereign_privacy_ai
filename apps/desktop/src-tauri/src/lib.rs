@@ -225,12 +225,14 @@ pub fn run() {
             }),
     };
 
-    // Initialize anonymization service
+    // Initialize anonymization service (with the encryption key so PII values
+    // in mappings are encrypted at rest — F-02)
     let anonymization = AnonymizationService::new()
         .unwrap_or_else(|e| {
             eprintln!("Failed to initialize anonymization service: {}", e);
             panic!("Critical: anonymization service failed");
-        });
+        })
+        .with_key_manager(encryption_key.clone());
 
     // Initialize tax knowledge base
     let tax_knowledge = TaxKnowledgeBase::new();
@@ -348,6 +350,7 @@ pub fn run() {
             inference_commands::remove_custom_model,
             // Anonymization
             anonymization_commands::anonymize_text,
+            anonymization_commands::deanonymize_text,
             anonymization_commands::validate_anonymization,
             // File Parsers & Profile Management
             profile_commands::parse_document,
@@ -399,6 +402,7 @@ pub fn run() {
             form_fill_commands::compose_reasoning_field,
             // Redaction
             redaction_commands::redact_text_command,
+            redaction_commands::redact_messages_command,
             redaction_commands::rehydrate_text_command,
             // Local Memory (FTS5 search)
             local_memory_commands::add_memory,

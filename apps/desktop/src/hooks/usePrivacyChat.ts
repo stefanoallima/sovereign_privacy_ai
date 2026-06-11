@@ -37,14 +37,23 @@ interface DetectedEntity {
  * Apply GLiNER PII detection to sanitize text before cloud sends.
  * Returns the sanitized text and a mapping of placeholders to original values.
  */
+// GLiNER (ONNX) has a bounded context window; oversized text would be silently
+// truncated or error. Skip GLiNER above this size — term-matching still applies.
+const GLINER_MAX_CHARS = 6000;
+
 async function applyGlinerPiiRedaction(
   text: string,
-  onEntitiesDetected?: (entities: DetectedEntity[]) => void
+  onEntitiesDetected?: (entities: DetectedEntity[]) => void,
+  opts?: { persist?: boolean }
 ): Promise<{
   sanitized: string;
   mappings: Map<string, string>;
   entityCount: number;
 }> {
+  // Size guard (oversized content → skip GLiNER, leave term-matching to cover it).
+  if (!text || text.length > GLINER_MAX_CHARS) {
+    return { sanitized: text, mappings: new Map(), entityCount: 0 };
+  }
   try {
     const entities = await invoke<DetectedEntity[]>("detect_pii_with_gliner", {
       text,
@@ -62,9 +71,13 @@ async function applyGlinerPiiRedaction(
     const sorted = [...entities].sort((a, b) => b.start - a.start);
     let sanitized = text;
     const mappings = new Map<string, string>();
+    // Index placeholders per label so multiple entities sharing a label do NOT
+    // collide on one mapping key (which would rehydrate them all to the last
+    // value). e.g. [PII_PERSON_1], [PII_PERSON_2].
+    const labelCounts: Record<string, number> = {};
 
     for (const entity of sorted) {
-      const placeholder = `[PII_${entity.label.toUpperCase().replace(/\s+/g, "_")}]`;
+      const label = entity.label.toUpperCase().replace(/\s+/g, "_");
       const original = sanitized.substring(entity.start, entity.end);
       // Only replace if text matches what GLiNER detected (sanity check)
       if (
@@ -72,6 +85,8 @@ async function applyGlinerPiiRedaction(
           .toLowerCase()
           .includes(entity.text.toLowerCase().substring(0, 3))
       ) {
+        labelCounts[label] = (labelCounts[label] ?? 0) + 1;
+        const placeholder = `[PII_${label}_${labelCounts[label]}]`;
         sanitized =
           sanitized.substring(0, entity.start) +
           placeholder +
@@ -80,36 +95,40 @@ async function applyGlinerPiiRedaction(
       }
     }
 
-    // Auto-persist detected PII to Privacy Shield custom redaction terms
-    // so they're automatically redacted in all future messages
-    try {
-      const { useUserContextStore } = await import("@/stores/userContext");
-      const { addCustomRedactTerm } = useUserContextStore.getState();
-      const { selectActiveProfile } = await import("@/stores/userContext");
-      const existingTerms =
-        selectActiveProfile(useUserContextStore.getState())
-          ?.customRedactTerms || [];
-      const existingValues = new Set(
-        existingTerms.map((t) => t.value.toLowerCase())
-      );
-
-      let added = 0;
-      for (const entity of entities) {
-        const value = entity.text.trim();
-        // Skip very short values (likely false positives) and duplicates
-        if (value.length < 3 || existingValues.has(value.toLowerCase()))
-          continue;
-        addCustomRedactTerm(entity.label, value);
-        existingValues.add(value.toLowerCase());
-        added++;
-      }
-      if (added > 0) {
-        console.log(
-          `[PII auto-persist] Added ${added} new term(s) to Privacy Shield`
+    // Auto-persist detected PII to Privacy Shield custom redaction terms so
+    // they're redacted in all future messages. Skipped for bulk/history content
+    // (opts.persist === false) to avoid store churn on every send — the
+    // current-message scrub still persists.
+    if (opts?.persist !== false) {
+      try {
+        const { useUserContextStore } = await import("@/stores/userContext");
+        const { addCustomRedactTerm } = useUserContextStore.getState();
+        const { selectActiveProfile } = await import("@/stores/userContext");
+        const existingTerms =
+          selectActiveProfile(useUserContextStore.getState())
+            ?.customRedactTerms || [];
+        const existingValues = new Set(
+          existingTerms.map((t) => t.value.toLowerCase())
         );
+
+        let added = 0;
+        for (const entity of entities) {
+          const value = entity.text.trim();
+          // Skip very short values (likely false positives) and duplicates
+          if (value.length < 3 || existingValues.has(value.toLowerCase()))
+            continue;
+          addCustomRedactTerm(entity.label, value);
+          existingValues.add(value.toLowerCase());
+          added++;
+        }
+        if (added > 0) {
+          console.log(
+            `[PII auto-persist] Added ${added} new term(s) to Privacy Shield`
+          );
+        }
+      } catch (persistErr) {
+        console.warn("[PII auto-persist] Failed (non-fatal):", persistErr);
       }
-    } catch (persistErr) {
-      console.warn("[PII auto-persist] Failed (non-fatal):", persistErr);
     }
 
     return { sanitized, mappings, entityCount: entities.length };
@@ -1130,16 +1149,43 @@ export function usePrivacyChat() {
         selectActiveProfile(useUserContextStore.getState())
           ?.customRedactTerms || [];
       const allMappings = new Map<string, string>(glinerMappings ?? []);
-      const maybeRedact = async (text: string): Promise<string> => {
-        if (!autoRedactAllContent || redactTerms.length === 0) return text;
-        const { anonymized, mappings: newMappings } = await redactText(
-          text,
-          redactTerms
-        );
-        for (const [k, v] of newMappings) {
+
+      // T2 (pii-pipeline-v3): GLiNER NER pass for arbitrary cloud-bound content
+      // (history, context, memories, KB, canvas). Catches novel PII that was
+      // never persisted as a custom redaction term — the residual leak after v2.
+      // Reuses applyGlinerPiiRedaction so placeholders use the same
+      // [PII_<LABEL>] scheme as the current-message scrub: mappings merge
+      // cleanly and the response rehydrates via rehydrateResponse.
+      // applyGlinerPiiRedaction already try/catches (returns the input on
+      // failure) and auto-persists detected entities to customRedactTerms
+      // (dedup-guarded), so no extra fallback/persist plumbing is needed here.
+      const glinerPass = async (text: string): Promise<string> => {
+        if (!autoRedactAllContent || !text || text.trim().length < 3) return text;
+        const { sanitized, mappings: glinerMaps } =
+          await applyGlinerPiiRedaction(text, undefined, { persist: false });
+        for (const [k, v] of glinerMaps) {
           allMappings.set(k, v);
         }
-        return anonymized;
+        return sanitized;
+      };
+
+      // GLiNER first (catches novel PII), then user-confirmed term-matching.
+      // Gated by autoRedactAllContent ONLY — GLiNER must run even when the user
+      // has zero custom redaction terms (that is precisely Gap 2).
+      const maybeRedact = async (text: string): Promise<string> => {
+        if (!autoRedactAllContent) return text;
+        let out = await glinerPass(text);
+        if (redactTerms.length > 0) {
+          const { anonymized, mappings: newMappings } = await redactText(
+            out,
+            redactTerms
+          );
+          for (const [k, v] of newMappings) {
+            allMappings.set(k, v);
+          }
+          out = anonymized;
+        }
+        return out;
       };
 
       // System prompt with privacy notice for attributes-only mode
@@ -1236,8 +1282,80 @@ export function usePrivacyChat() {
       // Add conversation history (default: include unless explicitly excluded)
       if (sendOpts?.includeHistory !== false) {
         const history = getCurrentMessages();
-        for (const msg of history) {
-          messages.push({ role: msg.role, content: await maybeRedact(msg.content) });
+        if (!autoRedactAllContent) {
+          // Redaction off — push history unchanged (behavior preserved).
+          for (const msg of history) {
+            messages.push({ role: msg.role, content: msg.content });
+          }
+        } else {
+          // T2: GLiNER NER per message. The Rust GLiNER backend is
+          // mutex-serialized, so calls run sequentially — cap GLiNER to the most
+          // recent GLINER_HISTORY_LIMIT messages to bound latency on long
+          // conversations. Older messages are still covered by the term-matching
+          // batch below (their novel PII was auto-persisted as terms when they
+          // were recent).
+          const GLINER_HISTORY_LIMIT = 12;
+          const glinerStart = Math.max(0, history.length - GLINER_HISTORY_LIMIT);
+          const glinedContents: string[] = [];
+          for (let h = 0; h < history.length; h++) {
+            glinedContents.push(
+              h >= glinerStart
+                ? await glinerPass(history[h].content)
+                : history[h].content
+            );
+          }
+          // T3 (pii-pipeline-v3): collapse the per-message redact_text loop into
+          // a single redact_messages_command batch call for the term pass.
+          if (redactTerms.length > 0) {
+            try {
+              const batch = await invoke<{
+                messages: string[];
+                mappings: Record<string, string>;
+                redaction_count: number;
+              }>("redact_messages_command", {
+                messages: glinedContents,
+                terms: redactTerms.map((t) => ({
+                  label: t.label,
+                  value: t.value,
+                  replacement: t.replacement,
+                })),
+              });
+              for (const [k, v] of Object.entries(batch.mappings)) {
+                allMappings.set(k, v);
+              }
+              history.forEach((msg, i) => {
+                messages.push({
+                  role: msg.role,
+                  content: batch.messages[i] ?? glinedContents[i],
+                });
+              });
+            } catch (err) {
+              // Rust batch command unavailable — fall back to per-message term
+              // redaction so history is still scrubbed.
+              console.warn(
+                "redact_messages_command unavailable, falling back to per-message redactText:",
+                err
+              );
+              for (let i = 0; i < history.length; i++) {
+                const { anonymized, mappings: termMaps } = await redactText(
+                  glinedContents[i],
+                  redactTerms
+                );
+                for (const [k, v] of termMaps) {
+                  allMappings.set(k, v);
+                }
+                messages.push({
+                  role: history[i].role,
+                  content: anonymized,
+                });
+              }
+            }
+          } else {
+            // GLiNER only (no custom terms) — push GLiNER-sanitized contents.
+            history.forEach((msg, i) => {
+              messages.push({ role: msg.role, content: glinedContents[i] });
+            });
+          }
         }
       }
 
@@ -1529,7 +1647,9 @@ export function usePrivacyChat() {
 
         // Count GLiNER categories from placeholders
         for (const [placeholder] of glinerMappings) {
-          const match = placeholder.match(/\[PII_(\w+)\]/);
+          const match =
+            placeholder.match(/\[PII_(.+?)_\d+\]/) ||
+            placeholder.match(/\[PII_(\w+)\]/);
           if (match) {
             const cat = match[1].replace(/_/g, " ");
             categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);

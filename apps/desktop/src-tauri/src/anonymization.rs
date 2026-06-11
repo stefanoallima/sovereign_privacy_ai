@@ -1,3 +1,4 @@
+use crate::crypto::{EncryptionKeyManager, PiiEncryption};
 use crate::db::PiiMapping;
 use crate::ollama::PIIExtraction;
 use uuid::Uuid;
@@ -20,6 +21,9 @@ pub struct AnonymizationService {
     euro_amount_pattern: Regex,
     // Confidence threshold for accepting LLM extractions
     confidence_threshold: f32,
+    // Optional key manager: when present, PII values in mappings are encrypted
+    // at rest. Absent (e.g. in pattern-only tests) → legacy behavior, no value stored.
+    key_manager: Option<EncryptionKeyManager>,
 }
 
 impl AnonymizationService {
@@ -42,7 +46,16 @@ impl AnonymizationService {
             // Euro amounts with various formats
             euro_amount_pattern: Regex::new(r"€\s?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?|\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?\s?(?:euro|EUR)")?,
             confidence_threshold: threshold,
+            key_manager: None,
         })
+    }
+
+    /// Attach the encryption key manager so PII values in newly-created
+    /// mappings are encrypted at rest (`is_encrypted = true`). Without it,
+    /// mappings persist no PII value — never cleartext. Additive/chainable.
+    pub fn with_key_manager(mut self, key_manager: EncryptionKeyManager) -> Self {
+        self.key_manager = Some(key_manager);
+        self
     }
 
     /// Check if extraction confidence meets threshold
@@ -219,13 +232,46 @@ impl AnonymizationService {
         let mut deanonymized_text = anonymized_text.to_string();
 
         for mapping in mappings {
-            // Replace placeholder with [PII_CATEGORY] for now
-            // In production, this would decrypt the PII value
-            let placeholder_pattern = format!(r"\[PLACEHOLDER_{}_{}\]", mapping.pii_category.to_uppercase(), mapping.placeholder);
-            deanonymized_text = deanonymized_text.replace(&placeholder_pattern, &format!("[{}]", mapping.pii_category));
+            // The placeholder in the text is the literal "[PLACEHOLDER_CAT_uuid]"
+            // (see create_mapping_and_replace) — build the SAME literal string.
+            // The previous code built a regex-escaped "\[PLACEHOLDER..\]" and
+            // passed it to str::replace (a literal match), so it never matched.
+            let placeholder_pattern = format!(
+                "[PLACEHOLDER_{}_{}]",
+                mapping.pii_category.to_uppercase(),
+                mapping.placeholder
+            );
+            // Restore the real PII value when recoverable (decrypt encrypted
+            // rows / read legacy plaintext); otherwise fall back to a category
+            // label rather than restoring nothing.
+            let replacement = self
+                .resolve_pii_value(mapping)
+                .unwrap_or_else(|| format!("[{}]", mapping.pii_category));
+            deanonymized_text = deanonymized_text.replace(&placeholder_pattern, &replacement);
         }
 
         deanonymized_text
+    }
+
+    /// Resolve the original PII value for a stored mapping.
+    /// - Encrypted rows (`is_encrypted = true`) are decrypted with the key manager.
+    /// - Legacy rows (`is_encrypted = false`) carry the plaintext value as raw
+    ///   bytes in `pii_value_encrypted` and are returned unchanged.
+    /// NEVER errors on legacy rows: returns `None` only when the value genuinely
+    /// cannot be recovered (e.g. encrypted row with no/ wrong key manager).
+    pub fn resolve_pii_value(&self, mapping: &PiiMapping) -> Option<String> {
+        // An empty blob means the value was never persisted (encryption failed
+        // at write time, or no key manager was attached). Nothing to recover —
+        // resolve to None, not an empty string.
+        if mapping.pii_value_encrypted.is_empty() {
+            return None;
+        }
+        if mapping.is_encrypted {
+            let km = self.key_manager.as_ref()?;
+            PiiEncryption::decrypt(&mapping.pii_value_encrypted, km).ok()
+        } else {
+            String::from_utf8(mapping.pii_value_encrypted.clone()).ok()
+        }
     }
 
     /// Validate that anonymization was successful (no common PII patterns remain)
@@ -316,18 +362,30 @@ impl AnonymizationService {
         let placeholder = Uuid::new_v4().to_string();
         let mapping_id = Uuid::new_v4().to_string();
 
-        // For now, we'll use a simple placeholder format
-        // In production, PII value would be encrypted
         let placeholder_text = format!("[PLACEHOLDER_{}_{}]", pii_category.to_uppercase(), placeholder);
         let new_text = text.replace(pii_value, &placeholder_text);
+
+        // Encrypt the PII value at rest when a key manager is available.
+        // On failure, or when no key manager is attached, persist NO value
+        // (empty blob, is_encrypted = false) — never cleartext.
+        let (pii_value_encrypted, is_encrypted) = match &self.key_manager {
+            Some(km) => match PiiEncryption::encrypt(pii_value, km) {
+                Ok(ciphertext) => (ciphertext, true),
+                Err(e) => {
+                    warn!("PII value encryption failed; persisting mapping without value: {}", e);
+                    (Vec::new(), false)
+                }
+            },
+            None => (Vec::new(), false),
+        };
 
         let mapping = PiiMapping {
             id: mapping_id,
             conversation_id: conversation_id.to_string(),
             pii_category: pii_category.to_string(),
-            pii_value_encrypted: Vec::new(), // Would be encrypted in production
+            pii_value_encrypted,
             placeholder: placeholder.clone(),
-            is_encrypted: false, // Would be true in production
+            is_encrypted,
             created_at: Utc::now().to_rfc3339(),
         };
 
@@ -402,5 +460,46 @@ mod tests {
         let validation = service.validate_anonymization(text);
         assert!(validation.is_safe);
         assert!(validation.found_patterns.is_empty());
+    }
+
+    #[test]
+    fn test_mapping_encrypts_pii_value_roundtrip() {
+        let key = EncryptionKeyManager::from_raw_key(vec![0x11u8; 32]);
+        let service = AnonymizationService::new().unwrap().with_key_manager(key);
+
+        let (new_text, mapping) =
+            service.create_mapping_and_replace("My BSN is 123456789", "123456789", "bsn", "conv-1");
+
+        // Placeholder replaced the raw value in the text.
+        assert!(!new_text.contains("123456789"));
+        // Persisted row is encrypted and carries ciphertext, not cleartext.
+        assert!(mapping.is_encrypted);
+        assert!(!mapping.pii_value_encrypted.is_empty());
+        assert_ne!(mapping.pii_value_encrypted, b"123456789".to_vec());
+        // Read path decrypts back to the original value.
+        assert_eq!(
+            service.resolve_pii_value(&mapping).as_deref(),
+            Some("123456789")
+        );
+    }
+
+    #[test]
+    fn test_legacy_plaintext_row_resolves() {
+        // A pre-change row: is_encrypted = false, plaintext stored as raw bytes.
+        let service = AnonymizationService::new().unwrap();
+        let legacy = PiiMapping {
+            id: "id-1".to_string(),
+            conversation_id: "conv-1".to_string(),
+            pii_category: "name".to_string(),
+            pii_value_encrypted: b"Jan Jansen".to_vec(),
+            placeholder: "ph-1".to_string(),
+            is_encrypted: false,
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+        };
+        // Read path returns the plaintext unchanged and never errors.
+        assert_eq!(
+            service.resolve_pii_value(&legacy).as_deref(),
+            Some("Jan Jansen")
+        );
     }
 }

@@ -56,6 +56,38 @@ pub fn rehydrate_text(redacted: &str, mappings: &HashMap<String, String>) -> Str
     result
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedactMessagesResult {
+    pub messages: Vec<String>,
+    pub mappings: HashMap<String, String>,
+    pub redaction_count: usize,
+}
+
+/// Redact PII from EVERY message in a conversation, not just the latest one,
+/// merging all placeholder→value mappings so the response can be rehydrated.
+///
+/// This closes the privacy leak where only the current user message was
+/// anonymized while conversation history was sent to the cloud in cleartext.
+pub fn redact_messages(messages: &[String], terms: &[RedactTerm]) -> RedactMessagesResult {
+    let mut out_messages = Vec::with_capacity(messages.len());
+    let mut mappings: HashMap<String, String> = HashMap::new();
+    let mut redaction_count = 0usize;
+
+    for msg in messages {
+        let result = redact_text(msg, terms);
+        redaction_count += result.redaction_count;
+        // Same terms across messages → consistent placeholder→value mapping.
+        mappings.extend(result.mappings);
+        out_messages.push(result.text);
+    }
+
+    RedactMessagesResult {
+        messages: out_messages,
+        mappings,
+        redaction_count,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,5 +212,50 @@ mod tests {
         assert!(result.text.contains("nam2xxxx"), "Jane should be replaced: {}", result.text);
         assert!(result.text.contains("nam1xxx"), "Jan should be replaced: {}", result.text);
         assert!(!result.text.contains("Jan"), "Raw Jan should be gone: {}", result.text);
+    }
+
+    #[test]
+    fn test_redact_messages_covers_entire_conversation_not_just_last() {
+        // Regression guard for the privacy leak: previously only the current
+        // message was anonymized while conversation history was sent to the
+        // cloud in cleartext. redact_messages must scrub EVERY message.
+        let terms = vec![
+            RedactTerm {
+                label: "name".into(),
+                value: "Alice".into(),
+                replacement: "[NAME_1]".into(),
+            },
+            RedactTerm {
+                label: "email".into(),
+                value: "alice@example.com".into(),
+                replacement: "[EMAIL_1]".into(),
+            },
+        ];
+        let messages = vec![
+            "My name is Alice".to_string(),                  // earlier history turn
+            "You can reach me at alice@example.com".to_string(), // earlier history turn
+            "What are my options?".to_string(),              // current message (no PII)
+        ];
+
+        let result = redact_messages(&messages, &terms);
+
+        // Every message redacted — not just the last one.
+        assert_eq!(result.messages[0], "My name is [NAME_1]");
+        assert_eq!(result.messages[1], "You can reach me at [EMAIL_1]");
+        assert_eq!(result.messages[2], "What are my options?");
+
+        // No raw PII survives in ANY cloud-bound message.
+        for m in &result.messages {
+            assert!(!m.contains("Alice"), "raw name leaked: {m}");
+            assert!(!m.contains("alice@example.com"), "raw email leaked: {m}");
+        }
+
+        // Merged mappings cover all turns and round-trip via rehydrate_text.
+        assert_eq!(result.mappings.get("[NAME_1]"), Some(&"Alice".to_string()));
+        assert_eq!(
+            result.mappings.get("[EMAIL_1]"),
+            Some(&"alice@example.com".to_string())
+        );
+        assert_eq!(result.redaction_count, 2);
     }
 }

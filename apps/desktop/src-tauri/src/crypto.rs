@@ -4,7 +4,7 @@ use chacha20poly1305::{
 };
 use std::error::Error;
 use uuid::Uuid;
-use log::{info, error};
+use log::{info, warn, error};
 use zeroize::Zeroize;
 
 const NONCE_SIZE: usize = 12; // 96 bits for ChaCha20-Poly1305
@@ -64,30 +64,119 @@ impl EncryptionKeyManager {
         Ok(key)
     }
 
+    /// Windows credential target for the encryption key (generic credential).
+    #[cfg(target_os = "windows")]
+    const CRED_TARGET: &'static str = "PrivateAssistant/encryption-key";
+
+    /// Load the key, preferring the OS credential store, then the legacy key
+    /// file (migrating it into the store on the way), then signalling
+    /// "not found" so the caller generates a fresh key.
+    /// ADDITIVE: the key file is read but never deleted — no lockout possible.
     #[cfg(target_os = "windows")]
     fn load_key_from_windows_credential_manager() -> Result<Vec<u8>, Box<dyn Error>> {
-        // This is a placeholder implementation
-        // In production, use the `windows-rs` crate to interact with Credential Manager
-        // For now, we'll use a file-based fallback
+        // 1. OS credential store (primary, secure).
+        match Self::cred_read() {
+            Ok(key) if key.len() == KEY_SIZE => return Ok(key),
+            Ok(key) => warn!(
+                "Ignoring credential-store key with unexpected length {} (want {})",
+                key.len(),
+                KEY_SIZE
+            ),
+            Err(_) => { /* fall through to file fallback */ }
+        }
+
+        // 2. Legacy plaintext key file — honor it AND migrate into the store.
         let key_path = Self::get_key_path()?;
         if key_path.exists() {
-            std::fs::read(&key_path).map_err(|e| Box::new(e) as Box<dyn Error>)
-        } else {
-            Err("Key file not found".into())
+            let key = std::fs::read(&key_path)?;
+            match Self::cred_write(&key) {
+                Ok(()) => info!(
+                    "Migrated encryption key from file into Windows Credential Manager"
+                ),
+                Err(e) => warn!("Could not migrate key into credential store: {}", e),
+            }
+            return Ok(key);
         }
+
+        // 3. Nothing found — let new() generate and save a fresh key.
+        Err("No encryption key in credential store or key file".into())
     }
 
+    /// Persist the key to the OS credential store AND keep the file fallback.
+    /// ADDITIVE: the file is (re)written so a machine without a credential
+    /// entry can still load the key; the file is never deleted.
     #[cfg(target_os = "windows")]
     fn save_key_to_windows_credential_manager(key: &[u8]) -> Result<(), Box<dyn Error>> {
-        // This is a placeholder implementation
-        // In production, use the `windows-rs` crate to store in Credential Manager
-        // For now, we'll use a file-based fallback
-        let key_path = Self::get_key_path()?;
-        if let Some(parent) = key_path.parent() {
-            std::fs::create_dir_all(parent)?;
+        Self::cred_write(key)?;
+        if let Err(e) = Self::write_key_file(key) {
+            warn!(
+                "Wrote key to credential store but failed to write file fallback: {}",
+                e
+            );
         }
-        std::fs::write(&key_path, key)?;
         Ok(())
+    }
+
+    /// Read the key blob from the Windows Credential Manager.
+    #[cfg(target_os = "windows")]
+    fn cred_read() -> Result<Vec<u8>, Box<dyn Error>> {
+        use winapi::um::wincred::{CredFree, CredReadW, CRED_TYPE_GENERIC, PCREDENTIALW};
+        let target = Self::wide_null(Self::CRED_TARGET);
+        let mut pcred: PCREDENTIALW = std::ptr::null_mut();
+        let ok = unsafe { CredReadW(target.as_ptr(), CRED_TYPE_GENERIC, 0, &mut pcred) };
+        if ok == 0 || pcred.is_null() {
+            return Err("CredReadW: credential not found".into());
+        }
+        // SAFETY: CredReadW succeeded, so pcred points to a valid CREDENTIALW.
+        // Guard against a null or zero-size blob before from_raw_parts (which is
+        // UB with a null/dangling pointer), and always free the credential.
+        let blob = unsafe {
+            let cred = &*pcred;
+            let size = cred.CredentialBlobSize as usize;
+            let bytes = if cred.CredentialBlob.is_null() || size == 0 {
+                Vec::new()
+            } else {
+                std::slice::from_raw_parts(cred.CredentialBlob, size).to_vec()
+            };
+            CredFree(pcred as *mut _);
+            bytes
+        };
+        if blob.is_empty() {
+            return Err("CredReadW: credential blob was empty".into());
+        }
+        Ok(blob)
+    }
+
+    /// Write the key blob into the Windows Credential Manager (generic, local machine).
+    #[cfg(target_os = "windows")]
+    fn cred_write(key: &[u8]) -> Result<(), Box<dyn Error>> {
+        use winapi::um::wincred::{
+            CredWriteW, CREDENTIALW, CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
+        };
+        let mut target = Self::wide_null(Self::CRED_TARGET);
+        // SAFETY: zeroed CREDENTIALW is valid; we set every field CredWriteW reads
+        // for a CRED_TYPE_GENERIC credential and leave the rest null/zero.
+        let mut cred: CREDENTIALW = unsafe { std::mem::zeroed() };
+        cred.Type = CRED_TYPE_GENERIC;
+        cred.TargetName = target.as_mut_ptr();
+        cred.CredentialBlobSize = key.len() as u32;
+        cred.CredentialBlob = key.as_ptr() as *mut u8;
+        cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
+        let ok = unsafe { CredWriteW(&mut cred as *mut CREDENTIALW, 0) };
+        if ok == 0 {
+            return Err("CredWriteW failed".into());
+        }
+        Ok(())
+    }
+
+    /// UTF-16, null-terminated wide string for Win32 APIs.
+    #[cfg(target_os = "windows")]
+    fn wide_null(s: &str) -> Vec<u16> {
+        use std::os::windows::ffi::OsStrExt;
+        std::ffi::OsStr::new(s)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -102,6 +191,13 @@ impl EncryptionKeyManager {
 
     #[cfg(not(target_os = "windows"))]
     fn save_key_to_file(key: &[u8]) -> Result<(), Box<dyn Error>> {
+        Self::write_key_file(key)
+    }
+
+    /// Write the key to the local key file (fallback store on Windows, primary
+    /// store elsewhere). Restrictive 0600 permissions on Unix. The file is
+    /// never deleted by any code path — it is the lockout-proof fallback.
+    fn write_key_file(key: &[u8]) -> Result<(), Box<dyn Error>> {
         let key_path = Self::get_key_path()?;
         if let Some(parent) = key_path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -130,6 +226,14 @@ impl EncryptionKeyManager {
 
     pub fn get_key(&self) -> &[u8] {
         &self.key
+    }
+
+    /// Construct a key manager directly from raw key bytes. Test-only: tests
+    /// must NOT call `new()` because writing a random key into the real OS
+    /// credential store would lock out the user's existing encrypted data.
+    #[cfg(test)]
+    pub fn from_raw_key(key: Vec<u8>) -> Self {
+        EncryptionKeyManager { key }
     }
 }
 
@@ -224,9 +328,14 @@ impl Drop for EncryptionKeyManager {
 mod tests {
     use super::*;
 
+    fn test_key_manager() -> EncryptionKeyManager {
+        // Fixed key — keeps tests hermetic (no OS credential store / file I/O).
+        EncryptionKeyManager::from_raw_key(vec![0x42u8; KEY_SIZE])
+    }
+
     #[test]
     fn test_encryption_decryption() -> Result<(), Box<dyn Error>> {
-        let key_manager = EncryptionKeyManager::new()?;
+        let key_manager = test_key_manager();
         let plaintext = "123456789"; // BSN example
 
         let encrypted = PiiEncryption::encrypt(plaintext, &key_manager)?;
@@ -238,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_encryption_produces_different_ciphertexts() -> Result<(), Box<dyn Error>> {
-        let key_manager = EncryptionKeyManager::new()?;
+        let key_manager = test_key_manager();
         let plaintext = "Jan Jansen";
 
         let encrypted1 = PiiEncryption::encrypt(plaintext, &key_manager)?;
@@ -259,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_batch_encryption_decryption() -> Result<(), Box<dyn Error>> {
-        let key_manager = EncryptionKeyManager::new()?;
+        let key_manager = test_key_manager();
         let plaintexts = vec!["123456789", "Jan", "Jansen", "+31612345678"];
 
         let encrypted = PiiEncryption::encrypt_batch(&plaintexts, &key_manager)?;
