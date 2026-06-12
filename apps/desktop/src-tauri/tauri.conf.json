@@ -43,7 +43,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENENTY0ODQ0RTdFQUY3MzYKUldRMjkrcm5SRWhXemVEOS9QTnZYNXRBZFBqMkVnVDM4cElIMzZKMHJ1alBSNzkzUGd0ekFMZzkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0QzM5QjBEMjZFRUZDRTMKUldUai9PNG1EWnZEeEpQclZMUlE0YmhxYXdqV2Jib2ZWQy9FdFFkc3BvdXg5QjY4WWZZcVhoMzUK",
       "endpoints": [
         "https://github.com/stefanoallima/sovereign_privacy_ai/releases/latest/download/latest.json"
       ]
