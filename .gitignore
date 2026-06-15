@@ -69,3 +69,7 @@ sudd/codebase-manifest.json
 sudd/alignment-report.md
 .sudd-backup/
 .sudd-snapshots/
+
+# Worktrees (created via using-git-worktrees skill)
+.worktrees/
+
