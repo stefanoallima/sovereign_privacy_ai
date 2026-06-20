@@ -23,3 +23,20 @@ describe("settings store — normattiva models", () => {
     expect(defaults[0].id).toBe("normattiva-legal-pro");
   });
 });
+
+describe("settings store — normattiva api key", () => {
+  beforeEach(() => {
+    useSettingsStore.getState().resetToDefaults();
+  });
+
+  it("defaults normattivaApiKey to empty string and endpoint to the normattiva host", () => {
+    const { settings } = useSettingsStore.getState();
+    expect(settings.normattivaApiKey).toBe("");
+    expect(settings.normattivaApiEndpoint).toBe("https://api.normattiva.ai/v1");
+  });
+
+  it("setNormattivaApiKey updates settings.normattivaApiKey", () => {
+    useSettingsStore.getState().setNormattivaApiKey("sk-test-1234");
+    expect(useSettingsStore.getState().settings.normattivaApiKey).toBe("sk-test-1234");
+  });
+});
