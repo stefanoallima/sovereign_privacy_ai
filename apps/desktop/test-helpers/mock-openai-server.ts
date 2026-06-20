@@ -16,9 +16,7 @@ export interface MockResponse {
   body: string;
 }
 
-export async function startMockOpenAIServer(
-  defaults: Partial<Record<string, MockResponse>> = {}
-): Promise<MockOpenAIServerHandle> {
+export async function startMockOpenAIServer(): Promise<MockOpenAIServerHandle> {
   const overrides = new Map<
     string,
     (req: http.IncomingMessage, body: string) => MockResponse
