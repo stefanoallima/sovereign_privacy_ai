@@ -142,7 +142,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiKey: "",
   nebiusApiEndpoint: "https://api.tokenfactory.nebius.com/v1",
   normattivaApiKey: "",
-  normattivaApiEndpoint: "",
+  normattivaApiEndpoint: "https://api.normattiva.ai/v1",
   mem0ApiKey: "",
   enableMemory: false,
   useLocalMemory: true,
@@ -183,6 +183,7 @@ interface SettingsStore {
   // Actions
   updateSettings: (partial: Partial<AppSettings>) => void;
   setApiKey: (key: string) => void;
+  setNormattivaApiKey: (key: string) => void;
   setDefaultModel: (modelId: string) => void;
   toggleModel: (modelId: string) => void;
   toggleAirplaneMode: () => void;
@@ -225,6 +226,11 @@ export const useSettingsStore = create<SettingsStore>()(
       setApiKey: (key) =>
         set((state) => ({
           settings: { ...state.settings, nebiusApiKey: key },
+        })),
+
+      setNormattivaApiKey: (key) =>
+        set((state) => ({
+          settings: { ...state.settings, normattivaApiKey: key },
         })),
 
       setDefaultModel: (modelId) =>
@@ -348,6 +354,7 @@ export const useSettingsStore = create<SettingsStore>()(
           settings: DEFAULT_SETTINGS,
           models: DEFAULT_MODELS,
           ollamaModels: DEFAULT_OLLAMA_MODELS,
+          normattivaModels: DEFAULT_NORMATTIVA_MODELS,
         }),
 
       // Returns enabled models based on privacy mode
@@ -401,7 +408,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 16, // v16: add useLocalMemory setting
+      version: 17, // v17: add normattivaApiKey + normattivaApiEndpoint
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -426,9 +433,12 @@ export const useSettingsStore = create<SettingsStore>()(
             autoRedactAllContent: old.autoRedactAllContent ?? true,
             useLocalMemory: old.useLocalMemory ?? true,
             cloudTrustLevel: old.cloudTrustLevel ?? null,
+            normattivaApiKey: old.normattivaApiKey ?? "",
+            normattivaApiEndpoint: old.normattivaApiEndpoint ?? "https://api.normattiva.ai/v1",
           },
           models: DEFAULT_MODELS,
           ollamaModels: DEFAULT_OLLAMA_MODELS,
+          normattivaModels: DEFAULT_NORMATTIVA_MODELS,
         };
       },
       partialize: (state) => ({
