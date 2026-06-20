@@ -107,6 +107,8 @@ const DEFAULT_MODELS: LLMModel[] = [
 const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiKey: "",
   nebiusApiEndpoint: "https://api.tokenfactory.nebius.com/v1",
+  normattivaApiKey: "",
+  normattivaApiEndpoint: "",
   mem0ApiKey: "",
   enableMemory: false,
   useLocalMemory: true,
