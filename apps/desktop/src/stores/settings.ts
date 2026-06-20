@@ -104,6 +104,40 @@ const DEFAULT_MODELS: LLMModel[] = [
   },
 ];
 
+// Cloud models available on the Normattiva legal-AI platform.
+// Endpoint is configured in AppSettings; the desktop points the
+// OpenAI-compatible client at it.
+const DEFAULT_NORMATTIVA_MODELS: LLMModel[] = [
+  {
+    id: "normattiva-legal-pro",
+    provider: "normattiva",
+    apiModelId: "normattiva-legal-pro",
+    name: "Normattiva Legal Pro",
+    contextWindow: 128000,
+    speedTier: "medium",
+    intelligenceTier: "very-high",
+    // Cost is server-billed; placeholders until x_normattiva.cost_estimate_eur
+    // is wired into the model settings UI (Phase 1).
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: true,
+  },
+  {
+    id: "normattiva-legal-lite",
+    provider: "normattiva",
+    apiModelId: "normattiva-legal-lite",
+    name: "Normattiva Legal Lite",
+    contextWindow: 64000,
+    speedTier: "fast",
+    intelligenceTier: "high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+  },
+];
+
 const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiKey: "",
   nebiusApiEndpoint: "https://api.tokenfactory.nebius.com/v1",
@@ -144,6 +178,7 @@ interface SettingsStore {
   settings: AppSettings;
   models: LLMModel[];
   ollamaModels: LLMModel[];
+  normattivaModels: LLMModel[];
 
   // Actions
   updateSettings: (partial: Partial<AppSettings>) => void;
@@ -180,6 +215,7 @@ export const useSettingsStore = create<SettingsStore>()(
       settings: DEFAULT_SETTINGS,
       models: DEFAULT_MODELS,
       ollamaModels: DEFAULT_OLLAMA_MODELS,
+      normattivaModels: DEFAULT_NORMATTIVA_MODELS,
 
       updateSettings: (partial) =>
         set((state) => ({
@@ -399,6 +435,7 @@ export const useSettingsStore = create<SettingsStore>()(
         settings: state.settings,
         models: state.models,
         ollamaModels: state.ollamaModels,
+        normattivaModels: state.normattivaModels,
       }),
     }
   )
