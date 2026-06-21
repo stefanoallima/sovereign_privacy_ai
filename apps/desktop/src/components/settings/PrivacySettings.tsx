@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Scale } from "lucide-react";
 import { useSettingsStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { invoke } from "@tauri-apps/api/core";
@@ -18,7 +19,7 @@ interface GlinerModelInfo {
 }
 
 export function PrivacySettings() {
-  const { settings, updateSettings, setPrivacyMode, models, ollamaModels } = useSettingsStore();
+  const { settings, updateSettings, setPrivacyMode, setNormattivaApiKey, models, ollamaModels } = useSettingsStore();
   const activeProfile = useUserContextStore(selectActiveProfile);
   const {
     addCustomRedactTerm,
@@ -653,8 +654,62 @@ export function PrivacySettings() {
           />
         </div>
       </div>
+
+      {/* Normattiva Legal AI (B7a) */}
+      <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
+        <div className="p-4 bg-[hsl(var(--muted)/0.3)]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]">
+              <Scale className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">Normattiva Legal AI</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Italian legal-specialist cloud (codici + massime). Always redacts PII before sending.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-[hsl(var(--border)/0.5)] space-y-3">
+          <div>
+            <label htmlFor="normattiva-api-key" className="text-xs font-semibold text-[hsl(var(--foreground))] block mb-1.5">
+              API Key
+            </label>
+            <input
+              id="normattiva-api-key"
+              type="password"
+              placeholder="sk-..."
+              value={settings.normattivaApiKey}
+              onChange={(e) => setNormattivaApiKey(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+            />
+          </div>
+          <div>
+            <label htmlFor="normattiva-endpoint" className="text-xs font-semibold text-[hsl(var(--foreground))] block mb-1.5">
+              Endpoint
+            </label>
+            <input
+              id="normattiva-endpoint"
+              type="text"
+              value={settings.normattivaApiEndpoint}
+              onChange={(e) => useSettingsStore.getState().updateSettings({ normattivaApiEndpoint: e.target.value })}
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Default: <code>https://api.normattiva.ai/v1</code>. Override for staging/mocks.
+            </p>
+          </div>
+          <NormattivaValidateButton />
+        </div>
+      </div>
     </div>
   );
+}
+
+function NormattivaValidateButton() {
+  // Implemented in Task 19.
+  return null;
 }
 
 function EngineIcon() {
