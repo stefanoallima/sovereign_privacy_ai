@@ -7,7 +7,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 // ==================== Types ====================
 
-export type PreferredBackend = 'nebius' | 'ollama' | 'hybrid';
+export type PreferredBackend = 'nebius' | 'ollama' | 'hybrid' | 'normattiva';
 export type AnonymizationMode = 'none' | 'optional' | 'required';
 
 /**
@@ -93,6 +93,13 @@ export const BACKEND_PRIVACY_INFO: Record<PreferredBackend, BackendPrivacy> = {
     level: 'low',
     emoji: '⚡',
     description: 'Cloud Direct - Fastest, standard privacy',
+    sendsToCloud: true,
+    localProcessing: false,
+  },
+  normattiva: {
+    level: 'low',
+    emoji: '⚖️',
+    description: 'Legal AI (Normattiva) - Cloud legal-specialist, anonymized',
     sendsToCloud: true,
     localProcessing: false,
   },
