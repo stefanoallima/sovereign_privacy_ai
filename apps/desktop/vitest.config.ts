@@ -10,7 +10,7 @@ export default defineConfig({
       "src/**/*.test.tsx",
       "test-helpers/**/*.test.ts",
     ],
-    setupFiles: [],
+    setupFiles: ["./test-helpers/setup.ts"],
   },
   resolve: {
     alias: {
