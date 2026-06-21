@@ -211,6 +211,30 @@ pub async fn make_routing_decision(
                 }
             }
         }
+        "normattiva" => {
+            if matches!(anonymization_mode, AnonymizationMode::Required) && enable_anonymization {
+                warn!("Normattiva backend with required anonymization - using attributes-only mode");
+                BackendDecision {
+                    backend: BackendType::Normattiva,
+                    anonymize: false,
+                    model: persona.preferred_model_id.clone().into(),
+                    reason: "Legal AI (Normattiva) with attributes-only (required privacy mode)".to_string(),
+                    content_mode: ContentMode::AttributesOnly,
+                    fallback: FallbackEvent::None,
+                    is_safe: true,
+                }
+            } else {
+                BackendDecision {
+                    backend: BackendType::Normattiva,
+                    anonymize: false,
+                    model: persona.preferred_model_id.clone().into(),
+                    reason: "Legal AI (Normattiva) direct cloud (fastest)".to_string(),
+                    content_mode: ContentMode::FullText,
+                    fallback: FallbackEvent::None,
+                    is_safe: true,
+                }
+            }
+        }
         "ollama" => {
             if !local_available {
                 // Ollama not available - check if we can fallback
@@ -511,5 +535,63 @@ mod tests {
 
         let config = determine_backend(&persona, &Stub).await.unwrap();
         assert_eq!(config.backend, BackendType::Normattiva);
+    }
+
+    #[tokio::test]
+    async fn make_routing_decision_returns_normattiva_for_normattiva_preferred_backend() {
+        use crate::db::Persona;
+        use crate::inference::{InferenceError, LocalInference, ModelStatus};
+
+        let persona = Persona {
+            id: "p1".into(),
+            name: "Legal".into(),
+            description: "".into(),
+            system_prompt: "".into(),
+            voice_id: "".into(),
+            preferred_model_id: "normattiva-legal-pro".into(),
+            temperature: 0.2,
+            max_tokens: 4096,
+            is_built_in: true,
+            created_at: "2026-01-01".into(),
+            updated_at: "2026-01-01".into(),
+            enable_local_anonymizer: true,
+            preferred_backend: "normattiva".into(),
+            anonymization_mode: "required".into(),
+            local_ollama_model: None,
+            enable_cloud_delegation: false,
+            cloud_delegation_threshold: 0.5,
+        };
+
+        struct Stub;
+        #[async_trait::async_trait]
+        impl LocalInference for Stub {
+            async fn is_available(&self) -> bool { false }
+            async fn generate(&self, _prompt: &str, _model: &str) -> Result<String, InferenceError> {
+                unimplemented!()
+            }
+            async fn generate_json(&self, _prompt: &str) -> Result<String, InferenceError> {
+                unimplemented!()
+            }
+            async fn ensure_model(&self, _model_name: &str) -> Result<(), InferenceError> {
+                unimplemented!()
+            }
+            fn default_model(&self) -> &str { "stub" }
+            async fn get_model_status(&self) -> ModelStatus {
+                ModelStatus {
+                    is_downloaded: false,
+                    is_loaded: false,
+                    download_progress: 0,
+                    model_name: "stub".into(),
+                    model_size_bytes: 0,
+                    gpu_layers: 0,
+                    gpu_enabled: false,
+                    last_gen_speed_tps: 0.0,
+                }
+            }
+        }
+
+        let decision = make_routing_decision(&persona, &Stub, "test request").await.unwrap();
+        assert_eq!(decision.backend, BackendType::Normattiva);
+        assert!(decision.is_safe);
     }
 }
