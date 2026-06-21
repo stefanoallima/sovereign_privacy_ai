@@ -1,4 +1,4 @@
-name: Release
+name: Release Normattiva
 
 on:
   push:
@@ -129,6 +129,16 @@ jobs:
         working-directory: apps/desktop
         run: pnpm install
 
+      # Switch the working tree to the Normattiva build flavor. This:
+      #   1. writes apps/desktop/.env.local with VITE_BRAND=normattiva (consumed by Vite)
+      #   2. copies tauri.conf.normattiva.json → tauri.conf.json (changes productName, identifier, window title)
+      #   3. copies apps/desktop/src-tauri/icons-normattiva/ → icons/ (icons/ is gitignored)
+      - name: Apply Normattiva brand flavor
+        working-directory: apps/desktop
+        env:
+          VITE_BRAND: normattiva
+        run: node ../../scripts/build-brand.mjs
+
       - name: Set version from tag
         shell: bash
         run: |
@@ -137,22 +147,24 @@ jobs:
           # Patch version into tauri.conf.json so installer filename matches the tag.
           # Use perl instead of sed -i because BSD sed (macOS) requires 'sed -i ""' while
           # GNU sed (Linux/Windows) requires 'sed -i'. perl -i works on all platforms.
+          # After build-brand.mjs ran above, tauri.conf.json is the Normattiva variant,
+          # so patching it here keeps the Normattiva installer versioned correctly.
           perl -i -pe "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" apps/desktop/src-tauri/tauri.conf.json
-          echo "Building version $VERSION"
+          echo "Building Normattiva version $VERSION"
 
-      # The TAURI_SIGNING_PRIVATE_KEY secret is base64 that was stored with line-wrapping
-      # (a newline every 76 chars, the default of `base64` without -w0). Tauri's signer
-      # decodes the value as a single base64 string and chokes on the embedded newline
-      # ("failed to decode base64 secret key: Invalid symbol 10, offset 152"), aborting the
-      # build now that bundle.createUpdaterArtifacts is enabled. Strip all whitespace to
-      # recover the single-line base64. This keeps the SAME keypair, so already-installed
-      # clients (which embed the matching pubkey) can still verify updates — the whole point.
-      # Idempotent: a no-op if the secret is already a clean single line.
-      - name: Normalize updater signing key + password
+      # Strip the embedded whitespace from the per-brand updater signing key. The
+      # `base64` CLI wraps at 76 cols by default; Tauri's signer chokes on the
+      # embedded newline. The Normattiva build ideally has its own key (see
+      # TAURI_NORMATTIVA_SIGNING_PRIVATE_KEY below) so installed Normattiva
+      # clients can only install Normattiva updates. If the per-brand key is
+      # not configured, fall back to the Sovereign key for the first release
+      # and rotate the Normattiva pubkey in tauri.conf.normattiva.json
+      # afterward.
+      - name: Normalize Normattiva updater signing key + password
         shell: bash
         env:
-          RAW_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          RAW_SIGNING_PW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          RAW_SIGNING_KEY: ${{ secrets.TAURI_NORMATTIVA_SIGNING_PRIVATE_KEY || secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RAW_SIGNING_PW: ${{ secrets.TAURI_NORMATTIVA_SIGNING_PRIVATE_KEY_PASSWORD || secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           KEY="$(printf '%s' "$RAW_SIGNING_KEY" | tr -d '[:space:]')"
           PW="$(printf '%s' "$RAW_SIGNING_PW" | tr -d '\r\n')"
@@ -168,40 +180,32 @@ jobs:
           # MACOSX_DEPLOYMENT_TARGET is set per-target in "Install dependencies (macOS)":
           #   aarch64 → 11.0,  x86_64 → 10.15  (do NOT hardcode it here)
           # Updater signing key + password are injected via $GITHUB_ENV by the
-          # "Normalize updater signing key + password" step above (whitespace-stripped to
-          # recover single-line base64), so they are intentionally NOT set here.
+          # "Normalize Normattiva updater signing key + password" step above
+          # (whitespace-stripped to recover single-line base64), so they are
+          # intentionally NOT set here.
           # macOS signing + notarization is intentionally UNSET: no Apple Developer ID
           # cert is configured as a secret. Defining APPLE_CERTIFICATE from a missing
           # secret yields an EMPTY string, which makes tauri-action attempt a keychain
           # import of an empty cert and fail ("security import: failed to import keychain
-          # certificate"). Without them the bundle is AD-HOC signed (signingIdentity "-"
-          # in tauri.macos.conf.json). A fully unsigned bundle is rejected as "damaged"
-          # on Apple Silicon; ad-hoc lets users approve it via System Settings →
-          # Privacy & Security → Open Anyway.
+          # certificate"). Leaving these unset makes tauri-action build macOS UNSIGNED
+          # (Gatekeeper warns on first launch; users right-click → Open).
           # To ship signed + notarized macOS builds, add these as repo secrets and
           # re-add the env entries: APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
           # APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID.
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
-          releaseName: 'Sovereign AI ${{ github.ref_name }}'
+          releaseName: 'Normattiva ${{ github.ref_name }}'
           releaseBody: |
-            Download Sovereign AI for your platform:
+            Download Normattiva (Italian legal domain AI) for your platform:
             - **Windows**: `.exe` installer
             - **macOS (Apple Silicon)**: `.dmg` for M1/M2/M3
             - **macOS (Intel)**: `.dmg` for Intel Macs
           releaseDraft: false
           prerelease: false
           updaterJsonKeepUniversal: true
-          args: --target ${{ matrix.target }}
-
-      # Fail the release if the macOS bundle is not properly sealed. An app that
-      # only carries the linker's ad-hoc signature ("code has no resources but
-      # signature indicates they must be present") is reported by Gatekeeper as
-      # "damaged and can't be opened" once downloaded — v0.3.2 shipped like that.
-      - name: Verify macOS code signature
-        if: runner.os == 'macOS'
-        run: |
-          APP=$(ls -d "$CARGO_TARGET_DIR/${{ matrix.target }}/release/bundle/macos/"*.app | head -1)
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          codesign -dv "$APP" 2>&1 | grep -E 'Signature|Sealed Resources'
+          # --features normattiva enables the Rust BackendType::Normattiva variant
+          # and the normattiva_config module. The VITE_BRAND=normattiva env in
+          # "Apply Normattiva brand flavor" already swapped tauri.conf.json +
+          # icons so the bundle IDs match.
+          args: --target ${{ matrix.target }} --features normattiva

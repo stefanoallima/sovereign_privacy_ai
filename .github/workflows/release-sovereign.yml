@@ -1,0 +1,217 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Windows: initialise MSVC environment so cmake can detect cl.exe
+      - name: Setup MSVC (Windows)
+        if: matrix.platform == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake llvm
+          LLVM_PATH=$(brew --prefix llvm)
+          echo "$LLVM_PATH/bin" >> $GITHUB_PATH
+          echo "LIBCLANG_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+
+          if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
+            # Apple Silicon minimum is macOS 11.0.
+            # cmake crate 0.1.57 emits --target=arm64-apple-macosx (unversioned); with Apple
+            # clang 16+ that unversioned triple overrides -mmacosx-version-min and leaves OS
+            # as "unknown", making std::filesystem appear unavailable.
+            # Fix: append a versioned triple via global CFLAGS/CXXFLAGS.
+            # Global CFLAGS is safe here because the runner IS arm64 (host == target arch),
+            # so host-compiled build scripts and proc-macros also compile as arm64 correctly.
+            echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
+            echo "CFLAGS=--target=arm64-apple-macos11.0 -mmacosx-version-min=11.0" >> $GITHUB_ENV
+            echo "CXXFLAGS=--target=arm64-apple-macos11.0 -mmacosx-version-min=11.0" >> $GITHUB_ENV
+          else
+            # Intel x86_64 cross-compile from an ARM64 runner.
+            # llama.cpp's ggml-backend-reg.cpp uses std::filesystem which requires macOS 10.15+.
+            # clang auto-adds --target=x86_64-apple-macosx (unversioned) when cross-compiling,
+            # which makes the OS version "unknown" and std::filesystem appear unavailable.
+            # Fix: inject the versioned triple via target-specific env vars only (to avoid
+            # contaminating host arm64 builds for proc-macros / build scripts).
+            #
+            #  • CFLAGS_x86_64_apple_darwin  – picked up by cc crate for cc-based crates (ring,
+            #                                  zstd, onig, etc.); does NOT affect host builds.
+            #  • CMAKE_C/CXX_FLAGS           – cmake crate reads these and passes them as
+            #                                  -DCMAKE_C_FLAGS to cmake (llama-cpp-sys-2).
+            TARGET_FLAGS="-target x86_64-apple-macos10.15 -mmacosx-version-min=10.15"
+            echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
+            echo "CFLAGS_x86_64_apple_darwin=$TARGET_FLAGS" >> $GITHUB_ENV
+            echo "CXXFLAGS_x86_64_apple_darwin=$TARGET_FLAGS" >> $GITHUB_ENV
+            echo "CMAKE_C_FLAGS=$TARGET_FLAGS" >> $GITHUB_ENV
+            echo "CMAKE_CXX_FLAGS=$TARGET_FLAGS" >> $GITHUB_ENV
+          fi
+
+          # Use a short target dir to keep paths manageable
+          echo "CARGO_TARGET_DIR=/tmp/ct" >> $GITHUB_ENV
+
+      - name: Install dependencies (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          # cmake is pre-installed on the runner; only install LLVM for bindgen
+          choco install llvm -y
+          echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          # Use a short target dir to avoid Windows MAX_PATH issues with llama.cpp cmake temp files
+          echo "CARGO_TARGET_DIR=D:\ct" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      # Bundle ONNX Runtime 1.20.1 so GLiNER PII detection works on user machines.
+      # Pick the correct architecture — the runner is always arm64 but we cross-compile
+      # for x86_64, so we must fetch the matching ORT dylib for the *target*, not the host.
+      - name: Bundle ONNX Runtime (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p apps/desktop/src-tauri/onnxruntime
+          if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
+            ORT_ARCH="arm64"
+          else
+            ORT_ARCH="x86_64"
+          fi
+          ORT_NAME="onnxruntime-osx-${ORT_ARCH}-1.20.1"
+          curl -L "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/${ORT_NAME}.tgz" -o /tmp/ort.tgz
+          tar -xzf /tmp/ort.tgz -C /tmp/
+          # Copy the versioned dylib, rename to unversioned so ORT_DYLIB_PATH is stable
+          cp "/tmp/${ORT_NAME}/lib/libonnxruntime.1.20.1.dylib" \
+             apps/desktop/src-tauri/onnxruntime/libonnxruntime.dylib
+
+      - name: Bundle ONNX Runtime (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          New-Item -ItemType Directory -Force -Path "apps/desktop/src-tauri/onnxruntime"
+          Invoke-WebRequest -Uri "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-win-x64-1.20.1.zip" -OutFile "$env:TEMP\ort.zip"
+          Expand-Archive -Path "$env:TEMP\ort.zip" -DestinationPath "$env:TEMP\ort"
+          Copy-Item "$env:TEMP\ort\onnxruntime-win-x64-1.20.1\lib\onnxruntime.dll" "apps/desktop/src-tauri/onnxruntime/"
+          Copy-Item "$env:TEMP\ort\onnxruntime-win-x64-1.20.1\lib\onnxruntime_providers_shared.dll" "apps/desktop/src-tauri/onnxruntime/"
+
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: pnpm install
+
+      # Switch the working tree to the Sovereign build flavor. This:
+      #   1. writes apps/desktop/.env.local with VITE_BRAND=sovereign (consumed by Vite)
+      #   2. copies apps/desktop/src-tauri/icons-sovereign/ → icons/ (icons/ is gitignored)
+      #   3. leaves tauri.conf.json as the git-tracked Sovereign default
+      - name: Apply Sovereign brand flavor
+        working-directory: apps/desktop
+        env:
+          VITE_BRAND: sovereign
+        run: node ../../scripts/build-brand.mjs
+
+      - name: Set version from tag
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # strip leading 'v'
+          # Patch version into tauri.conf.json so installer filename matches the tag.
+          # Use perl instead of sed -i because BSD sed (macOS) requires 'sed -i ""' while
+          # GNU sed (Linux/Windows) requires 'sed -i'. perl -i works on all platforms.
+          perl -i -pe "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" apps/desktop/src-tauri/tauri.conf.json
+          echo "Building version $VERSION"
+
+      # The TAURI_SIGNING_PRIVATE_KEY secret is base64 that was stored with line-wrapping
+      # (a newline every 76 chars, the default of `base64` without -w0). Tauri's signer
+      # decodes the value as a single base64 string and chokes on the embedded newline
+      # ("failed to decode base64 secret key: Invalid symbol 10, offset 152"), aborting the
+      # build now that bundle.createUpdaterArtifacts is enabled. Strip all whitespace to
+      # recover the single-line base64. This keeps the SAME keypair, so already-installed
+      # clients (which embed the matching pubkey) can still verify updates — the whole point.
+      # Idempotent: a no-op if the secret is already a clean single line.
+      - name: Normalize updater signing key + password
+        shell: bash
+        env:
+          RAW_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RAW_SIGNING_PW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          KEY="$(printf '%s' "$RAW_SIGNING_KEY" | tr -d '[:space:]')"
+          PW="$(printf '%s' "$RAW_SIGNING_PW" | tr -d '\r\n')"
+          echo "::add-mask::$KEY"
+          echo "::add-mask::$PW"
+          echo "TAURI_SIGNING_PRIVATE_KEY=$KEY" >> "$GITHUB_ENV"
+          echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$PW" >> "$GITHUB_ENV"
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # MACOSX_DEPLOYMENT_TARGET is set per-target in "Install dependencies (macOS)":
+          #   aarch64 → 11.0,  x86_64 → 10.15  (do NOT hardcode it here)
+          # Updater signing key + password are injected via $GITHUB_ENV by the
+          # "Normalize updater signing key + password" step above (whitespace-stripped to
+          # recover single-line base64), so they are intentionally NOT set here.
+          # macOS signing + notarization is intentionally UNSET: no Apple Developer ID
+          # cert is configured as a secret. Defining APPLE_CERTIFICATE from a missing
+          # secret yields an EMPTY string, which makes tauri-action attempt a keychain
+          # import of an empty cert and fail ("security import: failed to import keychain
+          # certificate"). Without them the bundle is AD-HOC signed (signingIdentity "-"
+          # in tauri.macos.conf.json). A fully unsigned bundle is rejected as "damaged"
+          # on Apple Silicon; ad-hoc lets users approve it via System Settings →
+          # Privacy & Security → Open Anyway.
+          # To ship signed + notarized macOS builds, add these as repo secrets and
+          # re-add the env entries: APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
+          # APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID.
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Sovereign AI ${{ github.ref_name }}'
+          releaseBody: |
+            Download Sovereign AI for your platform:
+            - **Windows**: `.exe` installer
+            - **macOS (Apple Silicon)**: `.dmg` for M1/M2/M3
+            - **macOS (Intel)**: `.dmg` for Intel Macs
+          releaseDraft: false
+          prerelease: false
+          updaterJsonKeepUniversal: true
+          args: --target ${{ matrix.target }}
+
+      # Fail the release if the macOS bundle is not properly sealed. An app that
+      # only carries the linker's ad-hoc signature ("code has no resources but
+      # signature indicates they must be present") is reported by Gatekeeper as
+      # "damaged and can't be opened" once downloaded — v0.3.2 shipped like that.
+      - name: Verify macOS code signature
+        if: runner.os == 'macOS'
+        run: |
+          APP=$(ls -d "$CARGO_TARGET_DIR/${{ matrix.target }}/release/bundle/macos/"*.app | head -1)
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv "$APP" 2>&1 | grep -E 'Signature|Sealed Resources'
