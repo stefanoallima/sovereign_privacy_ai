@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Scale } from "lucide-react";
+import { Scale, CheckCircle2, AlertCircle } from "lucide-react";
 import { useSettingsStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
+import { getCloudClient } from "@/services/nebius";
 
 interface GlinerModelInfo {
   id: string;
@@ -708,8 +709,27 @@ export function PrivacySettings() {
 }
 
 function NormattivaValidateButton() {
-  // Implemented in Task 19.
-  return null;
+  const settings = useSettingsStore((s) => s.settings);
+  const [state, setState] = useState<"idle" | "checking" | "ok" | "fail">("idle");
+
+  const onClick = async () => {
+    setState("checking");
+    const client = getCloudClient("normattiva", settings.normattivaApiKey, settings.normattivaApiEndpoint);
+    const ok = await client.validateApiKey();
+    setState(ok ? "ok" : "fail");
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={state === "checking" || !settings.normattivaApiKey}
+      className="inline-flex items-center px-3 py-1.5 rounded-lg border border-[hsl(var(--border))] bg-transparent text-xs font-medium hover:bg-[hsl(var(--secondary)/0.5)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {state === "checking" ? "Validating..." : "Validate Key"}
+      {state === "ok" && <CheckCircle2 className="ml-2 h-4 w-4 text-green-500" />}
+      {state === "fail" && <AlertCircle className="ml-2 h-4 w-4 text-red-500" />}
+    </button>
+  );
 }
 
 function EngineIcon() {
