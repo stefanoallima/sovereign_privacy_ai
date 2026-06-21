@@ -93,6 +93,10 @@ export interface AppSettings {
 
   // Auto-redact all cloud-bound content (history, context, memories)
   autoRedactAllContent: boolean;
+
+  // Dual-marketing build flavor (added in v18)
+  brand: "sovereign" | "normattiva";
+  legalDisclaimerAcknowledged: boolean;
 }
 
 // PII Vault Entry — a confirmed PII entity the user wants always redacted
