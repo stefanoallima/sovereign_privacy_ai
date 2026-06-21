@@ -1,12 +1,16 @@
+import { useMemo } from "react";
 import { usePersonasStore } from "@/stores";
 import { useWizardStore } from "@/stores/wizard";
 import { useWizardAI } from "../useWizardAI";
 import { Check } from "lucide-react";
+import { BRAND } from "@/config/branding";
+import { filterVisiblePersonas } from "@/config/filters";
 
 export function PersonaStep() {
   const { personas } = usePersonasStore();
   const { choices, updateChoices, nextStep } = useWizardStore();
   const { generateCommentary } = useWizardAI();
+  const visiblePersonas = useMemo(() => filterVisiblePersonas(personas, BRAND), [personas]);
 
   const handleSelect = async (personaId: string) => {
     updateChoices({ defaultPersonaId: personaId });
@@ -39,7 +43,7 @@ export function PersonaStep() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {personas.map((persona) => {
+        {visiblePersonas.map((persona) => {
           const isSelected = choices.defaultPersonaId === persona.id;
 
           return (

@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { usePersonasStore, useSettingsStore } from "@/stores";
+import { BRAND } from "@/config/branding";
+import { filterVisiblePersonas } from "@/config/filters";
 
 export function PersonaSettings() {
     const { personas, createPersona, deletePersona, updatePersona } = usePersonasStore();
     const { models } = useSettingsStore();
+    const visiblePersonas = useMemo(() => filterVisiblePersonas(personas, BRAND), [personas]);
 
     const [isCreating, setIsCreating] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -165,7 +168,7 @@ export function PersonaSettings() {
             </div>
 
             <div className="space-y-2">
-                {personas.map((persona) => (
+                {visiblePersonas.map((persona) => (
                     <div
                         key={persona.id}
                         className="group flex flex-col gap-2 rounded-lg border border-[hsl(var(--border))] p-3 transition-colors hover:bg-[hsl(var(--accent)/0.5)]"
