@@ -359,12 +359,16 @@ export const useSettingsStore = create<SettingsStore>()(
 
       // Returns enabled models based on privacy mode
       getEnabledModels: () => {
-        const { settings, models, ollamaModels } = get();
+        const { settings, models, ollamaModels, normattivaModels } = get();
         const enabledLocal = ollamaModels.filter((m) => m.isEnabled);
         if (settings.privacyMode === 'local') {
           return enabledLocal;
         }
-        return [...models.filter((m) => m.isEnabled), ...enabledLocal];
+        return [
+          ...models.filter((m) => m.isEnabled),
+          ...normattivaModels.filter((m) => m.isEnabled),
+          ...enabledLocal,
+        ];
       },
 
       getDefaultModel: () => {
@@ -400,11 +404,18 @@ export const useSettingsStore = create<SettingsStore>()(
         return get().settings.privacyMode;
       },
 
-      getAllModels: () => [...get().models, ...get().ollamaModels],
+      getAllModels: () => [
+        ...get().models,
+        ...get().ollamaModels,
+        ...get().normattivaModels,
+      ],
 
       getLocalModels: () => get().ollamaModels.filter((m) => m.isEnabled),
 
-      getCloudModels: () => get().models.filter((m) => m.isEnabled),
+      getCloudModels: () => [
+        ...get().models,
+        ...get().normattivaModels,
+      ].filter((m) => m.isEnabled),
     }),
     {
       name: "assistant-settings",

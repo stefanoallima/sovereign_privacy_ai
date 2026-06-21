@@ -40,3 +40,27 @@ describe("settings store — normattiva api key", () => {
     expect(useSettingsStore.getState().settings.normattivaApiKey).toBe("sk-test-1234");
   });
 });
+
+describe("settings store — selectors include normattiva models", () => {
+  beforeEach(() => {
+    useSettingsStore.getState().resetToDefaults();
+  });
+
+  it("getAllModels() returns normattiva models", () => {
+    const all = useSettingsStore.getState().getAllModels();
+    const normattiva = all.filter((m) => m.provider === "normattiva");
+    expect(normattiva.length).toBeGreaterThan(0);
+  });
+
+  it("getEnabledModels() returns normattiva models in non-local mode", () => {
+    const enabled = useSettingsStore.getState().getEnabledModels();
+    const normattiva = enabled.filter((m) => m.provider === "normattiva");
+    expect(normattiva.length).toBeGreaterThan(0);
+  });
+
+  it("getCloudModels() returns normattiva models", () => {
+    const cloud = useSettingsStore.getState().getCloudModels();
+    const normattiva = cloud.filter((m) => m.provider === "normattiva");
+    expect(normattiva.length).toBeGreaterThan(0);
+  });
+});
