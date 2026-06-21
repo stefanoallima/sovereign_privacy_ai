@@ -46,6 +46,10 @@ mod orchestration;
 mod orchestration_commands;
 mod key_rotation;
 
+mod brand_config;
+#[cfg(feature = "normattiva")]
+mod normattiva_config;
+
 use commands::DbState;
 use tts::PiperTts;
 use tts_commands::TtsState;
