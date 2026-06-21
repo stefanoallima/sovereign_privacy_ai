@@ -3,7 +3,7 @@
  * Allows users to configure backend selection and anonymization for each persona
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   PreferredBackend,
   AnonymizationMode,
@@ -16,6 +16,8 @@ import {
   checkOllamaAvailability,
   getAvailableOllamaModels,
 } from '@/services/backend-routing-service';
+import { BRAND } from '@/config/branding';
+import { filterVisibleBackends } from '@/config/filters';
 
 interface PersonaLLMConfigEditorProps {
   /** Initial configuration */
@@ -45,6 +47,11 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
       enable_cloud_delegation: false,
       cloud_delegation_threshold: 0.5,
     }
+  );
+
+  const visibleOptions = useMemo(
+    () => BACKEND_OPTIONS.filter(o => filterVisibleBackends([o.value], BRAND).includes(o.value)),
+    [],
   );
 
   const [ollamaAvailable, setOllamaAvailable] = useState(false);
@@ -174,7 +181,7 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
       <div className="space-y-3">
         <label className="block text-sm font-medium text-[hsl(var(--foreground-muted))]">Backend Service</label>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {BACKEND_OPTIONS.map((option) => (
+          {visibleOptions.map((option) => (
             <button
               key={option.value}
               onClick={() => handleBackendChange(option.value)}
@@ -202,7 +209,7 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
       </div>
 
       {/* Anonymization Settings */}
-      {config.preferred_backend !== 'nebius' && (
+      {config.preferred_backend !== 'nebius' && config.preferred_backend !== 'normattiva' && (
         <div className="space-y-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)] p-4">
           <div className="flex items-start gap-3">
             <input

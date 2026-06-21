@@ -6,12 +6,13 @@
  * sensitive user information locally.
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Shield,
   Lock,
   Cloud,
   Server,
+  Scale,
   AlertTriangle,
   Info,
   CheckCircle2,
@@ -19,6 +20,8 @@ import {
 } from 'lucide-react';
 import type { Persona } from '@/types';
 import { PIIProfileEditor } from '@/components/privacy/PIIProfileEditor';
+import { BRAND } from '@/config/branding';
+import { filterVisibleBackends } from '@/config/filters';
 
 interface PersonaPrivacyTabProps {
   persona: Persona;
@@ -52,6 +55,14 @@ const PRIVACY_MODES = [
     privacy: 'Maximum',
     color: 'green',
   },
+  {
+    id: 'normattiva',
+    label: 'Normattiva NLP',
+    icon: <Scale size={16} />,
+    description: 'Italian legal domain via Normattiva cloud API',
+    privacy: 'Standard',
+    color: 'blue',
+  },
 ] as const;
 
 export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
@@ -59,6 +70,10 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
   onChange,
   showPIIVault,
 }) => {
+  const visibleModes = useMemo(
+    () => PRIVACY_MODES.filter(m => filterVisibleBackends([m.id], BRAND).includes(m.id)),
+    [],
+  );
   const currentBackend = persona.preferred_backend || 'nebius';
   const [showCybersecurityWarning, setShowCybersecurityWarning] = useState(false);
   const isCybersecurityAdvisor = persona.id === 'cybersecurity-advisor';
@@ -79,7 +94,7 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
         </p>
 
         <div className="grid gap-3">
-          {PRIVACY_MODES.map((mode) => {
+          {visibleModes.map((mode) => {
             const isSelected = currentBackend === mode.id;
             const colorClasses = {
               amber: 'border-[hsl(var(--status-caution-border))] bg-[hsl(var(--status-caution-bg))]',
@@ -92,7 +107,7 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
                 setShowCybersecurityWarning(true);
               } else {
                 onChange({
-                  preferred_backend: mode.id as 'nebius' | 'ollama' | 'hybrid',
+                  preferred_backend: mode.id as 'nebius' | 'ollama' | 'hybrid' | 'normattiva',
                   // Auto-enable anonymizer for hybrid/ollama
                   enable_local_anonymizer: mode.id !== 'nebius',
                 });
