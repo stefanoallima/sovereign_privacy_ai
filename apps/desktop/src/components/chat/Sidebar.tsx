@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useChatStore, usePersonasStore, useCanvasStore } from "@/stores";
 import { useWizardStore } from "@/stores/wizard";
 import { ProjectExplorer } from "@/components/layout/ProjectExplorer";
+import { BRAND } from "@/config/branding";
+import { BRAND_DEFAULTS } from "@/config/defaults";
 import {
   MessageSquare,
   Plus,
@@ -306,13 +308,15 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
           <Compass className="h-4 w-4 group-hover:rotate-45 transition-transform duration-300" />
           <span className="font-medium">App Tour</span>
         </button>
-        <button
-          onClick={() => resetWizard()}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--primary)/0.1)] hover:text-[hsl(var(--primary))] transition-all group"
-        >
-          <Wand2 className="h-4 w-4 group-hover:rotate-12 transition-transform duration-300" />
-          <span className="font-medium">Settings Assistant</span>
-        </button>
+        {!BRAND_DEFAULTS[BRAND].hideWizard && (
+          <button
+            onClick={() => resetWizard()}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--primary)/0.1)] hover:text-[hsl(var(--primary))] transition-all group"
+          >
+            <Wand2 className="h-4 w-4 group-hover:rotate-12 transition-transform duration-300" />
+            <span className="font-medium">Settings Assistant</span>
+          </button>
+        )}
         <button
           onClick={onSupportClick}
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--primary)/0.1)] hover:text-[hsl(var(--primary))] transition-all group"

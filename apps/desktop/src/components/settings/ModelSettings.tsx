@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { useSettingsStore } from "@/stores";
+import { BRAND } from "@/config/branding";
+import { BRAND_DEFAULTS } from "@/config/defaults";
 
 interface LocalModelInfo {
   id: string;
@@ -64,6 +66,22 @@ const formatSize = (bytes: number) => {
 
 export function ModelSettings() {
   const { models, ollamaModels, setDefaultModel, toggleModel, updateSettings } = useSettingsStore();
+
+  // Normattiva build uses the dedicated Normattiva NLP cloud service and
+  // does not support local model downloads. Show a stub explaining this
+  // rather than rendering the (irrelevant) local model UI.
+  if (BRAND_DEFAULTS[BRAND].hideOllama) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold text-[hsl(var(--foreground))]">Models</h3>
+          <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+            This build uses the Normattiva NLP cloud service. Local model management is not available.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Local model management state
   const [localModels, setLocalModels] = useState<LocalModelInfo[]>([]);

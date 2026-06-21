@@ -16,7 +16,10 @@ import { useWizardStore } from "@/stores/wizard";
 import { SetupWizard } from "@/components/wizard/SetupWizard";
 import { SupportChat } from "@/components/support/SupportChat";
 import { UpdateNotification } from "@/components/updater/UpdateNotification";
+import { LegalDisclaimer } from "@/components/legal/LegalDisclaimer";
 import { useAppTour } from "@/hooks/useAppTour";
+import { BRAND } from "@/config/branding";
+import { BRAND_DEFAULTS } from "@/config/defaults";
 import "@/styles/tour.css";
 
 function LoadingScreen() {
@@ -35,7 +38,7 @@ function MainApp() {
   const { isInitialized: chatInitialized, initialize: initChat, currentConversationId } = useChatStore();
   const { initialize: initCanvas, isInitialized: canvasInitialized } = useCanvasStore();
   const { isUploadModalOpen, setUploadModalOpen, people } = useProfileStore();
-  const { wizardCompleted, showWizard } = useWizardStore();
+  const { wizardCompleted, showWizard, completeWizard } = useWizardStore();
   const { startTour, tourCompleted } = useAppTour();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -100,6 +103,19 @@ function MainApp() {
       setIsSettingsOpen(true);
     }
   }, [settings.nebiusApiKey, chatInitialized, wizardCompleted, settings.airplaneMode]);
+
+  // Normattiva build: skip the wizard entirely. The Normattiva config is
+  // pre-populated by BRAND_DEFAULTS (default persona, default model, default
+  // backend) so there's nothing for the user to choose in the wizard.
+  useEffect(() => {
+    if (
+      BRAND_DEFAULTS[BRAND].hideWizard &&
+      chatInitialized &&
+      !wizardCompleted
+    ) {
+      completeWizard();
+    }
+  }, [chatInitialized, wizardCompleted, completeWizard]);
 
   // Show loading while chat store initializes
   if (!chatInitialized) {
@@ -194,6 +210,8 @@ function MainApp() {
             </div>
           </div>
         )}
+
+        <LegalDisclaimer />
       </div>
     );
   }
@@ -255,6 +273,9 @@ function MainApp() {
 
       {/* Auto-update notification */}
       <UpdateNotification />
+
+      {/* Legal disclaimer (Normattiva build only) */}
+      <LegalDisclaimer />
     </>
   );
 }
