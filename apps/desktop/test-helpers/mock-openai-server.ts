@@ -23,10 +23,10 @@ export async function startMockOpenAIServer(): Promise<MockOpenAIServerHandle> {
   >();
 
   const defaultResponse = (
-    path: string,
     req: http.IncomingMessage,
     body: string
   ): MockResponse => {
+    const path = new URL(req.url ?? "/", "http://x").pathname;
     if (path === "/v1/models") {
       return {
         status: 200,
@@ -86,10 +86,9 @@ export async function startMockOpenAIServer(): Promise<MockOpenAIServerHandle> {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
-      const url = new URL(req.url ?? "/", "http://x");
-      const path = url.pathname;
+      const path = new URL(req.url ?? "/", "http://x").pathname;
       const handler = overrides.get(path) ?? defaultResponse;
-      const resp = handler(path, req, body);
+      const resp = handler(req, body);
       res.statusCode = resp.status;
       for (const [k, v] of Object.entries(resp.headers ?? {})) {
         res.setHeader(k, v);
