@@ -143,6 +143,13 @@ export const BACKEND_OPTIONS = [
     speed: 'Very Fast',
   },
   {
+    value: 'normattiva' as PreferredBackend,
+    label: 'Legal AI (Normattiva)',
+    description: 'Italian legal specialist (codici + massime). Redaction required.',
+    privacy: 'Standard',
+    speed: 'Fast',
+  },
+  {
     value: 'ollama' as PreferredBackend,
     label: 'Local Only',
     description: 'Local model inference - Maximum privacy, no cloud',
