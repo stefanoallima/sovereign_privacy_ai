@@ -48,7 +48,7 @@ export interface ChatCompletionResponse {
   };
 }
 
-export class NebiusClient {
+export class OpenAICompatibleClient {
   private apiKey: string;
   private baseUrl: string;
 
@@ -171,18 +171,30 @@ export class NebiusClient {
   }
 }
 
-// Singleton instance
-let clientInstance: NebiusClient | null = null;
+// Singleton instance — one per provider, kept for back-compat.
+// New code should use getCloudClient(provider, ...) (Task 8).
+let clientInstance: OpenAICompatibleClient | null = null;
 
-export function getNebiusClient(apiKey?: string, baseUrl?: string): NebiusClient {
+export function getOpenAICompatibleClient(
+  apiKey?: string,
+  baseUrl?: string
+): OpenAICompatibleClient {
   if (!clientInstance) {
-    clientInstance = new NebiusClient(apiKey || "", baseUrl);
+    clientInstance = new OpenAICompatibleClient(apiKey || "", baseUrl);
   } else {
     if (apiKey !== undefined) clientInstance.setApiKey(apiKey);
     if (baseUrl !== undefined) clientInstance.setBaseUrl(baseUrl);
   }
   return clientInstance;
 }
+
+// Back-compat: keep the old getter name working.
+export const getNebiusClient = getOpenAICompatibleClient;
+
+// Back-compat class alias. Existing call sites still import { NebiusClient };
+// new code should use OpenAICompatibleClient directly. Remove this alias
+// once all call sites migrate (tracked in a follow-up).
+export { OpenAICompatibleClient as NebiusClient };
 
 // Helper to estimate cost
 export function estimateCost(
