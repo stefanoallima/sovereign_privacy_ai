@@ -11,7 +11,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useChatStore, useSettingsStore, usePersonasStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
-import { getNebiusClient, type ChatMessage } from "@/services/nebius";
+import { getCloudClient, type ChatMessage } from "@/services/nebius";
 import { getMem0Client, formatMemoriesAsContext } from "@/services/mem0";
 import { previewPrivacyProcessing } from "@/services/privacy-chat-service";
 import {
@@ -24,6 +24,38 @@ import {
 } from "@/services/backend-routing-service";
 import { invoke } from "@tauri-apps/api/core";
 import type { Persona, FileAttachment } from "@/types";
+
+/**
+ * Pick the right cloud client for a persona + model. Defaults to Nebius
+ * for backward compatibility (no persona override = today's behavior).
+ * Used by every call site that previously hard-coded `getNebiusClient`.
+ */
+function pickCloudClient(
+  targetPersona: { preferred_backend?: string } | null | undefined,
+  model: { provider?: string; apiModelId?: string } | null | undefined,
+  settings: {
+    nebiusApiKey: string;
+    nebiusApiEndpoint: string;
+    normattivaApiKey: string;
+    normattivaApiEndpoint: string;
+  }
+) {
+  if (
+    targetPersona?.preferred_backend === "normattiva" ||
+    model?.provider === "normattiva"
+  ) {
+    return getCloudClient(
+      "normattiva",
+      settings.normattivaApiKey,
+      settings.normattivaApiEndpoint
+    );
+  }
+  return getCloudClient(
+    "nebius",
+    settings.nebiusApiKey,
+    settings.nebiusApiEndpoint
+  );
+}
 
 interface DetectedEntity {
   text: string;
@@ -285,8 +317,13 @@ const SUMMARY_INTERVAL = 5; // generate a summary every N assistant messages
 
 async function maybeGenerateProjectSummary(
   conversationId: string,
-  settings: { nebiusApiKey: string; nebiusApiEndpoint: string },
-  model: { apiModelId?: string } | undefined
+  settings: {
+    nebiusApiKey: string;
+    nebiusApiEndpoint: string;
+    normattivaApiKey: string;
+    normattivaApiEndpoint: string;
+  },
+  model: { apiModelId?: string; provider?: string } | undefined
 ) {
   try {
     const { useChatStore } = await import("@/stores/chat");
@@ -339,11 +376,7 @@ async function maybeGenerateProjectSummary(
       ...dRes.mappings,
     ]);
 
-    const { getNebiusClient } = await import("@/services/nebius");
-    const client = getNebiusClient(
-      settings.nebiusApiKey,
-      settings.nebiusApiEndpoint
-    );
+    const client = pickCloudClient(null, model, settings);
 
     const summaryPrompt = `You are a project secretary. Based on the conversation transcript below, write a concise project minutes document in Markdown. Include:
 - Key decisions made
@@ -1415,10 +1448,7 @@ export function usePrivacyChat() {
           targetPersona?.id
         );
       } else {
-        const client = getNebiusClient(
-          settings.nebiusApiKey,
-          settings.nebiusApiEndpoint
-        );
+        const client = pickCloudClient(targetPersona, model, settings);
         const stream = client.streamChatCompletion({
           model:
             model?.apiModelId ||
@@ -2075,10 +2105,7 @@ export function usePrivacyChat() {
       for (const [k, v] of directMsgMappings) directMappings.set(k, v);
       messages.push({ role: "user", content: redactedMessage });
 
-      const client = getNebiusClient(
-        settings.nebiusApiKey,
-        settings.nebiusApiEndpoint
-      );
+      const client = pickCloudClient(targetPersona, model, settings);
       const stream = client.streamChatCompletion({
         model: model?.apiModelId || "Qwen/Qwen3-32B-fast",
         messages,
