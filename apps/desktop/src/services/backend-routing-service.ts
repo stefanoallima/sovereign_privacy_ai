@@ -117,6 +117,13 @@ export const BACKEND_PRIVACY_INFO: Record<PreferredBackend, BackendPrivacy> = {
     sendsToCloud: true,
     localProcessing: true,
   },
+  normattiva: {
+    level: 'low',
+    emoji: '⚖️',
+    description: 'Normattiva NLP Cloud - Italian legal domain',
+    sendsToCloud: true,
+    localProcessing: false,
+  },
 };
 
 export const ANONYMIZATION_MODE_INFO = {
@@ -161,6 +168,13 @@ export const BACKEND_OPTIONS = [
     label: 'Hybrid',
     description: 'Local anonymization + cloud - Balanced privacy and speed',
     privacy: 'High',
+    speed: 'Fast',
+  },
+  {
+    value: 'normattiva' as PreferredBackend,
+    label: 'Normattiva NLP',
+    description: 'Italian legal domain via Normattiva cloud API',
+    privacy: 'Standard',
     speed: 'Fast',
   },
 ];
