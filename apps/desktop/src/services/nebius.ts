@@ -171,24 +171,54 @@ export class OpenAICompatibleClient {
   }
 }
 
-// Singleton instance — one per provider, kept for back-compat.
-// New code should use getCloudClient(provider, ...) (Task 8).
-let clientInstance: OpenAICompatibleClient | null = null;
+// One client per (provider, baseUrl, apiKey) — keyed so different API keys can
+// coexist. Normattiva and Nebius each get their own default endpoint.
+const NORMATTIVA_DEFAULT_BASE = "https://api.normattiva.ai/v1";
+const NEBIUS_DEFAULT_BASE = "https://api.tokenfactory.nebius.com/v1";
 
+const clientCache = new Map<string, OpenAICompatibleClient>();
+
+function cacheKey(provider: string, baseUrl: string, apiKey: string): string {
+  return `${provider}::${baseUrl}::${apiKey}`;
+}
+
+/**
+ * Get (or create) an OpenAI-compatible client for the given provider.
+ * Provider-specific defaults are filled in for `baseUrl`; pass an explicit
+ * `baseUrl` to override (used in tests, and to point at staging).
+ */
+export function getCloudClient(
+  provider: "nebius" | "ollama" | "normattiva",
+  apiKey: string,
+  baseUrl?: string
+): OpenAICompatibleClient {
+  const defaultBase =
+    provider === "normattiva" ? NORMATTIVA_DEFAULT_BASE : NEBIUS_DEFAULT_BASE;
+  const resolvedBase = (baseUrl ?? defaultBase).replace(/\/+$/, "");
+  const key = cacheKey(provider, resolvedBase, apiKey);
+  const existing = clientCache.get(key);
+  if (existing) {
+    existing.setApiKey(apiKey);
+    return existing;
+  }
+  const client = new OpenAICompatibleClient(apiKey, resolvedBase);
+  clientCache.set(key, client);
+  return client;
+}
+
+/** Test helper — drop all cached clients. Not exported in index.ts. */
+export function resetCloudClients(): void {
+  clientCache.clear();
+}
+
+// Back-compat: keep the old singleton getter working. It now points at
+// the Nebius provider.
 export function getOpenAICompatibleClient(
   apiKey?: string,
   baseUrl?: string
 ): OpenAICompatibleClient {
-  if (!clientInstance) {
-    clientInstance = new OpenAICompatibleClient(apiKey || "", baseUrl);
-  } else {
-    if (apiKey !== undefined) clientInstance.setApiKey(apiKey);
-    if (baseUrl !== undefined) clientInstance.setBaseUrl(baseUrl);
-  }
-  return clientInstance;
+  return getCloudClient("nebius", apiKey ?? "", baseUrl);
 }
-
-// Back-compat: keep the old getter name working.
 export const getNebiusClient = getOpenAICompatibleClient;
 
 // Back-compat class alias. Existing call sites still import { NebiusClient };
