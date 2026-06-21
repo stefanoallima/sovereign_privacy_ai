@@ -27,6 +27,10 @@ pub enum BackendType {
     Ollama,
     /// Local anonymization then cloud (balanced)
     Hybrid,
+    /// Italian legal-specialist cloud API (Normattiva).
+    /// Same privacy posture as Nebius but with required anonymization
+    /// for the legal persona by default.
+    Normattiva,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -383,6 +387,7 @@ pub fn log_backend_decision(
         BackendType::Nebius => "nebius",
         BackendType::Ollama => "ollama",
         BackendType::Hybrid => "hybrid",
+        BackendType::Normattiva => "normattiva",
     };
 
     info!(

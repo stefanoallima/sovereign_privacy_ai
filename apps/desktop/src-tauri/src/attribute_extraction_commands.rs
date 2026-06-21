@@ -254,6 +254,7 @@ fn backend_type_to_string(decision: &BackendDecision) -> String {
         crate::backend_routing::BackendType::Nebius => "nebius".to_string(),
         crate::backend_routing::BackendType::Ollama => "ollama".to_string(),
         crate::backend_routing::BackendType::Hybrid => "hybrid".to_string(),
+        crate::backend_routing::BackendType::Normattiva => "normattiva".to_string(),
     }
 }
 
