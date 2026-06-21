@@ -1,4 +1,4 @@
-import type { LLMModel } from "@/types";
+import type { LLMModel, NormattivaExtension } from "@/types";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -46,6 +46,11 @@ export interface ChatCompletionResponse {
     completion_tokens: number;
     total_tokens: number;
   };
+  /** Additive extension returned by the Normattiva legal agent. Standard
+   *  OpenAI-compat clients ignore it; the desktop reads citations / tools /
+   *  cost / (Phase 1) streaming agent stage from here. Optional — omitted
+   *  when the platform does not emit it. */
+  x_normattiva?: NormattivaExtension;
 }
 
 export class OpenAICompatibleClient {
