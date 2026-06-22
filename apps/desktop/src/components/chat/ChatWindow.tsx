@@ -320,11 +320,14 @@ export function ChatWindow() {
   };
 
   // Helper to get backend privacy mode for a persona (for MessageBubble)
-  const getBackendMode = (p: any): "local" | "hybrid" | "cloud" | undefined => {
+  const getBackendMode = (
+    p: any,
+  ): "local" | "hybrid" | "cloud" | "normattiva" | undefined => {
     if (!p) return undefined;
     if (p.preferred_backend === "ollama") return "local";
     if (p.preferred_backend === "hybrid" || p.enable_local_anonymizer)
       return "hybrid";
+    if (p.preferred_backend === "normattiva") return "normattiva";
     return "cloud";
   };
 

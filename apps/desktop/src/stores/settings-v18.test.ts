@@ -128,5 +128,20 @@ describe("settings store v18 migration", () => {
         BRAND_DEFAULTS[BRAND].defaultModelId
       );
     });
+
+    it("overrides nebiusApiEndpoint with BRAND_DEFAULTS[BRAND].defaultApiEndpoint when non-empty", async () => {
+      // Regression test: previously the v18 migration never touched
+      // nebiusApiEndpoint, so a Normattiva user upgrading from v17 kept the
+      // Nebius URL and would never be able to reach api.normattiva.ai.
+      const { useSettingsStore } = await import("./settings");
+      await useSettingsStore.persist.rehydrate();
+
+      const expected =
+        BRAND_DEFAULTS[BRAND].defaultApiEndpoint ||
+        useSettingsStore.getState().settings.nebiusApiEndpoint;
+      expect(useSettingsStore.getState().settings.nebiusApiEndpoint).toBe(
+        expected
+      );
+    });
   });
 });

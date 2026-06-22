@@ -208,8 +208,11 @@ export const PersonaLLMConfigEditor: React.FC<PersonaLLMConfigEditorProps> = ({
         </div>
       </div>
 
-      {/* Anonymization Settings */}
-      {config.preferred_backend !== 'nebius' && config.preferred_backend !== 'normattiva' && (
+      {/* Anonymization Settings — only shown for local-processing backends (ollama, hybrid).
+          Cloud backends (nebius, normattiva) send data as-is. Derived from the privacy
+          metadata rather than hardcoded backend names so a future cloud backend
+          (e.g. 'openai') gets the right default without touching this file. */}
+      {BACKEND_PRIVACY_INFO[config.preferred_backend].localProcessing && (
         <div className="space-y-4 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.5)] p-4">
           <div className="flex items-start gap-3">
             <input

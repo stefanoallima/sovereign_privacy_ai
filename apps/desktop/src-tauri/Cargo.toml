@@ -28,8 +28,14 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # `BackendType::Normattiva` variant and its dispatch arms only compile in this
 # build. UI defaults (default persona / model / endpoint) live in the TS layer
 # (apps/desktop/src/config/defaults.ts) and are baked at build time via
-# `scripts/build-brand.mjs`. Build a Normattiva binary with:
-#   pnpm tauri build -- --features normattiva      (sets VITE_BRAND=normattiva)
+# `scripts/build-brand.mjs`.
+#
+# Build a Normattiva binary in two steps (the cargo feature flag does NOT
+# set VITE_BRAND — that's a Vite-time concern handled by build-brand.mjs):
+#   VITE_BRAND=normattiva node scripts/build-brand.mjs
+#   pnpm tauri build -- --features normattiva
+# Or, equivalently: pnpm build:normattiva (chained script in the root
+# package.json).
 default = []
 cuda = ["llama-cpp-2/cuda"]
 normattiva = []

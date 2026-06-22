@@ -1,6 +1,11 @@
 /**
- * Backend Routing Service
- * Type-safe TypeScript wrapper for persona LLM backend configuration
+ * Backend Routing Service — Sovereign build.
+ * Type-safe TypeScript wrapper for persona LLM backend configuration.
+ *
+ * The Sovereign build's BACKEND_OPTIONS / BACKEND_PRIVACY_INFO ship only
+ * Sovereign backends (nebius, ollama, hybrid). The Normattiva variant lives
+ * in ./Normattiva.ts and is bundled separately for the Normattiva build via
+ * the index.ts re-export (which selects at compile time using BRAND).
  */
 
 import { invoke } from '@tauri-apps/api/core';
@@ -141,12 +146,21 @@ export const ANONYMIZATION_MODE_INFO = {
   },
 };
 
+// Ordered by privacy level: lowest first (cloud, fastest), highest last
+// (local, most private). Matches the order used by PrivacySettings.tsx's
+// "Default Privacy Mode" section (Local → Hybrid → Cloud).
+//
+// The `privacy` field is a user-facing label string ("Low Privacy",
+// "Maximum Privacy", etc.) — distinct from the structured
+// `BACKEND_PRIVACY_INFO[backend].level` ('high' | 'medium' | 'low') which
+// is used programmatically. We keep them aligned by convention: if you
+// change one, change the matching value in the other.
 export const BACKEND_OPTIONS = [
   {
     value: 'nebius' as PreferredBackend,
     label: 'Cloud Direct',
     description: 'Direct cloud API - Fastest, suitable for general chat',
-    privacy: 'Standard',
+    privacy: 'Low',
     speed: 'Very Fast',
   },
   {
@@ -168,13 +182,6 @@ export const BACKEND_OPTIONS = [
     label: 'Hybrid',
     description: 'Local anonymization + cloud - Balanced privacy and speed',
     privacy: 'High',
-    speed: 'Fast',
-  },
-  {
-    value: 'normattiva' as PreferredBackend,
-    label: 'Normattiva NLP',
-    description: 'Italian legal domain via Normattiva cloud API',
-    privacy: 'Standard',
     speed: 'Fast',
   },
 ];
@@ -224,10 +231,25 @@ export async function getAvailableOllamaModels(): Promise<string[]> {
 // ==================== Helper Functions ====================
 
 /**
- * Get privacy information for a backend type
+ * Get privacy information for a backend type.
+ *
+ * Returns a fallback "cloud" privacy object if the requested backend is not
+ * present in this build's BACKEND_PRIVACY_INFO. This happens when a legacy
+ * persona's `preferred_backend` is a backend from a different build (e.g.,
+ * a Sovereign user with `preferred_backend: "normattiva"` saved before the
+ * Rust validator started rejecting it). Treat it as a generic cloud backend
+ * rather than crashing the UI.
  */
 export function getBackendPrivacy(backend: PreferredBackend): BackendPrivacy {
-  return BACKEND_PRIVACY_INFO[backend];
+  return (
+    BACKEND_PRIVACY_INFO[backend] ?? {
+      level: 'low',
+      emoji: '☁️',
+      description: 'Cloud',
+      sendsToCloud: true,
+      localProcessing: false,
+    }
+  );
 }
 
 /**
@@ -237,7 +259,7 @@ export function getPrivacyIndicator(backend: PreferredBackend): {
   emoji: string;
   description: string;
 } {
-  const privacy = BACKEND_PRIVACY_INFO[backend];
+  const privacy = getBackendPrivacy(backend);
   return {
     emoji: privacy.emoji,
     description: privacy.description,
@@ -248,14 +270,14 @@ export function getPrivacyIndicator(backend: PreferredBackend): {
  * Check if backend requires local processing
  */
 export function requiresLocalProcessing(backend: PreferredBackend): boolean {
-  return BACKEND_PRIVACY_INFO[backend].localProcessing;
+  return getBackendPrivacy(backend).localProcessing;
 }
 
 /**
  * Check if backend sends data to cloud
  */
 export function sendsToCloud(backend: PreferredBackend): boolean {
-  return BACKEND_PRIVACY_INFO[backend].sendsToCloud;
+  return getBackendPrivacy(backend).sendsToCloud;
 }
 
 /**
