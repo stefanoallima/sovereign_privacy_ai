@@ -64,3 +64,34 @@ describe("settings store — selectors include normattiva models", () => {
     expect(normattiva.length).toBeGreaterThan(0);
   });
 });
+
+describe("settings store — getDefaultModel with normattiva", () => {
+  beforeEach(() => {
+    useSettingsStore.getState().resetToDefaults();
+  });
+
+  it("returns a non-normattiva model when normattivaApiKey is empty and normattiva-legal-pro is marked as default", () => {
+    const store = useSettingsStore.getState();
+    // Ensure we're in cloud mode
+    store.updateSettings({ privacyMode: "cloud" });
+    // Ensure normattivaApiKey is empty
+    store.updateSettings({ normattivaApiKey: "" });
+    // Get the default model
+    const defaultModel = store.getDefaultModel();
+    // Should not return a normattiva model when key is empty
+    expect(defaultModel?.provider).not.toBe("normattiva");
+  });
+
+  it("returns normattiva-legal-pro when normattivaApiKey is set and it is marked as default", () => {
+    const store = useSettingsStore.getState();
+    // Ensure we're in cloud mode
+    store.updateSettings({ privacyMode: "cloud" });
+    // Set normattivaApiKey
+    store.setNormattivaApiKey("sk-test-1234");
+    // Get the default model
+    const defaultModel = store.getDefaultModel();
+    // Should return normattiva model when key is set
+    expect(defaultModel?.id).toBe("normattiva-legal-pro");
+    expect(defaultModel?.provider).toBe("normattiva");
+  });
+});
