@@ -9,13 +9,7 @@
     "started_at": "2026-06-22T23:39:48+02:00",
     "stop_reason": "",
     "changes_processed": [],
-    "queue_remaining": [
-      {
-        "id": "green:vision",
-        "mode": "green",
-        "source": "vision"
-      }
-    ]
+    "queue_remaining": []
   },
   "autonomy": "full",
   "design_gate_passed": false,
