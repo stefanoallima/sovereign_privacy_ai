@@ -29,7 +29,9 @@ interface PersonaPrivacyTabProps {
   showPIIVault: boolean;
 }
 
-// Privacy mode descriptions
+// Privacy mode descriptions, ordered low → high privacy (matches the order
+// in backend-routing-service.ts BACKEND_OPTIONS and PrivacySettings.tsx
+// "Default Privacy Mode" cards).
 const PRIVACY_MODES = [
   {
     id: 'nebius',
@@ -38,6 +40,14 @@ const PRIVACY_MODES = [
     description: 'Direct cloud API - fastest response, standard privacy',
     privacy: 'Standard',
     color: 'amber',
+  },
+  {
+    id: 'normattiva',
+    label: 'Normattiva NLP',
+    icon: <Scale size={16} />,
+    description: 'Italian legal domain via Normattiva cloud API',
+    privacy: 'Standard',
+    color: 'blue',
   },
   {
     id: 'hybrid',
@@ -54,14 +64,6 @@ const PRIVACY_MODES = [
     description: 'Fully local processing - maximum privacy, built-in engine',
     privacy: 'Maximum',
     color: 'green',
-  },
-  {
-    id: 'normattiva',
-    label: 'Normattiva NLP',
-    icon: <Scale size={16} />,
-    description: 'Italian legal domain via Normattiva cloud API',
-    privacy: 'Standard',
-    color: 'blue',
   },
 ] as const;
 

@@ -8,7 +8,7 @@ import { useChatStore } from "@/stores";
 import type { FileAttachment, Citation, RateLimitInfo } from "@/types";
 
 // Backend privacy modes for personas
-export type BackendPrivacyMode = 'local' | 'hybrid' | 'cloud';
+export type BackendPrivacyMode = 'local' | 'hybrid' | 'cloud' | 'normattiva';
 
 interface MessageBubbleProps {
   id?: string;
@@ -50,6 +50,8 @@ function getBackendPrivacyIcon(mode?: BackendPrivacyMode): { icon: React.ReactNo
       return { icon: <Lock className="h-3 w-3" />, label: 'Local (Built-in)', color: 'text-[hsl(var(--status-safe))]' };
     case 'hybrid':
       return { icon: <ShieldCheck className="h-3 w-3" />, label: 'Hybrid (Anonymized)', color: 'text-[hsl(var(--primary))]' };
+    case 'normattiva':
+      return { icon: <Scale className="h-3 w-3" />, label: 'Normattiva NLP Cloud', color: 'text-[hsl(var(--status-caution))]' };
     case 'cloud':
     default:
       return { icon: <Zap className="h-3 w-3" />, label: 'Cloud (Nebius)', color: 'text-[hsl(var(--status-caution))]' };

@@ -1,0 +1,46 @@
+fix(dual-marketing): address 10 round-2 code-review findings
+
+Critical (real bugs that broke the Normattiva build):
+- personas.ts: seed legal-advisor-it built-in persona (BRAND_DEFAULTS.normattiva
+  .defaultPersonaId references it; missing the persona meant a fresh Normattiva
+  install couldn't start a conversation). New personas.test.ts covers the seed.
+- settings.ts v18 migration: also override nebiusApiEndpoint with
+  BRAND_DEFAULTS[BRAND].defaultApiEndpoint (was hardcoded to the Nebius URL,
+  so Normattiva users upgrading from v17 kept the Nebius endpoint).
+- Reverted per-brand split of backend-routing-service: the refactor was
+  high-risk and produced 25+ type errors. Deferred to a follow-up — bundle
+  contains all 4 backend strings (~1KB) but the cleaner module split is
+  documented in the round-2 review as the recommended next step.
+
+High:
+- PersonaLLMConfigEditor.tsx: replace hardcoded `'normattiva'` check with
+  `BACKEND_PRIVACY_INFO[config.preferred_backend].localProcessing` so a future
+  cloud backend (e.g. 'openai') gets the right default without touching this
+  file.
+- PersonaBackendIndicator, MessageBubble.getBackendPrivacyIcon, ChatWindow
+  .getBackendMode: add 'normattiva' case — Scale icon, "Normattiva" label.
+  Without this, Normattiva personas display as generic "Cloud" with the Zap
+  icon, losing all branding.
+- backend_routing.rs: rewrite the tautological normattiva-dispatch test to
+  also exercise ollama/hybrid/nebius/unknown inputs (catches regressions in
+  the dispatch logic instead of just re-asserting its own copy).
+- settings.ts setPrivacyMode: gate at the store level — on Normattiva
+  (hideOllama=true), local/hybrid are no-ops. Defense-in-depth so any future
+  programmatic caller (tour, deep link, dev tool) can't silently switch the
+  user off the only available backend.
+- Cargo.toml: fix misleading doc comment. --features normattiva does NOT set
+  VITE_BRAND — that's a Vite-time concern handled by build-brand.mjs. The
+  two-step build process is now explicit.
+
+Medium:
+- backend-routing-service.ts: reorder BACKEND_OPTIONS by privacy level (low →
+  high) to match the order in PRIVACY_MODES (PersonaPrivacyTab.tsx) and
+  PrivacySettings.tsx radio cards. Eliminates the "same options in different
+  orders across two selectors" inconsistency.
+- backend-routing-service.ts: align `BACKEND_OPTIONS[*].privacy` labels with
+  the BACKEND_PRIVACY_INFO `level` values ('high' | 'medium' | 'low'). The
+  same backend was shown as both "Standard Privacy" (option card) and "low
+  Privacy" (privacy badge) in the same component — now consistently
+  "Low Privacy" for nebius/normattiva.
+
+58/58 tests pass, typecheck clean.

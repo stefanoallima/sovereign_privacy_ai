@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Lock, ShieldCheck, Zap } from 'lucide-react';
+import { Lock, Scale, ShieldCheck, Zap } from 'lucide-react';
 import {
   PreferredBackend,
   BACKEND_PRIVACY_INFO,
@@ -18,6 +18,8 @@ function getBackendIcon(backend: PreferredBackend, size: number = 16) {
       return <Lock size={size} />;
     case 'hybrid':
       return <ShieldCheck size={size} />;
+    case 'normattiva':
+      return <Scale size={size} />;
     case 'nebius':
     default:
       return <Zap size={size} />;
@@ -57,7 +59,10 @@ export const PersonaBackendIndicator: React.FC<PersonaBackendIndicatorProps> = (
       </span>
       {showLabel && (
         <span className="text-sm font-medium capitalize text-[hsl(var(--foreground))]">
-          {backend === 'ollama' ? 'Local' : backend === 'hybrid' ? 'Hybrid' : 'Cloud'}
+          {backend === 'ollama' ? 'Local' :
+           backend === 'hybrid' ? 'Hybrid' :
+           backend === 'normattiva' ? 'Normattiva' :
+           'Cloud'}
         </span>
       )}
     </div>

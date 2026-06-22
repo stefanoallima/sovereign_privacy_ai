@@ -314,14 +314,28 @@ export const useSettingsStore = create<SettingsStore>()(
         })),
 
       setPrivacyMode: (mode) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            privacyMode: mode,
-            // Backward compat: airplaneMode = local
-            airplaneMode: mode === 'local',
-          },
-        })),
+        set((state) => {
+          // Defense-in-depth: on the Normattiva build the privacy mode radio
+          // cards are hidden in PrivacySettings.tsx, but anything that calls
+          // this action programmatically (tour, deep link, dev tool) would
+          // otherwise silently switch the user off the only available backend.
+          // local/hybrid are blocked; 'cloud' maps to the Normattiva cloud
+          // backend and is the only legal value.
+          if (
+            BRAND_DEFAULTS[BRAND].hideOllama &&
+            (mode === 'local' || mode === 'hybrid')
+          ) {
+            return state;
+          }
+          return {
+            settings: {
+              ...state.settings,
+              privacyMode: mode,
+              // Backward compat: airplaneMode = local
+              airplaneMode: mode === 'local',
+            },
+          };
+        }),
 
       updateModelPricing: (modelId, inputCost, outputCost) =>
         set((state) => ({
@@ -499,6 +513,12 @@ export const useSettingsStore = create<SettingsStore>()(
             hybridModeModel: BRAND_DEFAULTS[BRAND].defaultModelId,
             cloudModeModel: BRAND_DEFAULTS[BRAND].defaultModelId,
             defaultModelId: BRAND_DEFAULTS[BRAND].defaultModelId,
+            // Override the API endpoint with the brand default. On the Normattiva
+            // build this swaps the default Nebius URL for api.normattiva.ai; on
+            // Sovereign (where defaultApiEndpoint is "") we fall back to the
+            // existing DEFAULT_SETTINGS.nebiusApiEndpoint so nothing changes for
+            // existing Sovereign users.
+            nebiusApiEndpoint: BRAND_DEFAULTS[BRAND].defaultApiEndpoint || DEFAULT_SETTINGS.nebiusApiEndpoint,
             airplaneMode: privacyMode === 'local',
             airplaneModeModel: old.airplaneModeModel ?? 'qwen3-1.7b',
             glinerEnabled: old.glinerEnabled ?? false,
