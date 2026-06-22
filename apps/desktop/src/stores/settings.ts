@@ -690,7 +690,7 @@ export const useSettingsStore = create<SettingsStore>()(
         // back to the built-in default. Previously these were always reset to minimax-m2.
         const migratedModels = keepCustom(p?.models, DEFAULT_MODELS);
         const keepSelection = (id: unknown): string =>
-          typeof id === 'string' && migratedModels.some((m) => m.id === id) ? id : 'minimax-m2';
+          typeof id === 'string' && migratedModels.some((m) => m.id === id) ? id : BRAND_DEFAULTS[BRAND].defaultModelId;
         // Migrate airplaneMode → privacyMode
         const privacyMode = old.airplaneMode ? 'local' as const : (old.privacyMode ?? 'cloud' as const);
         return {

@@ -204,8 +204,9 @@ jobs:
           releaseDraft: false
           prerelease: false
           updaterJsonKeepUniversal: true
-          # --features normattiva enables the Rust BackendType::Normattiva variant
-          # and the normattiva_config module. The VITE_BRAND=normattiva env in
-          # "Apply Normattiva brand flavor" already swapped tauri.conf.json +
-          # icons so the bundle IDs match.
-          args: --target ${{ matrix.target }} --features normattiva
+          # --features normattiva enables the Rust BackendType::Normattiva variant.
+          # The VITE_BRAND=normattiva env in "Apply Normattiva brand flavor" already
+          # swapped tauri.conf.json + icons so the bundle IDs match.
+          # The `--` separator is REQUIRED so `--features normattiva` reaches cargo
+          # instead of being parsed by the tauri CLI (which has no such flag).
+          args: --target ${{ matrix.target }} -- --features normattiva
