@@ -149,6 +149,14 @@ export class OpenAICompatibleClient {
     );
     const outputTokens = Math.ceil(totalContent.length / 4);
 
+    // TODO(phase-1): Streaming x_normattiva accumulation from SSE chunks.
+    // Currently x_normattiva (citations) is parsed in non-streaming chatCompletion()
+    // but not accumulated across SSE chunks in streamChatCompletion().
+    // Phase 1 will add: (A6) exact usage capture from x_normattiva,
+    // (B8) SSE accumulation of x_normattiva.cost_estimate_eur for real-time billing,
+    // and (C) citations UI for streamed responses.
+    // See: docs/normattiva-integration-spec.md A6, B8.
+
     return { inputTokens, outputTokens };
   }
 
