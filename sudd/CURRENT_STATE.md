@@ -1,16 +1,15 @@
-<!-- refreshed-at: 2026-06-11T09:47:25Z -->
+<!-- refreshed-at: 2026-06-22T21:39:47Z -->
 # Current State
 
 ## TL;DR
 
-2 active, 0 stuck, 0 dirty, 0 inbox, 0 queued · refreshed 2026-06-11T09:47:25Z
+1 active, 0 stuck, 0 dirty, 0 inbox, 0 queued · refreshed 2026-06-22T21:39:47Z
 
 The active queue is clean: the five formed AILocalMind changes that had been sitting as "shipped — archive later" debt (form-fill, gemma4-orchestration, local-rag, perf-privacy-opt, pii-pipeline-v2) were verified against live code and archived DONE this session. The only remaining `active/` entry is an empty `brown_night-queue_01` stub (no proposal/specs/design/tasks). Nothing is stuck, queued, or in the inbox — there is no pending build work; intake is the bottleneck, not throughput.
 
 ## Active
 
-- [`brown_night-queue_01`](changes/active/brown_night-queue_01/) — brown_night-queue_01
-- [`green_redaction-completeness_01`](changes/active/green_redaction-completeness_01/) — green_redaction-completeness_01
+- [`brown_normattiva-phase0-hardening_01`](changes/active/brown_normattiva-phase0-hardening_01/) — brown_normattiva-phase0-hardening_01
 
 ## Stuck
 
@@ -49,5 +48,5 @@ Note: `sudd/vision.md` currently describes the **SUDD framework itself**, not th
 
 - Last audit health: _unknown_
 - Last audit at: 2026-04-15T14:58:40Z
-- State doc refreshed: 2026-06-11T09:47:25Z
+- State doc refreshed: 2026-06-22T21:39:47Z
 
