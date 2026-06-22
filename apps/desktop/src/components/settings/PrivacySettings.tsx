@@ -20,7 +20,7 @@ interface GlinerModelInfo {
 }
 
 export function PrivacySettings() {
-  const { settings, updateSettings, setPrivacyMode, setNormattivaApiKey, models, ollamaModels } = useSettingsStore();
+  const { settings, updateSettings, setPrivacyMode, setNormattivaApiKey, setNormattivaApiEndpoint, models, ollamaModels } = useSettingsStore();
   const activeProfile = useUserContextStore(selectActiveProfile);
   const {
     addCustomRedactTerm,
@@ -694,7 +694,7 @@ export function PrivacySettings() {
               id="normattiva-endpoint"
               type="text"
               value={settings.normattivaApiEndpoint}
-              onChange={(e) => useSettingsStore.getState().updateSettings({ normattivaApiEndpoint: e.target.value })}
+              onChange={(e) => setNormattivaApiEndpoint(e.target.value)}
               className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
             />
             <p className="text-xs text-muted-foreground mt-1">

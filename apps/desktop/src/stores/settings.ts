@@ -184,6 +184,7 @@ interface SettingsStore {
   updateSettings: (partial: Partial<AppSettings>) => void;
   setApiKey: (key: string) => void;
   setNormattivaApiKey: (key: string) => void;
+  setNormattivaApiEndpoint: (endpoint: string) => void;
   setDefaultModel: (modelId: string) => void;
   toggleModel: (modelId: string) => void;
   toggleAirplaneMode: () => void;
@@ -231,6 +232,11 @@ export const useSettingsStore = create<SettingsStore>()(
       setNormattivaApiKey: (key) =>
         set((state) => ({
           settings: { ...state.settings, normattivaApiKey: key },
+        })),
+
+      setNormattivaApiEndpoint: (endpoint) =>
+        set((state) => ({
+          settings: { ...state.settings, normattivaApiEndpoint: endpoint },
         })),
 
       setDefaultModel: (modelId) =>
