@@ -372,7 +372,7 @@ export const useSettingsStore = create<SettingsStore>()(
       },
 
       getDefaultModel: () => {
-        const { settings, models, ollamaModels } = get();
+        const { settings, models, ollamaModels, normattivaModels } = get();
         if (settings.privacyMode === 'local') {
           // Return matching local model by localModeModel apiModelId
           const matchingModel = ollamaModels.find(
@@ -385,10 +385,17 @@ export const useSettingsStore = create<SettingsStore>()(
             || ollamaModels.find((m) => m.id === settings.hybridModeModel)
             || models.find((m) => m.id === settings.defaultModelId);
         }
-        // cloud mode
-        return models.find((m) => m.id === settings.cloudModeModel)
-          || ollamaModels.find((m) => m.id === settings.cloudModeModel)
-          || models.find((m) => m.id === settings.defaultModelId);
+        // cloud mode: find default, skipping normattiva if no API key
+        const isNormattivaKeyEmpty = !settings.normattivaApiKey || settings.normattivaApiKey.trim() === '';
+        const allModels = [
+          ...models,
+          ...ollamaModels,
+          ...(isNormattivaKeyEmpty ? [] : normattivaModels),
+        ];
+        return allModels.find((m) => m.id === settings.cloudModeModel)
+          || allModels.find((m) => m.id === settings.defaultModelId)
+          || models.find((m) => m.isEnabled)
+          || ollamaModels.find((m) => m.isEnabled);
       },
 
       getModelById: (id) => {
