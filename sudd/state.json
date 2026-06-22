@@ -11,11 +11,6 @@
     "changes_processed": [],
     "queue_remaining": [
       {
-        "id": "green_add-personas-batch1_01",
-        "mode": "brown",
-        "source": "proposal"
-      },
-      {
         "id": "green_add-personas-batch2_02",
         "mode": "brown",
         "source": "proposal"
