@@ -40,11 +40,14 @@ pub enum AnonymizationMode {
 }
 
 impl AnonymizationMode {
-    pub fn from_string(s: &str) -> Self {
-        match s {
-            "optional" => AnonymizationMode::Optional,
-            "required" => AnonymizationMode::Required,
-            _ => AnonymizationMode::None,
+    pub fn from_string(s: &str) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let trimmed = s.trim();
+        match trimmed {
+            "optional" => Ok(AnonymizationMode::Optional),
+            "required" => Ok(AnonymizationMode::Required),
+            "none" => Ok(AnonymizationMode::None),
+            "" => Err("anonymization_mode cannot be empty".into()),
+            _ => Err(format!("invalid anonymization_mode: '{}' (expected 'none', 'optional', or 'required')", trimmed).into()),
         }
     }
 }
@@ -122,7 +125,7 @@ pub async fn determine_backend(persona: &Persona, inference: &dyn LocalInference
         _ => BackendType::Nebius, // Default
     };
 
-    let anonymization_mode = AnonymizationMode::from_string(&persona.anonymization_mode);
+    let anonymization_mode = AnonymizationMode::from_string(&persona.anonymization_mode)?;
     let enable_anonymization = persona.enable_local_anonymizer;
 
     // Validate configuration
@@ -163,7 +166,7 @@ pub async fn make_routing_decision(
     _request_text: &str,
 ) -> Result<BackendDecision, Box<dyn Error + Send + Sync>> {
     let backend_str = persona.preferred_backend.to_lowercase();
-    let anonymization_mode = AnonymizationMode::from_string(&persona.anonymization_mode);
+    let anonymization_mode = AnonymizationMode::from_string(&persona.anonymization_mode)?;
     let enable_anonymization = persona.enable_local_anonymizer;
 
     // Check Ollama availability upfront
@@ -398,10 +401,16 @@ mod tests {
 
     #[test]
     fn test_anonymization_mode_from_string() {
-        assert_eq!(AnonymizationMode::from_string("optional"), AnonymizationMode::Optional);
-        assert_eq!(AnonymizationMode::from_string("required"), AnonymizationMode::Required);
-        assert_eq!(AnonymizationMode::from_string("none"), AnonymizationMode::None);
-        assert_eq!(AnonymizationMode::from_string("invalid"), AnonymizationMode::None);
+        // Valid cases
+        assert!(AnonymizationMode::from_string("optional").is_ok());
+        assert!(AnonymizationMode::from_string("required").is_ok());
+        assert!(AnonymizationMode::from_string("none").is_ok());
+
+        // Invalid cases - should return Err
+        assert!(AnonymizationMode::from_string("").is_err());
+        assert!(AnonymizationMode::from_string("   ").is_err());
+        assert!(AnonymizationMode::from_string("require").is_err()); // typo
+        assert!(AnonymizationMode::from_string("invalid").is_err());
     }
 
     #[test]
@@ -448,5 +457,23 @@ mod tests {
         assert!(can_process_with_anonymization_mode(&AnonymizationMode::Optional, true));
         assert!(!can_process_with_anonymization_mode(&AnonymizationMode::Required, false));
         assert!(can_process_with_anonymization_mode(&AnonymizationMode::Required, true));
+    }
+
+    #[test]
+    fn test_anonymization_mode_built_in_personas_load() {
+        // Verify that the 6 built-in personas all parse their anonymization_mode successfully
+        let built_in_personas = vec![
+            ("psychologist", "optional"),
+            ("life-coach", "optional"),
+            ("career-coach", "optional"),
+            ("tax-accountant", "required"),
+            ("tax-audit", "required"),
+            ("legal-advisor-it", "required"),
+        ];
+
+        for (persona_name, mode_str) in built_in_personas {
+            let result = AnonymizationMode::from_string(mode_str);
+            assert!(result.is_ok(), "persona '{}' with mode '{}' should parse successfully", persona_name, mode_str);
+        }
     }
 }
