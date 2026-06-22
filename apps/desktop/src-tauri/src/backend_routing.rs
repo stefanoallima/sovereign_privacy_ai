@@ -195,6 +195,9 @@ pub async fn make_routing_decision(
                 warn!("Nebius backend with required anonymization - using attributes-only mode");
                 BackendDecision {
                     backend: BackendType::Nebius,
+                    // anonymize: false means "do not perform anonymization in the routing layer"
+                    // (this backend is cloud-only, no local anonymization possible).
+                    // The actual PII redaction is handled by the desktop pipeline (GLiNER → redactForCloud).
                     anonymize: false,
                     model: persona.preferred_model_id.clone().into(),
                     reason: "Cloud direct with attributes-only (required privacy mode)".to_string(),
@@ -219,6 +222,9 @@ pub async fn make_routing_decision(
                 warn!("Normattiva backend with required anonymization - using attributes-only mode");
                 BackendDecision {
                     backend: BackendType::Normattiva,
+                    // anonymize: false means "do not perform anonymization in the routing layer"
+                    // (this backend is cloud-only, no local anonymization possible).
+                    // The actual PII redaction is handled by the desktop pipeline (GLiNER → redactForCloud).
                     anonymize: false,
                     model: persona.preferred_model_id.clone().into(),
                     reason: "Legal AI (Normattiva) with attributes-only (required privacy mode)".to_string(),
