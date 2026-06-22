@@ -122,8 +122,12 @@ function MainApp() {
     return <LoadingScreen />;
   }
 
-  // Show setup wizard on first launch or when explicitly opened
-  if (!wizardCompleted || showWizard) {
+  // Show setup wizard on first launch or when explicitly opened.
+  // The Normattiva build has BRAND_DEFAULTS.normattiva.hideWizard = true; the
+  // wizard is skipped entirely (its defaults are pre-populated). We still
+  // gate here so any future code that calls resetWizard() on a Normattiva
+  // build cannot reach the SetupWizard component.
+  if ((!wizardCompleted || showWizard) && !BRAND_DEFAULTS[BRAND].hideWizard) {
     return <SetupWizard />;
   }
 

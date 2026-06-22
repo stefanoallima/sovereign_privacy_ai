@@ -96,7 +96,7 @@ pub async fn validate_persona_backend_config(
 
     if !matches!(preferred_backend.as_str(), "nebius" | "ollama" | "hybrid" | "normattiva") {
         errors.push(format!(
-            "Invalid backend '{}'. Must be one of: nebius, ollama, hybrid",
+            "Invalid backend '{}'. Must be one of: nebius, ollama, hybrid, normattiva",
             preferred_backend
         ));
     }

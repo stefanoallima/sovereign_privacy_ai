@@ -1,8 +1,14 @@
 import type { Brand } from "./branding";
+import type { PreferredBackend } from "@/services/backend-routing-service";
 
 export interface BrandDefaults {
   defaultPersonaId: string;
-  defaultCloudBackend: "nebius" | "normattiva";
+  // The initial value for a fresh-install persona's `preferred_backend`. The
+  // name is a bit of a misnomer — the type is the full PreferredBackend union
+  // (including local options like "ollama") but in practice both shipped brands
+  // use a cloud backend as default. A future brand that defaults to a local
+  // model (e.g. a fully-offline "Field Worker" build) can use "ollama" here.
+  defaultCloudBackend: PreferredBackend;
   defaultApiEndpoint: string;
   defaultModelId: string;
   hideWizard: boolean;

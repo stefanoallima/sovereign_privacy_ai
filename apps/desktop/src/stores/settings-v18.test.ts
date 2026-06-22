@@ -74,6 +74,33 @@ describe("settings store v18 migration", () => {
       expect(settings.brand).toBe(BRAND);
       expect(settings.legalDisclaimerAcknowledged).toBe(false);
     });
+
+    it("pre-fills cloudModeModel and hybridModeModel with BRAND_DEFAULTS[BRAND].defaultModelId", async () => {
+      // Regression test: previously the v18 migration hardcoded "minimax-m2"
+      // for cloudModeModel/hybridModeModel, ignoring BRAND_DEFAULTS[BRAND].
+      // On Sovereign, BRAND_DEFAULTS.sovereign.defaultModelId is
+      // "deepseek-ai/DeepSeek-V3" — a fresh install would otherwise end up
+      // with defaultModelId="DeepSeek-V3" but cloudModeModel="minimax-m2".
+      localStorage.setItem(
+        "assistant-settings",
+        JSON.stringify({
+          state: {
+            settings: { defaultModelId: "minimax-m2" },
+            models: [],
+            ollamaModels: [],
+          },
+          version: 17,
+        })
+      );
+
+      const { useSettingsStore } = await import("./settings");
+      await useSettingsStore.persist.rehydrate();
+
+      const settings = useSettingsStore.getState().settings;
+      expect(settings.cloudModeModel).toBe(BRAND_DEFAULTS[BRAND].defaultModelId);
+      expect(settings.hybridModeModel).toBe(BRAND_DEFAULTS[BRAND].defaultModelId);
+      expect(settings.defaultModelId).toBe(BRAND_DEFAULTS[BRAND].defaultModelId);
+    });
   });
 
   describe("fresh install (no persisted state)", () => {
