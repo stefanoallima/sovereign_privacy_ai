@@ -9,7 +9,53 @@
     "started_at": "2026-06-22T23:39:48+02:00",
     "stop_reason": "",
     "changes_processed": [],
-    "queue_remaining": []
+    "queue_remaining": [
+      {
+        "id": "green_add-personas-batch1_01",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_add-personas-batch2_02",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_telemetry-off-mode_03",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_incognito-mode_04",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_pii-vault-ui_05",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_team-collaboration-basic_06",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_team-collaboration-audit_07",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_always-review-mode_08",
+        "mode": "brown",
+        "source": "proposal"
+      },
+      {
+        "id": "green_frontend-e2e-tests_09",
+        "mode": "brown",
+        "source": "proposal"
+      }
+    ]
   },
   "autonomy": "full",
   "design_gate_passed": false,
@@ -36,5 +82,5 @@
   "task_retries": {},
   "tests_passed": false,
   "version": "1.0",
-  "vision_last_processed_at": "2026-06-10T20:22:21Z"
+  "vision_last_processed_at": "2026-06-22T22:29:46Z"
 }
