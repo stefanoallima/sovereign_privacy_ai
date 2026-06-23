@@ -26,11 +26,6 @@
     ],
     "queue_remaining": [
       {
-        "id": "green_telemetry-off-mode_03",
-        "mode": "brown",
-        "source": "proposal"
-      },
-      {
         "id": "green_incognito-mode_04",
         "mode": "brown",
         "source": "proposal"
