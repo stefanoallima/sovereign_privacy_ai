@@ -151,6 +151,8 @@ export const MessageBubble = React.memo(function MessageBubble({
 
   return (
     <div
+      data-testid={isUser ? "message-user" : "message-assistant"}
+      data-role={role}
       className={`group relative flex gap-4 ${isUser ? "flex-row-reverse" : "flex-row"}`}
     >
       {/* Avatar */}
@@ -334,7 +336,10 @@ export const MessageBubble = React.memo(function MessageBubble({
             ) : (
               <>
                 {/* Markdown Content */}
-                <div className="px-4 pb-3 prose prose-neutral dark:prose-invert max-w-none prose-p:leading-relaxed prose-p:my-3 prose-headings:font-semibold prose-headings:mt-6 prose-headings:mb-3 prose-pre:bg-[hsl(var(--secondary))] prose-pre:border prose-pre:border-[hsl(var(--border)/0.5)] prose-pre:rounded-xl prose-pre:shadow-sm prose-code:text-[13px] prose-ul:my-3 prose-ol:my-3 prose-li:my-1">
+                <div
+                  data-testid="message-content"
+                  className="px-4 pb-3 prose prose-neutral dark:prose-invert max-w-none prose-p:leading-relaxed prose-p:my-3 prose-headings:font-semibold prose-headings:mt-6 prose-headings:mb-3 prose-pre:bg-[hsl(var(--secondary))] prose-pre:border prose-pre:border-[hsl(var(--border)/0.5)] prose-pre:rounded-xl prose-pre:shadow-sm prose-code:text-[13px] prose-ul:my-3 prose-ol:my-3 prose-li:my-1"
+                >
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{

@@ -127,6 +127,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   airplaneModeModel: "qwen3-1.7b",
   cloudTrustLevel: null,
   skipCloudReview: false,
+  alwaysReviewBeforeSend: false,
   theme: "light",
   showTokenCounts: true,
   showModelSelector: true,

@@ -94,7 +94,10 @@ export function PromptReviewPanel({
   const isEdited = editedPrompt !== processedPrompt;
 
   return (
-    <div className="rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] shadow-xl overflow-hidden animate-slide-up">
+    <div
+      data-testid="prompt-review"
+      className="rounded-2xl border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--card))] shadow-xl overflow-hidden animate-slide-up"
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border)/0.3)] bg-[hsl(var(--secondary)/0.3)]">
         <div className="flex items-center gap-2">
@@ -108,6 +111,7 @@ export function PromptReviewPanel({
         </div>
         <button
           onClick={onCancel}
+          data-testid="review-close"
           className="flex items-center justify-center h-7 w-7 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))] transition-colors"
           title="Cancel (Esc)"
         >
@@ -119,6 +123,7 @@ export function PromptReviewPanel({
         {/* Original message (collapsible) */}
         <button
           onClick={() => setShowOriginal(!showOriginal)}
+          data-testid="review-original-toggle"
           className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors w-full text-left"
         >
           {showOriginal ? (
@@ -135,7 +140,10 @@ export function PromptReviewPanel({
           )}
         </button>
         {showOriginal && (
-          <div className="rounded-lg bg-[hsl(var(--secondary)/0.5)] p-3 text-sm text-[hsl(var(--muted-foreground))] border border-[hsl(var(--border)/0.3)]">
+          <div
+            data-testid="review-original-text"
+            className="rounded-lg bg-[hsl(var(--secondary)/0.5)] p-3 text-sm text-[hsl(var(--muted-foreground))] border border-[hsl(var(--border)/0.3)]"
+          >
             {originalMessage}
           </div>
         )}
@@ -148,6 +156,7 @@ export function PromptReviewPanel({
           </label>
           <textarea
             ref={textareaRef}
+            data-testid="review-processed-prompt"
             value={editedPrompt}
             onChange={(e) => setEditedPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -228,9 +237,16 @@ export function PromptReviewPanel({
 
         {/* PII Report */}
         {piiReport && piiReport.totalRedactions > 0 && (
-          <div className="flex items-center gap-2 flex-wrap p-2 rounded-lg bg-red-500/5 border border-red-500/10">
+          <div
+            data-testid="pii-redaction-report"
+            className="flex items-center gap-2 flex-wrap p-2 rounded-lg bg-red-500/5 border border-red-500/10"
+          >
             <Shield className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
-            <span className="text-[11px] font-medium text-red-400">
+            <span
+              data-testid="pii-redaction-count"
+              data-redaction-count={piiReport.totalRedactions}
+              className="text-[11px] font-medium text-red-400"
+            >
               {piiReport.totalRedactions} redaction
               {piiReport.totalRedactions !== 1 ? "s" : ""}
             </span>
@@ -264,20 +280,32 @@ export function PromptReviewPanel({
         )}
 
         {/* Info badges */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div
+          data-testid="review-attribute-badges"
+          className="flex items-center gap-3 flex-wrap"
+        >
           {attributesCount != null && attributesCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[11px] font-medium">
+            <span
+              data-testid="review-badge-attributes"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[11px] font-medium"
+            >
               {attributesCount} attribute{attributesCount !== 1 ? "s" : ""}{" "}
               extracted
             </span>
           )}
           {contentMode === "attributes_only" && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[11px] font-medium">
+            <span
+              data-testid="review-badge-no-pii"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[11px] font-medium"
+            >
               No PII in prompt
             </span>
           )}
           {reductionPercent > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] text-[11px] font-medium">
+            <span
+              data-testid="review-badge-reduced"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] text-[11px] font-medium"
+            >
               {reductionPercent}% reduced
             </span>
           )}
@@ -296,6 +324,7 @@ export function PromptReviewPanel({
           <div className="flex items-center gap-2">
             <button
               onClick={onCancel}
+              data-testid="review-cancel"
               className="px-4 py-2 rounded-lg text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))] transition-colors"
             >
               Cancel
@@ -304,6 +333,7 @@ export function PromptReviewPanel({
               onClick={() =>
                 onApprove(editedPrompt, { includeHistory, includeCanvas })
               }
+              data-testid="review-approve"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-600/25 transition-colors active:scale-95"
             >
               <Send className="h-3.5 w-3.5" />

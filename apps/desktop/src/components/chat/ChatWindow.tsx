@@ -1073,7 +1073,10 @@ ${attachment.textContent}`;
 
       {/* Incognito Banner */}
       {conversation?.isIncognito && (
-        <div className="flex items-center gap-3 px-6 py-2.5 bg-[hsl(var(--violet)/0.1)] border-b border-[hsl(var(--violet)/0.2)]">
+        <div
+          data-testid="incognito-banner"
+          className="flex items-center gap-3 px-6 py-2.5 bg-[hsl(var(--violet)/0.1)] border-b border-[hsl(var(--violet)/0.2)]"
+        >
           <EyeOff className="h-4 w-4 text-[hsl(var(--violet))] flex-shrink-0" />
           <span className="text-sm font-medium text-[hsl(var(--violet-muted))]">
             Incognito Mode — This conversation won't be saved
@@ -1538,6 +1541,7 @@ ${attachment.textContent}`;
               <textarea
                 ref={textareaRef}
                 data-tour="chat-input"
+                data-testid="chat-input"
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
@@ -1621,6 +1625,8 @@ ${attachment.textContent}`;
 
                   <button
                     onClick={handleSend}
+                    data-testid="chat-send"
+                    aria-label="Send"
                     disabled={
                       (!input.trim() && !pendingAttachment) || isLoading
                     }

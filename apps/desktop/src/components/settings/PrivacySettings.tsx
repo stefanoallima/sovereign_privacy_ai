@@ -509,6 +509,7 @@ export function PrivacySettings() {
             <input
               type="radio"
               name="privacyMode"
+              data-testid="privacy-mode-local"
               checked={settings.privacyMode === 'local'}
               onChange={() => setPrivacyMode('local')}
               disabled={!hasAnyLocalModel}
@@ -550,6 +551,7 @@ export function PrivacySettings() {
             <input
               type="radio"
               name="privacyMode"
+              data-testid="privacy-mode-hybrid"
               checked={settings.privacyMode === 'hybrid'}
               onChange={() => setPrivacyMode('hybrid')}
               className="mt-1"
@@ -587,6 +589,7 @@ export function PrivacySettings() {
             <input
               type="radio"
               name="privacyMode"
+              data-testid="privacy-mode-cloud"
               checked={settings.privacyMode === 'cloud'}
               onChange={() => setPrivacyMode('cloud')}
               className="mt-1"
@@ -623,6 +626,42 @@ export function PrivacySettings() {
           <ShieldIcon />
           Other Privacy Settings
         </h3>
+
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <div className="font-medium text-sm">Always review before send</div>
+            <div className="text-xs text-[hsl(var(--muted-foreground))]">
+              Show the privacy review panel before every cloud send, even when no PII is detected
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            data-testid="toggle-always-review"
+            checked={settings.alwaysReviewBeforeSend}
+            onChange={(e) =>
+              useSettingsStore.getState().updateSettings({ alwaysReviewBeforeSend: e.target.checked })
+            }
+            className="h-4 w-4 rounded"
+          />
+        </div>
+
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <div className="font-medium text-sm">Privacy Guard (GLiNER) detection</div>
+            <div className="text-xs text-[hsl(var(--muted-foreground))]">
+              Use the on-device GLiNER neural model to detect novel PII before cloud sends
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            data-testid="toggle-gliner"
+            checked={settings.glinerEnabled}
+            onChange={(e) =>
+              useSettingsStore.getState().updateSettings({ glinerEnabled: e.target.checked })
+            }
+            className="h-4 w-4 rounded"
+          />
+        </div>
 
         <div className="flex items-center justify-between py-2">
           <div>

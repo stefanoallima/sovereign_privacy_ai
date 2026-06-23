@@ -116,6 +116,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
           <button
             onClick={handleNewIncognitoChat}
             data-tour="new-incognito"
+            data-testid="incognito-toggle"
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--secondary))] hover:bg-[hsl(var(--violet)/0.15)] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--violet))] transition-all active:scale-95"
             title="New incognito chat"
           >
@@ -124,6 +125,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
           <button
             onClick={handleNewChat}
             data-tour="new-chat"
+            data-testid="new-chat"
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--secondary))] hover:bg-[hsl(var(--accent))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--accent-foreground))] transition-all active:scale-95"
             title="New chat"
           >
@@ -321,6 +323,7 @@ export function Sidebar({ onSettingsClick, onSupportClick }: SidebarProps) {
         <button
           onClick={onSettingsClick}
           data-tour="settings-btn"
+          data-testid="open-settings"
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--secondary))] hover:text-[hsl(var(--foreground))] transition-all group"
         >
           <Settings className="h-4 w-4 group-hover:rotate-45 transition-transform duration-300" />

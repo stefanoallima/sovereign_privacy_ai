@@ -52,6 +52,7 @@ export interface AppSettings {
   // Cloud trust
   cloudTrustLevel: "trusted" | "partial" | "minimal" | null;
   skipCloudReview: boolean; // Skip per-message privacy review when trusting the cloud provider
+  alwaysReviewBeforeSend: boolean; // Always show the Prompt Review panel before any cloud send, even when no PII is detected
 
   // UI
   theme: "light" | "dark" | "system";
