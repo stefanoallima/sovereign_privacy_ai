@@ -155,7 +155,7 @@ export class OpenAICompatibleClient {
     // Phase 1 will add: (A6) exact usage capture from x_normattiva,
     // (B8) SSE accumulation of x_normattiva.cost_estimate_eur for real-time billing,
     // and (C) citations UI for streamed responses.
-    // See: docs/normattiva-integration-spec.md A6, B8.
+    // See: apps/desktop/docs/superpowers/specs/2026-06-15-normattiva-integration-spec.md A6, B8.
 
     return { inputTokens, outputTokens };
   }
