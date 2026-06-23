@@ -21,7 +21,10 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--foreground)/0.15)]">
+    <div
+      data-testid="settings-dialog"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--foreground)/0.15)]"
+    >
       <div className="w-full max-w-4xl rounded-lg bg-[hsl(var(--card))] shadow-xl flex h-[80vh] overflow-hidden">
         {/* Sidebar Navigation */}
         <div className="w-64 border-r border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)] flex flex-col">
@@ -30,9 +33,9 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           </div>
 
           <nav className="p-2 space-y-1 flex-1 overflow-y-auto">
-            <TabButton label="API Configuration" active={activeTab === "api"} onClick={() => setActiveTab("api")} icon={<ApiIcon />} />
-            <TabButton label="Models" active={activeTab === "models"} onClick={() => setActiveTab("models")} icon={<ModelIcon />} />
-            <TabButton label="Privacy & Local" active={activeTab === "privacy"} onClick={() => setActiveTab("privacy")} icon={<PrivacyIcon />} />
+            <TabButton label="API Configuration" active={activeTab === "api"} onClick={() => setActiveTab("api")} icon={<ApiIcon />} testId="settings-tab-api" />
+            <TabButton label="Models" active={activeTab === "models"} onClick={() => setActiveTab("models")} icon={<ModelIcon />} testId="settings-tab-models" />
+            <TabButton label="Privacy & Local" active={activeTab === "privacy"} onClick={() => setActiveTab("privacy")} icon={<PrivacyIcon />} testId="settings-tab-privacy" />
             <TabButton label="My Info" active={activeTab === "myinfo"} onClick={() => setActiveTab("myinfo")} icon={<MyInfoIcon />} />
             <div className="my-2 border-t border-[hsl(var(--border))]" />
             <TabButton label="Personas" active={activeTab === "personas"} onClick={() => setActiveTab("personas")} icon={<PersonaIcon />} />
@@ -49,6 +52,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           <div className="flex justify-end p-4 border-b border-[hsl(var(--border))]">
             <button
               onClick={onClose}
+              data-testid="settings-close"
               className="rounded-full p-2 hover:bg-[hsl(var(--accent))] transition-colors"
             >
               <CloseIcon />
@@ -73,10 +77,11 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   );
 }
 
-function TabButton({ label, active, onClick, icon }: { label: string, active: boolean, onClick: () => void, icon: React.ReactNode }) {
+function TabButton({ label, active, onClick, icon, testId }: { label: string, active: boolean, onClick: () => void, icon: React.ReactNode, testId?: string }) {
   return (
     <button
       onClick={onClick}
+      data-testid={testId}
       className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${active
           ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
           : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]"
