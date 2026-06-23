@@ -184,6 +184,7 @@ interface SettingsStore {
   updateSettings: (partial: Partial<AppSettings>) => void;
   setApiKey: (key: string) => void;
   setNormattivaApiKey: (key: string) => void;
+  setNormattivaApiEndpoint: (endpoint: string) => void;
   setDefaultModel: (modelId: string) => void;
   toggleModel: (modelId: string) => void;
   toggleAirplaneMode: () => void;
@@ -231,6 +232,11 @@ export const useSettingsStore = create<SettingsStore>()(
       setNormattivaApiKey: (key) =>
         set((state) => ({
           settings: { ...state.settings, normattivaApiKey: key },
+        })),
+
+      setNormattivaApiEndpoint: (endpoint) =>
+        set((state) => ({
+          settings: { ...state.settings, normattivaApiEndpoint: endpoint },
         })),
 
       setDefaultModel: (modelId) =>
@@ -372,7 +378,7 @@ export const useSettingsStore = create<SettingsStore>()(
       },
 
       getDefaultModel: () => {
-        const { settings, models, ollamaModels } = get();
+        const { settings, models, ollamaModels, normattivaModels } = get();
         if (settings.privacyMode === 'local') {
           // Return matching local model by localModeModel apiModelId
           const matchingModel = ollamaModels.find(
@@ -385,10 +391,25 @@ export const useSettingsStore = create<SettingsStore>()(
             || ollamaModels.find((m) => m.id === settings.hybridModeModel)
             || models.find((m) => m.id === settings.defaultModelId);
         }
-        // cloud mode
-        return models.find((m) => m.id === settings.cloudModeModel)
-          || ollamaModels.find((m) => m.id === settings.cloudModeModel)
-          || models.find((m) => m.id === settings.defaultModelId);
+        // cloud mode: find default, skipping normattiva if no API key
+        const isNormattivaKeyEmpty = !settings.normattivaApiKey || settings.normattivaApiKey.trim() === '';
+        // When a Normattiva key is set and a Normattiva model is the canonical
+        // default, prefer it (legal-persona case: normattiva-legal-pro is the
+        // natural default). This is the B6/B10 intent — the desktop ships
+        // normattiva-legal-pro as the default for the legal-advisor-it persona.
+        if (!isNormattivaKeyEmpty) {
+          const normattivaDefault = normattivaModels.find((m) => m.isDefault);
+          if (normattivaDefault) return normattivaDefault;
+        }
+        const allModels = [
+          ...models,
+          ...ollamaModels,
+          ...(isNormattivaKeyEmpty ? [] : normattivaModels),
+        ];
+        return allModels.find((m) => m.id === settings.cloudModeModel)
+          || allModels.find((m) => m.id === settings.defaultModelId)
+          || models.find((m) => m.isEnabled)
+          || ollamaModels.find((m) => m.isEnabled);
       },
 
       getModelById: (id) => {
