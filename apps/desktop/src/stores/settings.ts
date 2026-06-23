@@ -393,6 +393,14 @@ export const useSettingsStore = create<SettingsStore>()(
         }
         // cloud mode: find default, skipping normattiva if no API key
         const isNormattivaKeyEmpty = !settings.normattivaApiKey || settings.normattivaApiKey.trim() === '';
+        // When a Normattiva key is set and a Normattiva model is the canonical
+        // default, prefer it (legal-persona case: normattiva-legal-pro is the
+        // natural default). This is the B6/B10 intent — the desktop ships
+        // normattiva-legal-pro as the default for the legal-advisor-it persona.
+        if (!isNormattivaKeyEmpty) {
+          const normattivaDefault = normattivaModels.find((m) => m.isDefault);
+          if (normattivaDefault) return normattivaDefault;
+        }
         const allModels = [
           ...models,
           ...ollamaModels,
