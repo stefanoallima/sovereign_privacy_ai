@@ -1,5 +1,8 @@
 # Vision: Sovereign AI — Private Personal Assistant
 
+
+## North Star
+
 ## North Star
 
 ## What We're Building
@@ -20,5 +23,9 @@ A user asks the Tax Navigator about their financial situation, and the cloud onl
 - 14 specialist advisor personas ("Sovereign Council"), each with independent privacy settings and LLM backend selection
 - PII redaction pipeline: detect (GLiNER) → anonymize to categorical attributes → prompt review → cloud call → re-hydrate locally; raw values never transmitted
 - Platforms: Windows (x64) and macOS Apple Silicon; CI builds are unsigned (no Apple signing cert configured)
+
+## Current Path
+
+- 2026-06-23 — green_add-personas-batch2_02 — green_add-personas-batch2_02. [→ archive](changes/archive/green_add-personas-batch2_02_DONE)
 
 ## Current Path

@@ -78,3 +78,95 @@ This file is updated automatically after each task. Agents read it to avoid repe
 - **What worked**: T1 wrapped `sendDirect`'s current message in `redactForCloud` (GLiNER + profile-wide terms) and merged mappings into the path's existing `directMappings` so the streamed response rehydrated for free. T2 redacted the ChatML/Gemma `fullPrompt` before `orchestrated_generate` (`prompt: safePrompt`) and rehydrated `result.response` with the returned mappings; the default local `ollama_generate` path keeps the raw prompt (local-only, no leak). T3 deleted the dead `useChat.ts` after a repo-wide grep proved zero importers (only the def, the barrel export, and a doc comment remained).
 - **What failed**: nothing — but auditing the T1 function surfaced a *second, undocumented* leak the proposal missed: cloud mem0 `addMemories` stored the rehydrated `fullContent` (raw PII) as the assistant memory. "Redaction completeness" means every cloud send in the function, not just the one named in the proposal — capture the pre-rehydration `redactedResponse` and store tokens (mirroring `executePrivacySend`).
 - **Lesson**: When closing a "send raw PII to cloud" invariant, the audit unit is the *whole function*, not the single call site named in the proposal — the same fn that does the obvious chat send often also does a mem0/summary/title cloud write on rehydrated (raw) text. Reuse the established redact→send→rehydrate primitive (`redactForCloud`/`rehydrateFromCloud`) and merge into the path's existing mapping Map so the response rehydrates with no extra plumbing. For TS-only frontend changes against a heavy Rust crate, `git diff -- '*.rs'` being empty + a passing `tsc --noEmit` is the honest verification — running the full llama.cpp/CUDA `cargo check` only re-confirms what git proves and costs 10+ min.
+
+## Lesson: Batch Pattern for Personas Works (green_add-personas-batch2_02)
+
+**Context:** Adding 14 specialist advisors all at once would be a large coordinated effort. Batch 1 (5 high-sensitivity advisors: tax, health, legal, financial, negotiation) shipped with new UI controls (backend override, privacy tab, Prompt Review Modal). Batch 2 (5 complementary advisors: branding, social, real estate, cybersecurity, immigration) validated that batch 1's infrastructure scales horizontally — no new UI components, no new Rust modules, only domain quality and test coverage.
+
+**Insight:** Large persona feature sets should be decomposed by *sensitivity* and *infrastructure readiness*, not arbitrarily by count. Batch 1 built the foundation; batch 2 proved it works across diverse domains. This reduces per-batch risk and lets later batches ship faster by reusing infrastructure.
+
+**Application:** When shipping multiple personas: use a "foundation batch" (store, UI, privacy controls, test framework, docs) followed by "leverage batches" (reuse foundation, focus on domain quality and comprehensive testing). Splits reduce review burden per batch and allow parallel development once foundation ships.
+
+**Tags:** #persona-development #batch-work #architecture #shipping
+
+---
+
+## Lesson: Privacy-First Design Requires Systematic Redaction Rules (green_add-personas-batch2_02)
+
+**Context:** Batch 2 added 5 personas with varying privacy requirements: 2 low-sensitivity (optional anonymization), 2 high-sensitivity (required + vault), 1 max-privacy (local-only). T09 integration testing caught that missing even one `requiresPIIVault` or `anonymization_mode` field would leak PII to cloud.
+
+**Insight:** Privacy architecture cannot rely on per-user configuration — it must be built into the persona definition itself. Every hybrid persona must explicitly declare anonymization_mode, requiresPIIVault, and preferred_backend. Missing one field cascades into leakage.
+
+**Application:** Create a pre-flight checklist for new personas:
+- [ ] Does this persona expose PII? (financial, medical, legal, personal)
+- [ ] If yes, is anonymization_mode set to 'required'?
+- [ ] If yes, is requiresPIIVault set to true?
+- [ ] If local-only, is preferred_backend set to 'ollama'?
+- [ ] Does system prompt include privacy note?
+
+Encode rules into type definitions so omissions are caught at compile time.
+
+**Tags:** #privacy-design #persona-development #pii-handling #architecture
+
+---
+
+## Lesson: Testing in Layers Catches Different Issues (green_add-personas-batch2_02)
+
+**Context:** Batch 2 had 131+ tests across 4 layers: regression (42), golden path (38), privacy validation (42), integration (9+). Regression caught regressions. Golden path caught generic responses. Privacy validation caught missing redaction. Integration discovered missing batch 1 personas — an issue no lower layer could surface.
+
+**Insight:** Comprehensive testing requires layered strategy, each layer testing a different concern:
+1. Unit tests (definitions): Do fields compile and load?
+2. Golden path (domain fit): Are responses domain-appropriate?
+3. Privacy validation (security): Does redaction work? Are modes enforced?
+4. Integration (E2E): Does the full app work? Do settings persist?
+
+No single layer would have caught all issues.
+
+**Application:** For future persona batches:
+- Tier 1 (Must Have): Unit tests for definitions + structure
+- Tier 2 (Critical): Golden path tests (3–5 scenarios per domain)
+- Tier 3 (Privacy): Redaction validation (network audit, history check)
+- Tier 4 (Shipping): Full E2E test (all 14 personas, settings persistence, edge cases)
+
+Allocate ~50% time to Tier 1–2, ~30% to Tier 3, ~20% to Tier 4. Run sequentially.
+
+**Tags:** #testing #qa-strategy #privacy-validation #regression-testing
+
+---
+
+## Lesson: Documentation Completeness Prevents Support Friction (green_add-personas-batch2_02)
+
+**Context:** Batch 2 included full README (all 14 personas grouped), backend defaults table, per-persona specs, architecture notes, acceptance criteria per task. New developers could onboard without asking questions.
+
+**Insight:** Complete documentation (README, architecture docs, module guides) is not "nice to have" — it's the primary mechanism for reducing support load. A developer reading "Real Estate Advisor uses hybrid + required anonymization" understands why PII redaction matters; one reading "use hybrid" without context breaks privacy.
+
+**Application:** For any persona/feature change:
+- README update: 1–2 sentence + icon + category
+- Architecture doc: Design rationale (why this backend, temp, anonymization mode)
+- Backend defaults table: Matrix (persona ID, backend, anonymization, vault)
+- Acceptance criteria: Per-task checklist for code review and QA
+- Per-module guides: Minimal examples if adding new modules
+
+Treat docs as part of implementation, not afterthought.
+
+**Tags:** #documentation #developer-experience #knowledge-sharing #onboarding
+
+---
+
+## Lesson: Integration Testing Must Be Comprehensive (green_add-personas-batch2_02)
+
+**Context:** All unit, golden path, and privacy tests passed. T09 integration test discovered missing batch 1 personas in selector on first boot — an issue no lower layer caught because they test components in isolation, not the full user flow.
+
+**Insight:** Integration testing must cover boot sequence (all personas load), persistence (settings saved), user flow (select → send → response), switching (mid-conversation), and edge cases (deleted personas). Unit tests rarely catch these because they're system-level concerns.
+
+**Application:** Before shipping any persona batch:
+- Run full app locally as real user
+- Switch between all personas (new + batch 1 + batch 2)
+- Send test messages; verify responses sensible
+- Close/reopen app; verify settings persist
+- Check browser console for errors
+- Monitor Network tab for cloud sends + PII redaction
+
+Document as pre-release checklist so future releases don't skip E2E.
+
+**Tags:** #integration-testing #e2e-testing #validation #shipping
