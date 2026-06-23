@@ -26,7 +26,9 @@
     "cap:sync": "cap sync android",
     "cap:open": "cap open android",
     "android": "pnpm build && cap sync android && cap open android",
-    "android:run": "pnpm build && cap sync android && cap run android"
+    "android:run": "pnpm build && cap sync android && cap run android",
+    "test:e2e": "playwright test --pass-with-no-tests",
+    "test:e2e:debug": "PWDEBUG=1 playwright test"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
@@ -57,6 +59,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",
+    "@playwright/test": "^1.61.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/cli": "^2",
     "@types/node": "^22.19.3",
@@ -69,6 +72,7 @@
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.0.1",
+    "playwright": "^1.61.0",
     "postcss": "^8.5.6",
     "prettier": "^3.7.4",
     "tailwindcss": "^4.1.18",
