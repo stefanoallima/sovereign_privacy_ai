@@ -28,5 +28,6 @@ A user asks the Tax Navigator about their financial situation, and the cloud onl
 
 - 2026-06-23 — green_add-personas-batch2_02 — green_add-personas-batch2_02. [→ archive](changes/archive/green_add-personas-batch2_02_DONE)
 - 2026-06-23 — green_team-collaboration-basic_06 — green_team-collaboration-basic_06. [ON-PATH] · [→ archive](changes/archive/green_team-collaboration-basic_06_DONE)
+- 2026-06-23 — green_frontend-e2e-tests_09 — green_frontend-e2e-tests_09. [ON-PATH] · [→ archive](changes/stuck/green_frontend-e2e-tests_09)
 
 ## Current Path

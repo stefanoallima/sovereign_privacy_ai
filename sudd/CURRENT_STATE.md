@@ -1,9 +1,9 @@
-<!-- refreshed-at: 2026-06-23T01:27:43Z -->
+<!-- refreshed-at: 2026-06-23T06:43:02Z -->
 # Current State
 
 ## TL;DR
 
-8 active, 1 stuck, 1 dirty, 0 inbox, 4 queued · refreshed 2026-06-23T01:27:43Z
+7 active, 2 stuck, 1 dirty, 0 inbox, 1 queued · refreshed 2026-06-23T06:43:02Z
 
 _State snapshot refreshed without TL;DR synthesis. Run `sudd state --refresh` for an LLM-assisted summary._
 
@@ -12,7 +12,6 @@ _State snapshot refreshed without TL;DR synthesis. Run `sudd state --refresh` fo
 - [`brown_normattiva-phase0-hardening_01`](changes/active/brown_normattiva-phase0-hardening_01/) — brown_normattiva-phase0-hardening_01
 - [`green_add-personas-batch1_01`](changes/active/green_add-personas-batch1_01/) — green_add-personas-batch1_01
 - [`green_always-review-mode_08`](changes/active/green_always-review-mode_08/) — green_always-review-mode_08
-- [`green_frontend-e2e-tests_09`](changes/active/green_frontend-e2e-tests_09/) — green_frontend-e2e-tests_09
 - [`green_incognito-mode_04`](changes/active/green_incognito-mode_04/) — green_incognito-mode_04
 - [`green_pii-vault-ui_05`](changes/active/green_pii-vault-ui_05/) — green_pii-vault-ui_05
 - [`green_team-collaboration-audit_07`](changes/active/green_team-collaboration-audit_07/) — green_team-collaboration-audit_07
@@ -20,7 +19,8 @@ _State snapshot refreshed without TL;DR synthesis. Run `sudd state --refresh` fo
 
 ## Stuck
 
-- [`green_team-collaboration-basic_06`](changes/stuck/green_team-collaboration-basic_06/) — (no reason recorded)
+- [`green_frontend-e2e-tests_09`](changes/stuck/green_frontend-e2e-tests_09/) — (no reason recorded)
+- [`green_team-collaboration-basic_06`](changes/stuck/green_team-collaboration-basic_06/) — - **Timestamp**: 2026-06-23T01:27:43Z
 
 ## Dirty (shipped, needs cleanup)
 
@@ -45,9 +45,6 @@ _none_
 
 ## Next up
 
-- `green_team-collaboration-basic_06` (mode: brown, source: proposal)
-- `green_team-collaboration-audit_07` (mode: brown, source: proposal)
-- `green_always-review-mode_08` (mode: brown, source: proposal)
 - `green_frontend-e2e-tests_09` (mode: brown, source: proposal)
 
 ## Trajectory vs Vision
@@ -58,5 +55,5 @@ _unavailable — no trajectory generator supplied._ [ON-PATH]
 
 - Last audit health: _unknown_
 - Last audit at: 2026-04-15T14:58:40Z
-- State doc refreshed: 2026-06-23T01:27:43Z
+- State doc refreshed: 2026-06-23T06:43:02Z
 

@@ -2,7 +2,7 @@
   "active_change": "",
   "architecture_reviewed": false,
   "audit": {
-    "changes_since_last_audit": 6,
+    "changes_since_last_audit": 7,
     "last_audit_at": "2026-04-15T16:58:40+02:00"
   },
   "auto_session": {
@@ -36,21 +36,25 @@
           "TasksAllChecked: tasks.md has unchecked '- [ ]' boxes (or is missing)",
           "SummaryHasCanonicalHeadings: archive/green_team-collaboration-basic_06_DONE/SUMMARY.md missing canonical headings: ## What Changed, ## Why, ## Validation, ## Lessons"
         ]
+      },
+      {
+        "change_id": "green_frontend-e2e-tests_09",
+        "outcome": "STUCK",
+        "elapsed_seconds": 17454.757405,
+        "tasks_completed": 8,
+        "tasks_total": 91,
+        "exit_code": -1,
+        "timeout_reason": "budget_exceeded",
+        "merged_sha": "5fadaeb3eeca8bf7fde890151d8e6d309d6db558"
       }
     ],
-    "queue_remaining": [
-      {
-        "id": "green_frontend-e2e-tests_09",
-        "mode": "brown",
-        "source": "proposal"
-      }
-    ]
+    "queue_remaining": []
   },
   "autonomy": "full",
   "design_gate_passed": false,
   "design_gate_score": null,
   "discovery": {
-    "changes_since_last": 16
+    "changes_since_last": 17
   },
   "gate_passed": false,
   "gate_score": null,
@@ -65,7 +69,7 @@
     "stats_seeded": true,
     "tasks_blocked": 0,
     "tasks_completed": 5,
-    "tasks_stuck": 1,
+    "tasks_stuck": 2,
     "total_done_dirty": 1,
     "total_retries": 0
   },
