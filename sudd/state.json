@@ -40,11 +40,6 @@
     ],
     "queue_remaining": [
       {
-        "id": "green_always-review-mode_08",
-        "mode": "brown",
-        "source": "proposal"
-      },
-      {
         "id": "green_frontend-e2e-tests_09",
         "mode": "brown",
         "source": "proposal"
