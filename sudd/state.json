@@ -40,11 +40,6 @@
     ],
     "queue_remaining": [
       {
-        "id": "green_team-collaboration-audit_07",
-        "mode": "brown",
-        "source": "proposal"
-      },
-      {
         "id": "green_always-review-mode_08",
         "mode": "brown",
         "source": "proposal"
