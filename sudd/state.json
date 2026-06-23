@@ -1,6 +1,6 @@
 {
-  "active_change": "",
-  "architecture_reviewed": false,
+  "active_change": "green_pii-vault-ui_05",
+  "architecture_reviewed": true,
   "audit": {
     "changes_since_last_audit": 5,
     "last_audit_at": "2026-04-15T16:58:40+02:00"
@@ -26,11 +26,6 @@
     ],
     "queue_remaining": [
       {
-        "id": "green_pii-vault-ui_05",
-        "mode": "brown",
-        "source": "proposal"
-      },
-      {
         "id": "green_team-collaboration-basic_06",
         "mode": "brown",
         "source": "proposal"
@@ -53,19 +48,19 @@
     ]
   },
   "autonomy": "full",
-  "design_gate_passed": false,
-  "design_gate_score": null,
+  "design_gate_passed": true,
+  "design_gate_score": 71,
   "discovery": {
     "changes_since_last": 15
   },
   "gate_passed": false,
   "gate_score": null,
   "imported_from": null,
-  "last_command": "sudd:auto",
-  "last_run": "2026-06-11T09:47:25Z",
+  "last_command": "sudd:run",
+  "last_run": "2026-06-23T01:15:00Z",
   "mode": "brown",
   "personas_validated": false,
-  "phase": "inception",
+  "phase": "build",
   "retry_count": 0,
   "stats": {
     "stats_seeded": true,

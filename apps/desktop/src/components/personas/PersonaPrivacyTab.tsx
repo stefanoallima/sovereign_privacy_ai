@@ -6,7 +6,7 @@
  * sensitive user information locally.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Shield,
   Lock,
@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Info,
   CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import type { Persona } from '@/types';
 import { PIIProfileEditor } from '@/components/privacy/PIIProfileEditor';
@@ -59,6 +60,10 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
   showPIIVault,
 }) => {
   const currentBackend = persona.preferred_backend || 'nebius';
+  const [showCybersecurityWarning, setShowCybersecurityWarning] = useState(false);
+  const isCybersecurityAdvisor = persona.id === 'cybersecurity-advisor';
+  const isRealEstateOrImmigration = persona.id === 'real-estate-advisor' || persona.id === 'immigration-visa-advisor';
+  const isPersonalBrandingOrSocial = persona.id === 'personal-branding-coach' || persona.id === 'social-media-strategist';
 
   return (
     <div className="space-y-6">
@@ -82,16 +87,23 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
               green: 'border-[hsl(var(--status-safe-border))] bg-[hsl(var(--status-safe-bg))]',
             };
 
+            const handleBackendChange = () => {
+              if (isCybersecurityAdvisor && (mode.id === 'nebius' || mode.id === 'hybrid')) {
+                setShowCybersecurityWarning(true);
+              } else {
+                onChange({
+                  preferred_backend: mode.id as 'nebius' | 'ollama' | 'hybrid',
+                  // Auto-enable anonymizer for hybrid/ollama
+                  enable_local_anonymizer: mode.id !== 'nebius',
+                });
+                setShowCybersecurityWarning(false);
+              }
+            };
+
             return (
               <button
                 key={mode.id}
-                onClick={() => {
-                  onChange({
-                    preferred_backend: mode.id as 'nebius' | 'ollama' | 'hybrid',
-                    // Auto-enable anonymizer for hybrid/ollama
-                    enable_local_anonymizer: mode.id !== 'nebius',
-                  });
-                }}
+                onClick={handleBackendChange}
                 className={`flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all ${
                   isSelected
                     ? colorClasses[mode.color]
@@ -150,6 +162,48 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
         </div>
       </section>
 
+      {/* Cybersecurity Advisor Override Warning */}
+      {showCybersecurityWarning && isCybersecurityAdvisor && (
+        <section className="p-4 bg-amber-500/10 border-2 border-amber-500/30 rounded-xl space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={18} className="text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <h4 className="font-semibold text-sm text-amber-600">Privacy Concern</h4>
+              <p className="text-sm text-amber-600/90 mt-1">
+                This persona is designed for local-only inference. Cloud processing may compromise privacy benefits.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                onChange({
+                  preferred_backend: 'ollama',
+                  enable_local_anonymizer: false,
+                });
+                setShowCybersecurityWarning(false);
+              }}
+              className="flex-1 px-3 py-2 text-sm font-medium rounded-lg border border-amber-500/30 text-amber-600 hover:bg-amber-500/10 transition-colors"
+            >
+              Keep Local-Only
+            </button>
+            <button
+              onClick={() => {
+                const targetMode = showCybersecurityWarning ? 'nebius' : currentBackend;
+                onChange({
+                  preferred_backend: targetMode as 'nebius' | 'ollama' | 'hybrid',
+                  enable_local_anonymizer: targetMode !== 'nebius',
+                });
+                setShowCybersecurityWarning(false);
+              }}
+              className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+            >
+              Override & Proceed
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Anonymization Settings - shown for hybrid mode */}
       {currentBackend === 'hybrid' && (
         <section className="space-y-4 p-4 bg-[hsl(var(--secondary)/0.2)] rounded-xl border border-[hsl(var(--border))]">
@@ -159,37 +213,54 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
           </h4>
 
           <div className="space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="anonymization_mode"
-                checked={persona.anonymization_mode === 'optional'}
-                onChange={() => onChange({ anonymization_mode: 'optional' })}
-                className="mt-1"
-              />
-              <div>
-                <span className="font-medium text-sm">Optional</span>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                  Anonymize if possible, continue without if it fails
+            {/* For personas with required anonymization, disable the optional choice */}
+            {isRealEstateOrImmigration ? (
+              <div className="p-3 bg-[hsl(var(--primary)/0.05)] rounded-lg border border-[hsl(var(--primary)/0.2)]">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[hsl(var(--primary))]" />
+                  <span className="text-sm font-medium text-[hsl(var(--primary))]">
+                    Anonymization Required
+                  </span>
+                </div>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1.5">
+                  Financial/personal data will be redacted before cloud processing. This is mandatory for this persona.
                 </p>
               </div>
-            </label>
+            ) : (
+              <>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="anonymization_mode"
+                    checked={persona.anonymization_mode === 'optional'}
+                    onChange={() => onChange({ anonymization_mode: 'optional' })}
+                    className="mt-1"
+                  />
+                  <div>
+                    <span className="font-medium text-sm">Optional</span>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Anonymize if possible, continue without if it fails
+                    </p>
+                  </div>
+                </label>
 
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="anonymization_mode"
-                checked={persona.anonymization_mode === 'required'}
-                onChange={() => onChange({ anonymization_mode: 'required' })}
-                className="mt-1"
-              />
-              <div>
-                <span className="font-medium text-sm">Required</span>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                  Block requests if anonymization fails (recommended for sensitive data)
-                </p>
-              </div>
-            </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="anonymization_mode"
+                    checked={persona.anonymization_mode === 'required'}
+                    onChange={() => onChange({ anonymization_mode: 'required' })}
+                    className="mt-1"
+                  />
+                  <div>
+                    <span className="font-medium text-sm">Required</span>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Block requests if anonymization fails (recommended for sensitive data)
+                    </p>
+                  </div>
+                </label>
+              </>
+            )}
           </div>
         </section>
       )}
@@ -203,7 +274,13 @@ export const PersonaPrivacyTab: React.FC<PersonaPrivacyTabProps> = ({
               Privacy Shield Active
             </p>
             <p className="text-[hsl(var(--status-safe))] mt-1">
-              {currentBackend === 'ollama'
+              {isCybersecurityAdvisor && currentBackend === 'ollama'
+                ? 'Local-only inference. All cybersecurity data processing happens on your device. No data leaves your computer.'
+                : isRealEstateOrImmigration && currentBackend === 'hybrid'
+                ? 'Financial and personal data is anonymized before cloud processing. Property prices, mortgage terms, passport details never leave your device.'
+                : isPersonalBrandingOrSocial && currentBackend === 'hybrid'
+                ? 'Personal information is anonymized before cloud processing to protect your identity and professional data.'
+                : currentBackend === 'ollama'
                 ? 'All processing happens on your device. No data leaves your computer.'
                 : currentBackend === 'hybrid'
                 ? 'Personal information is anonymized locally before sending to cloud. Your BSN, exact income, and address never leave your device.'

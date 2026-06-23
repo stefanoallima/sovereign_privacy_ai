@@ -1,0 +1,138 @@
+================================================================================
+BATCH 2 PERSONAS - QUICK REFERENCE CARD
+================================================================================
+
+PERSONA 1: Personal Branding Coach 🎨
+BACKEND: Hybrid (optional anonymization)
+TEST MSG: "Help me craft my LinkedIn summary as a data engineer transitioning to PM"
+KEY CHECK: Domain-specific (not generic resume tips) | LinkedIn optimizations
+PRIVACY: Optional (minimal PII)
+
+PERSONA 2: Social Media Strategist 📱
+BACKEND: Hybrid (optional anonymization)
+TEST MSG: "I'm starting a tech blog. What should my content calendar look like?"
+KEY CHECK: Blog-specific strategy | Content pillars | Posting frequency
+PRIVACY: Optional (minimal PII)
+
+PERSONA 3: Real Estate Advisor 🏠
+BACKEND: Hybrid (required anonymization)
+TEST MSG: "I'm looking at a $500k condo with $2k HOA. Is it a good investment?"
+KEY CHECK: Framework-based | No yes/no answer | Asks clarifying questions
+PRIVACY: Required | CRITICAL: Check Network Audit for [PROPERTY_VALUE] redaction
+
+PERSONA 4: Cybersecurity Advisor 🔐
+BACKEND: Ollama (local-only, ZERO cloud calls)
+TEST MSG: "My email was in a data breach. What should I do?"
+KEY CHECK: Step-by-step | Calm tone | Specific tools
+PRIVACY: N/A (local processing only)
+CRITICAL: Network Audit must show ZERO cloud API calls
+
+PERSONA 5: Immigration/Visa Advisor 🌍
+BACKEND: Hybrid (required anonymization)
+TEST MSG: "I'm a software engineer in Germany on a work visa. Can I move to the Netherlands?"
+KEY CHECK: Visa categories | Timeline | Documents | Tax implications
+PRIVACY: Required | CRITICAL: Check Network Audit for [VISA_DATE] redaction
+
+================================================================================
+WHAT TO CHECK
+================================================================================
+
+DOMAIN APPROPRIATENESS
+□ Is the response specific to the question, not generic?
+□ Does it match the persona's expertise area?
+□ Is the tone appropriate for the domain?
+
+PRIVACY VERIFICATION (Real Estate & Immigration only)
+□ Open Network Audit (F12)
+□ Look for redacted values: [PROPERTY_VALUE], [VISA_DATE], etc
+□ Numbers should NOT appear in cloud message
+
+BACKEND VERIFICATION (Cybersecurity only)
+□ Open Network Audit (F12)
+□ Count cloud API calls: should be ZERO
+□ Response must come from local model (Ollama)
+
+================================================================================
+QUICK TEST FLOW (5 min per persona)
+================================================================================
+
+1. Select persona from dropdown
+2. Send test message
+3. Read response - does it feel domain-specific?
+4. Open Network Audit (F12)
+5. For Cybersecurity: verify zero cloud calls
+6. For others: check if financial/visa data redacted
+7. Mark PASS or FAIL
+
+================================================================================
+IF STUCK
+================================================================================
+
+Response is generic?
+  → Try follow-up question
+  → Check if persona system prompt loaded
+  → Report as FAIL with notes
+
+Numbers visible in Network Audit?
+  → Anonymization may not be working
+  → Restart app and try again
+  → Report with screenshot
+
+No cloud calls at all (except Cybersecurity)?
+  → Check Network Audit actually loading
+  → Refresh tab with F5
+  → May be cached response
+
+================================================================================
+PASS CRITERIA
+================================================================================
+
+PERSONAL BRANDING COACH:     Domain-specific + Professional tone → PASS
+SOCIAL MEDIA STRATEGIST:     Blog-specific strategy + Concrete cadence → PASS
+REAL ESTATE ADVISOR:         Framework + Redaction visible → PASS
+CYBERSECURITY ADVISOR:       Step-by-step + Zero cloud calls → PASS
+IMMIGRATION/VISA ADVISOR:    Visa categories + Redaction visible → PASS
+
+ANY CHECKBOX UNCHECKED? → Retest or mark FAIL with notes
+
+================================================================================
+TESTER NAMES
+================================================================================
+
+Margot:    Product lead - focus on domain appropriateness
+David:     QA lead - focus on privacy redaction and backend verification
+Aisha:     UX lead - focus on tone and user clarity
+
+================================================================================
+FILES
+================================================================================
+
+Unit Tests:        apps/desktop/src/__tests__/stores/personas.test.ts
+Manual Guide:      BATCH2_GOLDEN_PATH_TEST_GUIDE.md (this project root)
+Implementation:    T06_IMPLEMENTATION_SUMMARY.md (this project root)
+Quick Reference:   BATCH2_QUICK_REFERENCE.txt (this file)
+
+================================================================================
+BUILD COMMAND
+================================================================================
+
+cd apps/desktop
+pnpm install
+pnpm tauri build
+
+Output: C:\tmp\tb\release\bundle\nsis\AILocalMind_*.exe
+
+================================================================================
+REPORT RESULTS
+================================================================================
+
+[ ] Test 1 - Personal Branding Coach:    PASS / FAIL
+[ ] Test 2 - Social Media Strategist:     PASS / FAIL
+[ ] Test 3 - Real Estate Advisor:         PASS / FAIL
+[ ] Test 4 - Cybersecurity Advisor:       PASS / FAIL
+[ ] Test 5 - Immigration/Visa Advisor:    PASS / FAIL
+
+Overall: All PASS? → Ready to release
+Any FAIL? → Document issue + escalate
+
+================================================================================
