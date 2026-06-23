@@ -1,9 +1,9 @@
-<!-- refreshed-at: 2026-06-23T00:19:46Z -->
+<!-- refreshed-at: 2026-06-23T01:27:43Z -->
 # Current State
 
 ## TL;DR
 
-9 active, 0 stuck, 1 dirty, 0 inbox, 8 queued · refreshed 2026-06-23T00:19:46Z
+8 active, 1 stuck, 1 dirty, 0 inbox, 4 queued · refreshed 2026-06-23T01:27:43Z
 
 _State snapshot refreshed without TL;DR synthesis. Run `sudd state --refresh` for an LLM-assisted summary._
 
@@ -16,16 +16,15 @@ _State snapshot refreshed without TL;DR synthesis. Run `sudd state --refresh` fo
 - [`green_incognito-mode_04`](changes/active/green_incognito-mode_04/) — green_incognito-mode_04
 - [`green_pii-vault-ui_05`](changes/active/green_pii-vault-ui_05/) — green_pii-vault-ui_05
 - [`green_team-collaboration-audit_07`](changes/active/green_team-collaboration-audit_07/) — green_team-collaboration-audit_07
-- [`green_team-collaboration-basic_06`](changes/active/green_team-collaboration-basic_06/) — green_team-collaboration-basic_06
 - [`green_telemetry-off-mode_03`](changes/active/green_telemetry-off-mode_03/) — green_telemetry-off-mode_03
 
 ## Stuck
 
-_none_
+- [`green_team-collaboration-basic_06`](changes/stuck/green_team-collaboration-basic_06/) — (no reason recorded)
 
 ## Dirty (shipped, needs cleanup)
 
-- [`green_add-personas-batch2_02`](changes/dirty/green_add-personas-batch2_02/) — see FOLLOWUP.md
+- [`green_add-personas-batch2_02`](changes/dirty/green_add-personas-batch2_02/) — Code shipped at 2026-06-23T00:19:46Z; pre-archive hygiene check failed. The change landed in `sudd/changes/dirty/` instead of `sudd/changes/archive/` because the subprocess committed code AND recorded its lesson, but one or more cosmetic checks flagged the archive artifacts. Fix the issues listed below, then manually move the directory to `sudd/changes/archive/green_add-personas-batch2_02_DONE/`.
 
 ## Just Shipped (last 10)
 
@@ -46,10 +45,6 @@ _none_
 
 ## Next up
 
-- `green_add-personas-batch2_02` (mode: brown, source: proposal)
-- `green_telemetry-off-mode_03` (mode: brown, source: proposal)
-- `green_incognito-mode_04` (mode: brown, source: proposal)
-- `green_pii-vault-ui_05` (mode: brown, source: proposal)
 - `green_team-collaboration-basic_06` (mode: brown, source: proposal)
 - `green_team-collaboration-audit_07` (mode: brown, source: proposal)
 - `green_always-review-mode_08` (mode: brown, source: proposal)
@@ -63,5 +58,5 @@ _unavailable — no trajectory generator supplied._ [ON-PATH]
 
 - Last audit health: _unknown_
 - Last audit at: 2026-04-15T14:58:40Z
-- State doc refreshed: 2026-06-23T00:19:46Z
+- State doc refreshed: 2026-06-23T01:27:43Z
 
