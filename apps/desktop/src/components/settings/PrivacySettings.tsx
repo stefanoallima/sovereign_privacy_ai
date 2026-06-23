@@ -3,6 +3,7 @@ import { useSettingsStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
+import { VaultBrowser } from "./VaultBrowser";
 
 interface GlinerModelInfo {
   id: string;
@@ -461,6 +462,27 @@ export function PrivacySettings() {
         </div>
       </div>
 
+      {/* PII Vault Browser Section */}
+      <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
+        <div className="p-4 bg-[hsl(var(--muted)/0.3)]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[hsl(var(--violet)/0.15)] text-[hsl(var(--violet))]">
+              <VaultIconSettings />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">Stored PII Entries</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Manage sensitive data automatically substituted in cloud sends
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-[hsl(var(--border)/0.5)]">
+          <VaultBrowser />
+        </div>
+      </div>
+
       {/* Default Privacy Mode Section */}
       <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
         <div className="p-4 bg-[hsl(var(--muted)/0.3)]">
@@ -706,6 +728,24 @@ function FolderIcon() {
       strokeLinejoin="round"
     >
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function VaultIconSettings() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
   );
 }
