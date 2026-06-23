@@ -159,6 +159,22 @@ export function ContextPanel() {
                                   <span className={`font-medium text-sm ${persona.id === selectedPersonaId ? "" : "text-[hsl(var(--foreground))]"}`}>
                                     {persona.name}
                                   </span>
+                                  {/* Privacy badges for Batch 2 personas */}
+                                  {persona.id === 'cybersecurity-advisor' && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-green-500/10 text-green-600 font-medium shrink-0">
+                                      🔐
+                                    </span>
+                                  )}
+                                  {(persona.id === 'real-estate-advisor' || persona.id === 'immigration-visa-advisor') && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 font-medium shrink-0">
+                                      🛡️
+                                    </span>
+                                  )}
+                                  {(persona.id === 'personal-branding-coach' || persona.id === 'social-media-strategist') && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 font-medium shrink-0">
+                                      ⚠️
+                                    </span>
+                                  )}
                                   {persona.requiresPIIVault && (
                                     <Shield size={12} className="text-green-600 shrink-0" />
                                   )}

@@ -4,8 +4,8 @@
  * Basic settings: name, description, icon, system prompt, voice, model
  */
 
-import React from 'react';
-import { User, MessageSquare, Mic, Brain, Thermometer, Hash } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, MessageSquare, Mic, Brain, Thermometer, Hash, Info } from 'lucide-react';
 import { useSettingsStore } from '@/stores';
 import type { Persona } from '@/types';
 
@@ -24,9 +24,81 @@ export const PersonaGeneralTab: React.FC<PersonaGeneralTabProps> = ({
   isBuiltIn,
 }) => {
   const { models } = useSettingsStore();
+  const [showPrivacyTooltip, setShowPrivacyTooltip] = useState(false);
+
+  // Determine privacy info for this persona
+  const getPrivacyInfo = () => {
+    switch (persona.id) {
+      case 'cybersecurity-advisor':
+        return {
+          badge: '🔐',
+          title: 'Local-Only Inference',
+          description: 'This persona runs exclusively on your device for maximum security and privacy.',
+        };
+      case 'real-estate-advisor':
+        return {
+          badge: '🛡️',
+          title: 'Required Anonymization',
+          description: 'Financial data and property information is anonymized before cloud processing.',
+        };
+      case 'immigration-visa-advisor':
+        return {
+          badge: '🛡️',
+          title: 'Required Anonymization',
+          description: 'Personal identity and visa information is anonymized before cloud processing.',
+        };
+      case 'personal-branding-coach':
+        return {
+          badge: '⚠️',
+          title: 'Optional Anonymization',
+          description: 'You can choose to anonymize personal brand information before cloud processing.',
+        };
+      case 'social-media-strategist':
+        return {
+          badge: '⚠️',
+          title: 'Optional Anonymization',
+          description: 'You can choose to anonymize social media strategy details before cloud processing.',
+        };
+      default:
+        return null;
+    }
+  };
+
+  const privacyInfo = getPrivacyInfo();
 
   return (
     <div className="space-y-6">
+      {/* Privacy Info Badge for Batch 2 Personas */}
+      {privacyInfo && (
+        <section className="p-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.2)]">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">{privacyInfo.badge}</span>
+            <div className="flex-1 relative">
+              <div className="flex items-center gap-2">
+                <h4 className="font-semibold text-sm text-[hsl(var(--foreground))]">
+                  {privacyInfo.title}
+                </h4>
+                <button
+                  onMouseEnter={() => setShowPrivacyTooltip(true)}
+                  onMouseLeave={() => setShowPrivacyTooltip(false)}
+                  className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                >
+                  <Info size={14} />
+                </button>
+              </div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                {privacyInfo.description}
+              </p>
+              {showPrivacyTooltip && (
+                <div className="absolute top-full left-0 mt-2 p-2 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg shadow-lg text-xs text-[hsl(var(--muted-foreground))] z-10 max-w-xs">
+                  {privacyInfo.description}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Identity Section */}
       <section className="space-y-4">
         <h3 className="text-sm font-semibold text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-2">
