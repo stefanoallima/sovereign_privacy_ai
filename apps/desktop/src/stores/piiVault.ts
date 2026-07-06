@@ -7,7 +7,10 @@ interface PiiVaultStore {
   addEntry: (text: string, category: string) => PiiVaultEntry;
   removeEntry: (id: string) => void;
   incrementUseCount: (id: string) => void;
+  updateEntry: (id: string, text: string, category: string) => boolean;
   hasEntry: (text: string) => boolean;
+  exportEntries: () => PiiVaultEntry[];
+  importEntries: (entries: PiiVaultEntry[]) => { imported: number; skipped: number };
   clear: () => void;
 }
 
@@ -53,8 +56,65 @@ export const usePiiVaultStore = create<PiiVaultStore>()(
           ),
         })),
 
+      updateEntry: (id, text, category) => {
+        const entry = get().entries.find((e) => e.id === id);
+        if (!entry) return false;
+
+        // Generate new placeholder for the new category (if category changed)
+        const placeholder =
+          category !== entry.category ? makePlaceholder(category) : entry.placeholder;
+
+        set((state) => ({
+          entries: state.entries.map((e) =>
+            e.id === id ? { ...e, text, category, placeholder } : e
+          ),
+        }));
+        return true;
+      },
+
       hasEntry: (text) =>
         get().entries.some((e) => e.text.toLowerCase() === text.toLowerCase()),
+
+      exportEntries: () => [...get().entries],
+
+      importEntries: (entries) => {
+        let imported = 0;
+        let skipped = 0;
+
+        const entriesToAdd: PiiVaultEntry[] = [];
+        const existingIds = new Set(get().entries.map((e) => e.id));
+
+        for (const entry of entries) {
+          // Validate entry structure
+          if (
+            !entry.id ||
+            !entry.text ||
+            !entry.category ||
+            entry.useCount === undefined ||
+            !entry.confirmedAt
+          ) {
+            skipped++;
+            continue;
+          }
+
+          // Skip if ID already exists (no overwrites)
+          if (existingIds.has(entry.id)) {
+            skipped++;
+            continue;
+          }
+
+          entriesToAdd.push(entry);
+          imported++;
+          existingIds.add(entry.id);
+        }
+
+        // Add all validated entries at once
+        if (entriesToAdd.length > 0) {
+          set((state) => ({ entries: [...state.entries, ...entriesToAdd] }));
+        }
+
+        return { imported, skipped };
+      },
 
       clear: () => set({ entries: [] }),
     }),

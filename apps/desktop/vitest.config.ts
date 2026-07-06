@@ -1,0 +1,24 @@
+import { defineConfig } from "vitest/config";
+import path from "node:path";
+
+export default defineConfig({
+  test: {
+    environment: "node",
+    globals: false,
+    include: [
+      "src/**/*.test.ts",
+      "src/**/*.test.tsx",
+      "test-helpers/**/*.test.ts",
+    ],
+    // Recovered main-line React component tests (src/**/__tests__/*.test.tsx, e.g.
+    // VaultBrowser) need a DOM environment + @testing-library, which are not wired
+    // up yet — exclude them from this node-env run until that harness lands (follow-up).
+    exclude: ["node_modules/**", "src/**/__tests__/**"],
+    setupFiles: ["./test-helpers/setup.ts"],
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+});

@@ -1,24 +1,30 @@
-<!-- refreshed-at: 2026-06-11T09:47:25Z -->
+<!-- refreshed-at: 2026-06-23T06:43:02Z -->
 # Current State
 
 ## TL;DR
 
-2 active, 0 stuck, 0 dirty, 0 inbox, 0 queued · refreshed 2026-06-11T09:47:25Z
+7 active, 2 stuck, 1 dirty, 0 inbox, 1 queued · refreshed 2026-06-23T06:43:02Z
 
-The active queue is clean: the five formed AILocalMind changes that had been sitting as "shipped — archive later" debt (form-fill, gemma4-orchestration, local-rag, perf-privacy-opt, pii-pipeline-v2) were verified against live code and archived DONE this session. The only remaining `active/` entry is an empty `brown_night-queue_01` stub (no proposal/specs/design/tasks). Nothing is stuck, queued, or in the inbox — there is no pending build work; intake is the bottleneck, not throughput.
+_State snapshot refreshed without TL;DR synthesis. Run `sudd state --refresh` for an LLM-assisted summary._
 
 ## Active
 
-- [`brown_night-queue_01`](changes/active/brown_night-queue_01/) — brown_night-queue_01
-- [`green_redaction-completeness_01`](changes/active/green_redaction-completeness_01/) — green_redaction-completeness_01
+- [`brown_normattiva-phase0-hardening_01`](changes/active/brown_normattiva-phase0-hardening_01/) — brown_normattiva-phase0-hardening_01
+- [`green_add-personas-batch1_01`](changes/active/green_add-personas-batch1_01/) — green_add-personas-batch1_01
+- [`green_always-review-mode_08`](changes/active/green_always-review-mode_08/) — green_always-review-mode_08
+- [`green_incognito-mode_04`](changes/active/green_incognito-mode_04/) — green_incognito-mode_04
+- [`green_pii-vault-ui_05`](changes/active/green_pii-vault-ui_05/) — green_pii-vault-ui_05
+- [`green_team-collaboration-audit_07`](changes/active/green_team-collaboration-audit_07/) — green_team-collaboration-audit_07
+- [`green_telemetry-off-mode_03`](changes/active/green_telemetry-off-mode_03/) — green_telemetry-off-mode_03
 
 ## Stuck
 
-_none_
+- [`green_frontend-e2e-tests_09`](changes/stuck/green_frontend-e2e-tests_09/) — (no reason recorded)
+- [`green_team-collaboration-basic_06`](changes/stuck/green_team-collaboration-basic_06/) — - **Timestamp**: 2026-06-23T01:27:43Z
 
 ## Dirty (shipped, needs cleanup)
 
-_none_
+- [`green_add-personas-batch2_02`](changes/dirty/green_add-personas-batch2_02/) — Code shipped at 2026-06-23T00:19:46Z; pre-archive hygiene check failed. The change landed in `sudd/changes/dirty/` instead of `sudd/changes/archive/` because the subprocess committed code AND recorded its lesson, but one or more cosmetic checks flagged the archive artifacts. Fix the issues listed below, then manually move the directory to `sudd/changes/archive/green_add-personas-batch2_02_DONE/`.
 
 ## Just Shipped (last 10)
 
@@ -39,15 +45,15 @@ _none_
 
 ## Next up
 
-_none_
+- `green_frontend-e2e-tests_09` (mode: brown, source: proposal)
 
 ## Trajectory vs Vision
 
-Note: `sudd/vision.md` currently describes the **SUDD framework itself**, not this repo's actual product (**AILocalMind** — a privacy-first Tauri/React/Rust desktop AI assistant). The vision doc is stale/mismatched and should be re-pointed at AILocalMind before the next planning cycle. Judged against the *real* product, recent trajectory is strongly coherent: a sustained push on the privacy-first core — local RAG, local embeddings/memory (killing the mem0 cloud dependency), full-pipeline PII anonymization, security hardening, plus capability (Gemma 4 128k, form-fill, dynamic GPU). Every shipped change reinforces "PII never leaves the machine." The main gaps are process, not direction: the mismatched vision.md and an empty `brown_night-queue_01` stub. [MOUNTAIN]
+_unavailable — no trajectory generator supplied._ [ON-PATH]
 
 ## Health
 
 - Last audit health: _unknown_
 - Last audit at: 2026-04-15T14:58:40Z
-- State doc refreshed: 2026-06-11T09:47:25Z
+- State doc refreshed: 2026-06-23T06:43:02Z
 

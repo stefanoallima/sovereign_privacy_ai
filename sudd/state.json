@@ -2,15 +2,59 @@
   "active_change": "",
   "architecture_reviewed": false,
   "audit": {
-    "changes_since_last_audit": 4,
+    "changes_since_last_audit": 7,
     "last_audit_at": "2026-04-15T16:58:40+02:00"
   },
-  "auto_session": null,
+  "auto_session": {
+    "started_at": "2026-06-22T23:39:48+02:00",
+    "stop_reason": "",
+    "changes_processed": [
+      {
+        "change_id": "green_add-personas-batch2_02",
+        "outcome": "DONE_DIRTY",
+        "elapsed_seconds": 4522.7113496,
+        "tasks_completed": 0,
+        "tasks_total": 54,
+        "exit_code": 0,
+        "timeout_reason": "pre_archive_check_failed:LessonRecorded",
+        "check_failures": [
+          "LessonRecorded: no canonical '### [DONE|STUCK|FAILURE] green_add-personas-batch2_02' or '## Lesson: green_add-personas-batch2_02' heading with ≥ 3 body lines in sudd/memory/lessons.md",
+          "SummaryHasCanonicalHeadings: archive/green_add-personas-batch2_02_DONE/SUMMARY.md missing canonical headings: ## What Changed, ## Why, ## Validation, ## Lessons"
+        ],
+        "merged_sha": "0e66bba0c565fb0cc6a63559ee2004e01b07b9d7"
+      },
+      {
+        "change_id": "green_team-collaboration-basic_06",
+        "outcome": "STUCK",
+        "elapsed_seconds": 834.0618615,
+        "tasks_completed": 0,
+        "tasks_total": 287,
+        "exit_code": 0,
+        "timeout_reason": "pre_archive_check_failed:LessonRecorded",
+        "check_failures": [
+          "LessonRecorded: no canonical '### [DONE|STUCK|FAILURE] green_team-collaboration-basic_06' or '## Lesson: green_team-collaboration-basic_06' heading with ≥ 3 body lines in sudd/memory/lessons.md",
+          "TasksAllChecked: tasks.md has unchecked '- [ ]' boxes (or is missing)",
+          "SummaryHasCanonicalHeadings: archive/green_team-collaboration-basic_06_DONE/SUMMARY.md missing canonical headings: ## What Changed, ## Why, ## Validation, ## Lessons"
+        ]
+      },
+      {
+        "change_id": "green_frontend-e2e-tests_09",
+        "outcome": "STUCK",
+        "elapsed_seconds": 17454.757405,
+        "tasks_completed": 8,
+        "tasks_total": 91,
+        "exit_code": -1,
+        "timeout_reason": "budget_exceeded",
+        "merged_sha": "5fadaeb3eeca8bf7fde890151d8e6d309d6db558"
+      }
+    ],
+    "queue_remaining": []
+  },
   "autonomy": "full",
   "design_gate_passed": false,
   "design_gate_score": null,
   "discovery": {
-    "changes_since_last": 14
+    "changes_since_last": 17
   },
   "gate_passed": false,
   "gate_score": null,
@@ -24,12 +68,13 @@
   "stats": {
     "stats_seeded": true,
     "tasks_blocked": 0,
-    "tasks_completed": 4,
-    "tasks_stuck": 0,
+    "tasks_completed": 5,
+    "tasks_stuck": 2,
+    "total_done_dirty": 1,
     "total_retries": 0
   },
   "task_retries": {},
   "tests_passed": false,
   "version": "1.0",
-  "vision_last_processed_at": "2026-06-10T20:22:21Z"
+  "vision_last_processed_at": "2026-06-22T22:29:46Z"
 }

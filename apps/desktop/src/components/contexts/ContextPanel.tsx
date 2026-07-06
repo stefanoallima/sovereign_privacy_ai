@@ -21,6 +21,7 @@ import {
   Eye,
 } from "lucide-react";
 import { PIIProfileCard } from "@/components/profile/PIIProfileCard";
+import type { Persona } from "@/types";
 
 export function ContextPanel() {
   const [isOpen, setIsOpen] = useState(true);
@@ -121,47 +122,83 @@ export function ContextPanel() {
           <>
             {/* Persona Selection - Collapsible */}
             <CollapsibleSection title="Persona" icon={<Users className="h-3.5 w-3.5" />} defaultOpen dataTour="persona-selector">
-              <div className="space-y-1.5">
-                {personas.map((persona) => (
-                  <div
-                    key={persona.id}
-                    className={`group relative w-full text-left transition-all duration-200 ${persona.id === selectedPersonaId
-                      ? "flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[hsl(var(--primary)/0.1)] border border-[hsl(var(--primary)/0.25)] cursor-pointer transition-all"
-                      : "flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[hsl(var(--accent))] transition-colors cursor-pointer"
-                      }`}
-                  >
-                    <button
-                      onClick={() => selectPersona(persona.id)}
-                      className="w-full text-left"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl group-hover:scale-110 transition-transform duration-200">{persona.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-medium text-sm ${persona.id === selectedPersonaId ? "" : "text-[hsl(var(--foreground))]"}`}>
-                              {persona.name}
-                            </span>
-                            {persona.requiresPIIVault && (
-                              <Shield size={12} className="text-green-600 shrink-0" />
-                            )}
-                          </div>
-                          <div className={`text-xs truncate mt-0.5 ${persona.id === selectedPersonaId ? "opacity-80" : "text-[hsl(var(--muted-foreground))]"}`}>
-                            {persona.description}
-                          </div>
+              <div className="space-y-4">
+                {/* Group personas by category */}
+                {groupPersonasByCategory(personas).map((group) => (
+                  <div key={group.category} className="space-y-1.5">
+                    {/* Group Header */}
+                    <div className="px-3 py-1.5">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-widest text-[hsl(var(--foreground-subtle))]">
+                        {group.category}
+                      </h3>
+                      {group.subcategory && (
+                        <p className="text-[9px] text-[hsl(var(--muted-foreground)/0.7)] mt-0.5 italic">
+                          {group.subcategory}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Personas in group */}
+                    <div className="space-y-1">
+                      {group.personas.map((persona) => (
+                        <div
+                          key={persona.id}
+                          className={`group relative w-full text-left transition-all duration-200 ${persona.id === selectedPersonaId
+                            ? "flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[hsl(var(--primary)/0.1)] border border-[hsl(var(--primary)/0.25)] cursor-pointer transition-all"
+                            : "flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[hsl(var(--accent))] transition-colors cursor-pointer"
+                            }`}
+                        >
+                          <button
+                            onClick={() => selectPersona(persona.id)}
+                            className="w-full text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-xl group-hover:scale-110 transition-transform duration-200">{persona.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-medium text-sm ${persona.id === selectedPersonaId ? "" : "text-[hsl(var(--foreground))]"}`}>
+                                    {persona.name}
+                                  </span>
+                                  {/* Privacy badges for Batch 2 personas */}
+                                  {persona.id === 'cybersecurity-advisor' && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-green-500/10 text-green-600 font-medium shrink-0">
+                                      🔐
+                                    </span>
+                                  )}
+                                  {(persona.id === 'real-estate-advisor' || persona.id === 'immigration-visa-advisor') && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 font-medium shrink-0">
+                                      🛡️
+                                    </span>
+                                  )}
+                                  {(persona.id === 'personal-branding-coach' || persona.id === 'social-media-strategist') && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 font-medium shrink-0">
+                                      ⚠️
+                                    </span>
+                                  )}
+                                  {persona.requiresPIIVault && (
+                                    <Shield size={12} className="text-green-600 shrink-0" />
+                                  )}
+                                </div>
+                                <div className={`text-xs truncate mt-0.5 ${persona.id === selectedPersonaId ? "opacity-80" : "text-[hsl(var(--muted-foreground))]"}`}>
+                                  {persona.description}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                          {/* Settings button - appears on hover */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfigPersonaId(persona.id);
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[hsl(var(--background)/0.5)] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all"
+                            title="Configure persona"
+                          >
+                            <Settings size={14} />
+                          </button>
                         </div>
-                      </div>
-                    </button>
-                    {/* Settings button - appears on hover */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfigPersonaId(persona.id);
-                      }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[hsl(var(--background)/0.5)] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all"
-                      title="Configure persona"
-                    >
-                      <Settings size={14} />
-                    </button>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -380,4 +417,62 @@ function CollapsibleSection({
       )}
     </div>
   );
+}
+
+// Helper function to group personas by category
+function groupPersonasByCategory(personas: Persona[]) {
+  interface PersonaGroup {
+    category: string;
+    subcategory?: string;
+    personas: Persona[];
+  }
+
+  const groups: PersonaGroup[] = [];
+
+  // Define built-in persona IDs by category
+  const generalAdvisorIds = new Set(['psychologist', 'life-coach', 'career-coach']);
+  const specialistBatch1Ids = new Set(['tax-accountant', 'tax-audit', 'health-coach', 'legal-advisor', 'financial-advisor', 'negotiation-coach']);
+  const specialistBatch2Ids = new Set(['personal-branding-coach', 'social-media-strategist', 'real-estate-advisor', 'cybersecurity-advisor', 'immigration-visa-advisor']);
+
+  // Separate personas into categories
+  const generalAdvisors = personas.filter(p => generalAdvisorIds.has(p.id));
+  const specialistBatch1 = personas.filter(p => specialistBatch1Ids.has(p.id));
+  const specialistBatch2 = personas.filter(p => specialistBatch2Ids.has(p.id));
+  const customPersonas = personas.filter(p => !p.isBuiltIn);
+
+  // Add General Advisors group
+  if (generalAdvisors.length > 0) {
+    groups.push({
+      category: 'General Advisors',
+      personas: generalAdvisors,
+    });
+  }
+
+  // Add Specialist Advisors - Batch 1
+  if (specialistBatch1.length > 0) {
+    groups.push({
+      category: 'Specialist Advisors',
+      subcategory: 'Batch 1',
+      personas: specialistBatch1,
+    });
+  }
+
+  // Add Specialist Advisors - Batch 2
+  if (specialistBatch2.length > 0) {
+    groups.push({
+      category: 'Specialist Advisors',
+      subcategory: 'Batch 2',
+      personas: specialistBatch2,
+    });
+  }
+
+  // Add Custom Personas group
+  if (customPersonas.length > 0) {
+    groups.push({
+      category: 'Custom',
+      personas: customPersonas,
+    });
+  }
+
+  return groups;
 }
