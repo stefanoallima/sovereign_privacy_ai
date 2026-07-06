@@ -202,7 +202,7 @@ interface SettingsStore {
 
   // Selectors
   getEnabledModels: () => LLMModel[];
-  getDefaultModel: () => LLMModel | undefined;
+  getDefaultModel: (persona?: { preferred_backend?: string; preferredModelId?: string }) => LLMModel | undefined;
   getModelById: (id: string) => LLMModel | undefined;
   isAirplaneModeActive: () => boolean;
   getActivePrivacyMode: (persona?: any) => 'local' | 'hybrid' | 'cloud' | 'custom';
@@ -377,7 +377,7 @@ export const useSettingsStore = create<SettingsStore>()(
         ];
       },
 
-      getDefaultModel: () => {
+      getDefaultModel: (persona) => {
         const { settings, models, ollamaModels, normattivaModels } = get();
         if (settings.privacyMode === 'local') {
           // Return matching local model by localModeModel apiModelId
@@ -393,13 +393,24 @@ export const useSettingsStore = create<SettingsStore>()(
         }
         // cloud mode: find default, skipping normattiva if no API key
         const isNormattivaKeyEmpty = !settings.normattivaApiKey || settings.normattivaApiKey.trim() === '';
-        // When a Normattiva key is set and a Normattiva model is the canonical
-        // default, prefer it (legal-persona case: normattiva-legal-pro is the
-        // natural default). This is the B6/B10 intent — the desktop ships
-        // normattiva-legal-pro as the default for the legal-advisor-it persona.
-        if (!isNormattivaKeyEmpty) {
-          const normattivaDefault = normattivaModels.find((m) => m.isDefault);
-          if (normattivaDefault) return normattivaDefault;
+        // Prefer a Normattiva model ONLY when the ACTIVE persona routes to the
+        // Normattiva legal backend (its preferred_backend is 'normattiva', or its
+        // preferredModelId names a Normattiva model). Keying off the persona — not
+        // merely "a key exists" — stops an unrelated persona (e.g. the psychologist)
+        // from being rerouted to the legal endpoint the moment a Normattiva key is
+        // pasted (wrong tool + surprising billing). A key is still required, since
+        // the endpoint is unusable without one.
+        if (!isNormattivaKeyEmpty && persona) {
+          const personaPrefersNormattiva =
+            persona.preferred_backend === 'normattiva' ||
+            normattivaModels.some((m) => m.id === persona.preferredModelId);
+          if (personaPrefersNormattiva) {
+            const chosen =
+              normattivaModels.find((m) => m.id === persona.preferredModelId) ||
+              normattivaModels.find((m) => m.isDefault) ||
+              normattivaModels.find((m) => m.isEnabled);
+            if (chosen) return chosen;
+          }
         }
         const allModels = [
           ...models,

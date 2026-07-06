@@ -70,28 +70,52 @@ describe("settings store — getDefaultModel with normattiva", () => {
     useSettingsStore.getState().resetToDefaults();
   });
 
-  it("returns a non-normattiva model when normattivaApiKey is empty and normattiva-legal-pro is marked as default", () => {
+  // A persona that routes to the Normattiva legal backend (built-in legal-advisor-it).
+  const LEGAL_PERSONA = {
+    preferred_backend: "normattiva" as const,
+    preferredModelId: "normattiva-legal-pro",
+  };
+  // A normal cloud persona that has nothing to do with the legal backend.
+  const GENERIC_PERSONA = {
+    preferred_backend: "hybrid" as const,
+    preferredModelId: "qwen3-32b-fast",
+  };
+
+  it("returns a non-normattiva model when normattivaApiKey is empty", () => {
     const store = useSettingsStore.getState();
-    // Ensure we're in cloud mode
-    store.updateSettings({ privacyMode: "cloud" });
-    // Ensure normattivaApiKey is empty
-    store.updateSettings({ normattivaApiKey: "" });
-    // Get the default model
-    const defaultModel = store.getDefaultModel();
-    // Should not return a normattiva model when key is empty
-    expect(defaultModel?.provider).not.toBe("normattiva");
+    store.updateSettings({ privacyMode: "cloud", normattivaApiKey: "" });
+    expect(store.getDefaultModel()?.provider).not.toBe("normattiva");
   });
 
-  it("returns normattiva-legal-pro when normattivaApiKey is set and it is marked as default", () => {
+  it("does NOT hijack to normattiva when a key is set but no persona is provided", () => {
     const store = useSettingsStore.getState();
-    // Ensure we're in cloud mode
     store.updateSettings({ privacyMode: "cloud" });
-    // Set normattivaApiKey
     store.setNormattivaApiKey("sk-test-1234");
-    // Get the default model
-    const defaultModel = store.getDefaultModel();
-    // Should return normattiva model when key is set
-    expect(defaultModel?.id).toBe("normattiva-legal-pro");
-    expect(defaultModel?.provider).toBe("normattiva");
+    // No active persona → the generic cloud default, never the legal model.
+    expect(store.getDefaultModel()?.provider).not.toBe("normattiva");
+  });
+
+  it("returns a non-normattiva default for a generic cloud persona even when a normattiva key is set", () => {
+    const store = useSettingsStore.getState();
+    store.updateSettings({ privacyMode: "cloud" });
+    store.setNormattivaApiKey("sk-test-1234");
+    // Setting a Normattiva key must not reroute unrelated personas to the legal endpoint.
+    expect(store.getDefaultModel(GENERIC_PERSONA)?.provider).not.toBe("normattiva");
+  });
+
+  it("returns normattiva-legal-pro when the active persona prefers the normattiva backend and a key is set", () => {
+    const store = useSettingsStore.getState();
+    store.updateSettings({ privacyMode: "cloud" });
+    store.setNormattivaApiKey("sk-test-1234");
+    const m = store.getDefaultModel(LEGAL_PERSONA);
+    expect(m?.id).toBe("normattiva-legal-pro");
+    expect(m?.provider).toBe("normattiva");
+  });
+
+  it("returns a non-normattiva model for the legal persona when the normattiva key is empty", () => {
+    const store = useSettingsStore.getState();
+    store.updateSettings({ privacyMode: "cloud", normattivaApiKey: "" });
+    // Can't use the legal endpoint without a key → fall back to a usable model.
+    expect(store.getDefaultModel(LEGAL_PERSONA)?.provider).not.toBe("normattiva");
   });
 });
