@@ -41,6 +41,22 @@ export async function redactForCloud(text: string): Promise<CloudRedaction> {
   );
   let out = text;
 
+  // 1a. Seed the ONE registry from the PII Vault, so user-saved PII is redacted in
+  //     EVERY cloud path (direct sends + summaries + hybrid) — not only the hybrid
+  //     path that applies the vault manually. Mirrors how GLiNER feeds the registry
+  //     below; ensureRedactTerm dedupes so the same value keeps one stable token.
+  try {
+    const { usePiiVaultStore } = await import("@/stores/piiVault");
+    const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
+    for (const entry of usePiiVaultStore.getState().entries) {
+      if (entry.text && entry.text.trim().length >= 2) {
+        ensureRedactTerm(entry.category, entry.text);
+      }
+    }
+  } catch {
+    // Vault unavailable — non-fatal; GLiNER + custom terms below still apply.
+  }
+
   // 1. GLiNER NER → stable registry tokens.
   if (text.length <= GLINER_MAX_CHARS) {
     try {
