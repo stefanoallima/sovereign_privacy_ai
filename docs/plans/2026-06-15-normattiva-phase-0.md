@@ -12,7 +12,7 @@
 
 **Tech Stack:** Vitest (new, for TS unit tests), Rust `cargo test` (existing), Tauri 2, React 19, Zustand 5, existing `@tauri-apps/api/core` `invoke` plumbing.
 
-**Spec:** `docs/normattiva-integration-spec.md` v2 (2026-06-15). This plan covers spec sections **B1, B2, B3, B4, B6, B7** (Phase 0). **B5 is verification only** (no chokepoint change). **B8, B9, B10 are deferred** to Phase 1+.
+**Spec:** `apps/desktop/docs/superpowers/specs/2026-06-15-normattiva-integration-spec.md` v2 (2026-06-15). This plan covers spec sections **B1, B2, B3, B4, B6, B7** (Phase 0). **B5 is verification only** (no chokepoint change). **B8, B9, B10 are deferred** to Phase 1+.
 
 **Platform coupling:** The Normattiva platform is *not yet shipping* `/v1/chat/completions` (Part D.1 of the spec). The desktop half is built and tested against a mock OpenAI-compat server, then re-validated against the real platform when it lands.
 
@@ -27,7 +27,7 @@
 
 ## Pre-flight: read the spec
 
-Before starting any task, read `docs/normattiva-integration-spec.md` v2 (committed in `c8d492bd`). The plan is a faithful expansion of the B1/B2/B3/B4/B6/B7 sections; if the spec and this plan disagree, the spec wins (open a question).
+Before starting any task, read `apps/desktop/docs/superpowers/specs/2026-06-15-normattiva-integration-spec.md` v2 (committed in `c8d492bd`). The plan is a faithful expansion of the B1/B2/B3/B4/B6/B7 sections; if the spec and this plan disagree, the spec wins (open a question).
 
 ---
 
@@ -2187,7 +2187,7 @@ git commit -m "test(e2e): redact → cloud → rehydrate end-to-end with mock no
 
 ## Self-review checklist (run before declaring done)
 
-1. **Spec coverage.** Walk each requirement in `docs/normattiva-integration-spec.md` v2:
+1. **Spec coverage.** Walk each requirement in `apps/desktop/docs/superpowers/specs/2026-06-15-normattiva-integration-spec.md` v2:
    - B1 (types) → Task 3 ✓
    - B2 (settings) → Tasks 4, 5, 6 ✓
    - B3 (client) → Tasks 7, 8, 9 ✓

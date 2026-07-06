@@ -244,13 +244,17 @@ export function ChatWindow() {
     [settings.enabledModelIds, settings.privacyMode]
   );
   const defaultModel = useMemo(
-    () => getDefaultModel(),
+    // Pass the active persona so the Normattiva legal model is only defaulted for a
+    // persona that routes to Normattiva — not for every cloud persona once a key is set.
+    () => getDefaultModel(persona ?? undefined),
     [
+      persona,
       settings.defaultModelId,
       settings.privacyMode,
       settings.localModeModel,
       settings.hybridModeModel,
       settings.cloudModeModel,
+      settings.normattivaApiKey,
     ]
   );
   const currentModel = useMemo(

@@ -104,9 +104,45 @@ const DEFAULT_MODELS: LLMModel[] = [
   },
 ];
 
+// Cloud models available on the Normattiva legal-AI platform.
+// Endpoint is configured in AppSettings; the desktop points the
+// OpenAI-compatible client at it.
+const DEFAULT_NORMATTIVA_MODELS: LLMModel[] = [
+  {
+    id: "normattiva-legal-pro",
+    provider: "normattiva",
+    apiModelId: "normattiva-legal-pro",
+    name: "Normattiva Legal Pro",
+    contextWindow: 128000,
+    speedTier: "medium",
+    intelligenceTier: "very-high",
+    // Cost is server-billed; placeholders until x_normattiva.cost_estimate_eur
+    // is wired into the model settings UI (Phase 1).
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: true,
+  },
+  {
+    id: "normattiva-legal-lite",
+    provider: "normattiva",
+    apiModelId: "normattiva-legal-lite",
+    name: "Normattiva Legal Lite",
+    contextWindow: 64000,
+    speedTier: "fast",
+    intelligenceTier: "high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+  },
+];
+
 const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiKey: "",
   nebiusApiEndpoint: "https://api.tokenfactory.nebius.com/v1",
+  normattivaApiKey: "",
+  normattivaApiEndpoint: "https://api.normattiva.ai/v1",
   mem0ApiKey: "",
   enableMemory: false,
   useLocalMemory: true,
@@ -143,10 +179,13 @@ interface SettingsStore {
   settings: AppSettings;
   models: LLMModel[];
   ollamaModels: LLMModel[];
+  normattivaModels: LLMModel[];
 
   // Actions
   updateSettings: (partial: Partial<AppSettings>) => void;
   setApiKey: (key: string) => void;
+  setNormattivaApiKey: (key: string) => void;
+  setNormattivaApiEndpoint: (endpoint: string) => void;
   setDefaultModel: (modelId: string) => void;
   toggleModel: (modelId: string) => void;
   toggleAirplaneMode: () => void;
@@ -164,7 +203,7 @@ interface SettingsStore {
 
   // Selectors
   getEnabledModels: () => LLMModel[];
-  getDefaultModel: () => LLMModel | undefined;
+  getDefaultModel: (persona?: { preferred_backend?: string; preferredModelId?: string }) => LLMModel | undefined;
   getModelById: (id: string) => LLMModel | undefined;
   isAirplaneModeActive: () => boolean;
   getActivePrivacyMode: (persona?: any) => 'local' | 'hybrid' | 'cloud' | 'custom';
@@ -179,6 +218,7 @@ export const useSettingsStore = create<SettingsStore>()(
       settings: DEFAULT_SETTINGS,
       models: DEFAULT_MODELS,
       ollamaModels: DEFAULT_OLLAMA_MODELS,
+      normattivaModels: DEFAULT_NORMATTIVA_MODELS,
 
       updateSettings: (partial) =>
         set((state) => ({
@@ -188,6 +228,16 @@ export const useSettingsStore = create<SettingsStore>()(
       setApiKey: (key) =>
         set((state) => ({
           settings: { ...state.settings, nebiusApiKey: key },
+        })),
+
+      setNormattivaApiKey: (key) =>
+        set((state) => ({
+          settings: { ...state.settings, normattivaApiKey: key },
+        })),
+
+      setNormattivaApiEndpoint: (endpoint) =>
+        set((state) => ({
+          settings: { ...state.settings, normattivaApiEndpoint: endpoint },
         })),
 
       setDefaultModel: (modelId) =>
@@ -311,20 +361,25 @@ export const useSettingsStore = create<SettingsStore>()(
           settings: DEFAULT_SETTINGS,
           models: DEFAULT_MODELS,
           ollamaModels: DEFAULT_OLLAMA_MODELS,
+          normattivaModels: DEFAULT_NORMATTIVA_MODELS,
         }),
 
       // Returns enabled models based on privacy mode
       getEnabledModels: () => {
-        const { settings, models, ollamaModels } = get();
+        const { settings, models, ollamaModels, normattivaModels } = get();
         const enabledLocal = ollamaModels.filter((m) => m.isEnabled);
         if (settings.privacyMode === 'local') {
           return enabledLocal;
         }
-        return [...models.filter((m) => m.isEnabled), ...enabledLocal];
+        return [
+          ...models.filter((m) => m.isEnabled),
+          ...normattivaModels.filter((m) => m.isEnabled),
+          ...enabledLocal,
+        ];
       },
 
-      getDefaultModel: () => {
-        const { settings, models, ollamaModels } = get();
+      getDefaultModel: (persona) => {
+        const { settings, models, ollamaModels, normattivaModels } = get();
         if (settings.privacyMode === 'local') {
           // Return matching local model by localModeModel apiModelId
           const matchingModel = ollamaModels.find(
@@ -337,10 +392,36 @@ export const useSettingsStore = create<SettingsStore>()(
             || ollamaModels.find((m) => m.id === settings.hybridModeModel)
             || models.find((m) => m.id === settings.defaultModelId);
         }
-        // cloud mode
-        return models.find((m) => m.id === settings.cloudModeModel)
-          || ollamaModels.find((m) => m.id === settings.cloudModeModel)
-          || models.find((m) => m.id === settings.defaultModelId);
+        // cloud mode: find default, skipping normattiva if no API key
+        const isNormattivaKeyEmpty = !settings.normattivaApiKey || settings.normattivaApiKey.trim() === '';
+        // Prefer a Normattiva model ONLY when the ACTIVE persona routes to the
+        // Normattiva legal backend (its preferred_backend is 'normattiva', or its
+        // preferredModelId names a Normattiva model). Keying off the persona — not
+        // merely "a key exists" — stops an unrelated persona (e.g. the psychologist)
+        // from being rerouted to the legal endpoint the moment a Normattiva key is
+        // pasted (wrong tool + surprising billing). A key is still required, since
+        // the endpoint is unusable without one.
+        if (!isNormattivaKeyEmpty && persona) {
+          const personaPrefersNormattiva =
+            persona.preferred_backend === 'normattiva' ||
+            normattivaModels.some((m) => m.id === persona.preferredModelId);
+          if (personaPrefersNormattiva) {
+            const chosen =
+              normattivaModels.find((m) => m.id === persona.preferredModelId) ||
+              normattivaModels.find((m) => m.isDefault) ||
+              normattivaModels.find((m) => m.isEnabled);
+            if (chosen) return chosen;
+          }
+        }
+        const allModels = [
+          ...models,
+          ...ollamaModels,
+          ...(isNormattivaKeyEmpty ? [] : normattivaModels),
+        ];
+        return allModels.find((m) => m.id === settings.cloudModeModel)
+          || allModels.find((m) => m.id === settings.defaultModelId)
+          || models.find((m) => m.isEnabled)
+          || ollamaModels.find((m) => m.isEnabled);
       },
 
       getModelById: (id) => {
@@ -356,15 +437,22 @@ export const useSettingsStore = create<SettingsStore>()(
         return get().settings.privacyMode;
       },
 
-      getAllModels: () => [...get().models, ...get().ollamaModels],
+      getAllModels: () => [
+        ...get().models,
+        ...get().ollamaModels,
+        ...get().normattivaModels,
+      ],
 
       getLocalModels: () => get().ollamaModels.filter((m) => m.isEnabled),
 
-      getCloudModels: () => get().models.filter((m) => m.isEnabled),
+      getCloudModels: () => [
+        ...get().models,
+        ...get().normattivaModels,
+      ].filter((m) => m.isEnabled),
     }),
     {
       name: "assistant-settings",
-      version: 16, // v16: add useLocalMemory setting
+      version: 17, // v17: add normattivaApiKey + normattivaApiEndpoint
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -389,15 +477,19 @@ export const useSettingsStore = create<SettingsStore>()(
             autoRedactAllContent: old.autoRedactAllContent ?? true,
             useLocalMemory: old.useLocalMemory ?? true,
             cloudTrustLevel: old.cloudTrustLevel ?? null,
+            normattivaApiKey: old.normattivaApiKey ?? "",
+            normattivaApiEndpoint: old.normattivaApiEndpoint ?? "https://api.normattiva.ai/v1",
           },
           models: DEFAULT_MODELS,
           ollamaModels: DEFAULT_OLLAMA_MODELS,
+          normattivaModels: DEFAULT_NORMATTIVA_MODELS,
         };
       },
       partialize: (state) => ({
         settings: state.settings,
         models: state.models,
         ollamaModels: state.ollamaModels,
+        normattivaModels: state.normattivaModels,
       }),
     }
   )

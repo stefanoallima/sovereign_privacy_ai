@@ -20,8 +20,8 @@
     "lint:fix": "eslint src --ext ts,tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "cap:sync": "cap sync android",
     "cap:open": "cap open android",
@@ -78,6 +78,6 @@
     "tailwindcss": "^4.1.18",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
-    "vitest": "^4.1.9"
+    "vitest": "^2.1.5"
   }
 }
