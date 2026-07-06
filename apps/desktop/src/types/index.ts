@@ -1,7 +1,7 @@
 // LLM Model Configuration
 export interface LLMModel {
   id: string;
-  provider: "nebius" | "ollama";
+  provider: "nebius" | "ollama" | "normattiva";
   apiModelId: string;
   name: string;
   contextWindow: number;
@@ -13,11 +13,30 @@ export interface LLMModel {
   isDefault: boolean;
 }
 
+/** Citation returned by the Normattiva legal agent in `x_normattiva.citations`. */
+export interface Citation {
+  type: "article" | "massima" | "atto";
+  ref: string;
+  title: string;
+  url: string;
+}
+
+/** Additive `x_normattiva` extension object on chat.completion responses. */
+export interface NormattivaExtension {
+  citations?: Citation[];
+  tools_used?: string[];
+  cost_estimate_eur?: number;
+  /** Optional agent-stage transparency ("searching_massime", "drafting", etc.). */
+  stage?: string;
+}
+
 // App Settings
 export interface AppSettings {
   // API Configuration
   nebiusApiKey: string;
   nebiusApiEndpoint: string;
+  normattivaApiKey: string;
+  normattivaApiEndpoint: string;
   mem0ApiKey: string;
   enableMemory: boolean;
   useLocalMemory: boolean;
@@ -95,7 +114,7 @@ export interface Persona {
   updatedAt: Date;
   // Privacy-first LLM backend configuration
   enable_local_anonymizer?: boolean;
-  preferred_backend?: 'nebius' | 'ollama' | 'hybrid';
+  preferred_backend?: 'nebius' | 'ollama' | 'hybrid' | 'normattiva';
   anonymization_mode?: 'none' | 'optional' | 'required';
   local_ollama_model?: string;
   // Smart cloud delegation (orchestration)

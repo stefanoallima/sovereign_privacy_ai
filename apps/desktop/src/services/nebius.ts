@@ -1,4 +1,4 @@
-import type { LLMModel } from "@/types";
+import type { LLMModel, NormattivaExtension } from "@/types";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -46,9 +46,14 @@ export interface ChatCompletionResponse {
     completion_tokens: number;
     total_tokens: number;
   };
+  /** Additive extension returned by the Normattiva legal agent. Standard
+   *  OpenAI-compat clients ignore it; the desktop reads citations / tools /
+   *  cost / (Phase 1) streaming agent stage from here. Optional — omitted
+   *  when the platform does not emit it. */
+  x_normattiva?: NormattivaExtension;
 }
 
-export class NebiusClient {
+export class OpenAICompatibleClient {
   private apiKey: string;
   private baseUrl: string;
 
@@ -144,6 +149,14 @@ export class NebiusClient {
     );
     const outputTokens = Math.ceil(totalContent.length / 4);
 
+    // TODO(phase-1): Streaming x_normattiva accumulation from SSE chunks.
+    // Currently x_normattiva (citations) is parsed in non-streaming chatCompletion()
+    // but not accumulated across SSE chunks in streamChatCompletion().
+    // Phase 1 will add: (A6) exact usage capture from x_normattiva,
+    // (B8) SSE accumulation of x_normattiva.cost_estimate_eur for real-time billing,
+    // and (C) citations UI for streamed responses.
+    // See: apps/desktop/docs/superpowers/specs/2026-06-15-normattiva-integration-spec.md A6, B8.
+
     return { inputTokens, outputTokens };
   }
 
@@ -171,18 +184,60 @@ export class NebiusClient {
   }
 }
 
-// Singleton instance
-let clientInstance: NebiusClient | null = null;
+// One client per (provider, baseUrl, apiKey) — keyed so different API keys can
+// coexist. Normattiva and Nebius each get their own default endpoint.
+const NORMATTIVA_DEFAULT_BASE = "https://api.normattiva.ai/v1";
+const NEBIUS_DEFAULT_BASE = "https://api.tokenfactory.nebius.com/v1";
 
-export function getNebiusClient(apiKey?: string, baseUrl?: string): NebiusClient {
-  if (!clientInstance) {
-    clientInstance = new NebiusClient(apiKey || "", baseUrl);
-  } else {
-    if (apiKey !== undefined) clientInstance.setApiKey(apiKey);
-    if (baseUrl !== undefined) clientInstance.setBaseUrl(baseUrl);
-  }
-  return clientInstance;
+const clientCache = new Map<string, OpenAICompatibleClient>();
+
+function cacheKey(provider: string, baseUrl: string, apiKey: string): string {
+  return `${provider}::${baseUrl}::${apiKey}`;
 }
+
+/**
+ * Get (or create) an OpenAI-compatible client for the given provider.
+ * Provider-specific defaults are filled in for `baseUrl`; pass an explicit
+ * `baseUrl` to override (used in tests, and to point at staging).
+ */
+export function getCloudClient(
+  provider: "nebius" | "ollama" | "normattiva",
+  apiKey: string,
+  baseUrl?: string
+): OpenAICompatibleClient {
+  const defaultBase =
+    provider === "normattiva" ? NORMATTIVA_DEFAULT_BASE : NEBIUS_DEFAULT_BASE;
+  const resolvedBase = (baseUrl ?? defaultBase).replace(/\/+$/, "");
+  const key = cacheKey(provider, resolvedBase, apiKey);
+  const existing = clientCache.get(key);
+  if (existing) {
+    existing.setApiKey(apiKey);
+    return existing;
+  }
+  const client = new OpenAICompatibleClient(apiKey, resolvedBase);
+  clientCache.set(key, client);
+  return client;
+}
+
+/** Test helper — drop all cached clients. Not exported in index.ts. */
+export function resetCloudClients(): void {
+  clientCache.clear();
+}
+
+// Back-compat: keep the old singleton getter working. It now points at
+// the Nebius provider.
+export function getOpenAICompatibleClient(
+  apiKey?: string,
+  baseUrl?: string
+): OpenAICompatibleClient {
+  return getCloudClient("nebius", apiKey ?? "", baseUrl);
+}
+export const getNebiusClient = getOpenAICompatibleClient;
+
+// Back-compat class alias. Existing call sites still import { NebiusClient };
+// new code should use OpenAICompatibleClient directly. Remove this alias
+// once all call sites migrate (tracked in a follow-up).
+export { OpenAICompatibleClient as NebiusClient };
 
 // Helper to estimate cost
 export function estimateCost(

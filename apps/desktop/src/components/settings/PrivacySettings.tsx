@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
+import { Scale, CheckCircle2, AlertCircle } from "lucide-react";
 import { useSettingsStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 import { VaultBrowser } from "./VaultBrowser";
+import { getCloudClient } from "@/services/nebius";
 
 interface GlinerModelInfo {
   id: string;
@@ -19,7 +21,7 @@ interface GlinerModelInfo {
 }
 
 export function PrivacySettings() {
-  const { settings, updateSettings, setPrivacyMode, models, ollamaModels } = useSettingsStore();
+  const { settings, updateSettings, setPrivacyMode, setNormattivaApiKey, setNormattivaApiEndpoint, models, ollamaModels } = useSettingsStore();
   const activeProfile = useUserContextStore(selectActiveProfile);
   const {
     addCustomRedactTerm,
@@ -714,7 +716,80 @@ export function PrivacySettings() {
           />
         </div>
       </div>
+
+      {/* Normattiva Legal AI (B7a) */}
+      <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
+        <div className="p-4 bg-[hsl(var(--muted)/0.3)]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]">
+              <Scale className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">Normattiva Legal AI</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Italian legal-specialist cloud (codici + massime). Always redacts PII before sending.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-[hsl(var(--border)/0.5)] space-y-3">
+          <div>
+            <label htmlFor="normattiva-api-key" className="text-xs font-semibold text-[hsl(var(--foreground))] block mb-1.5">
+              API Key
+            </label>
+            <input
+              id="normattiva-api-key"
+              type="password"
+              placeholder="sk-..."
+              value={settings.normattivaApiKey}
+              onChange={(e) => setNormattivaApiKey(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+            />
+          </div>
+          <div>
+            <label htmlFor="normattiva-endpoint" className="text-xs font-semibold text-[hsl(var(--foreground))] block mb-1.5">
+              Endpoint
+            </label>
+            <input
+              id="normattiva-endpoint"
+              type="text"
+              value={settings.normattivaApiEndpoint}
+              onChange={(e) => setNormattivaApiEndpoint(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Default: <code>https://api.normattiva.ai/v1</code>. Override for staging/mocks.
+            </p>
+          </div>
+          <NormattivaValidateButton />
+        </div>
+      </div>
     </div>
+  );
+}
+
+function NormattivaValidateButton() {
+  const settings = useSettingsStore((s) => s.settings);
+  const [state, setState] = useState<"idle" | "checking" | "ok" | "fail">("idle");
+
+  const onClick = async () => {
+    setState("checking");
+    const client = getCloudClient("normattiva", settings.normattivaApiKey, settings.normattivaApiEndpoint);
+    const ok = await client.validateApiKey();
+    setState(ok ? "ok" : "fail");
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={state === "checking" || !settings.normattivaApiKey}
+      className="inline-flex items-center px-3 py-1.5 rounded-lg border border-[hsl(var(--border))] bg-transparent text-xs font-medium hover:bg-[hsl(var(--secondary)/0.5)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {state === "checking" ? "Validating..." : "Validate Key"}
+      {state === "ok" && <CheckCircle2 className="ml-2 h-4 w-4 text-green-500" />}
+      {state === "fail" && <AlertCircle className="ml-2 h-4 w-4 text-red-500" />}
+    </button>
   );
 }
 
