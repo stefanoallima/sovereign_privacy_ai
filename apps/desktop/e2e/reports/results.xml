@@ -1,0 +1,24 @@
+<testsuites id="" name="" tests="5" failures="0" skipped="5" errors="0" time="0.26657600000000004">
+<testsuite name="tests\00-stub-smoke.spec.ts" timestamp="2026-06-23T02:22:35.751Z" hostname="chromium" tests="5" failures="0" skipped="5" time="0" errors="0">
+<testcase name="Tauri IPC stub › detect_pii returns empty entities" classname="tests\00-stub-smoke.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tauri IPC stub › detect_pii_with_gliner returns empty array" classname="tests\00-stub-smoke.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tauri IPC stub › get_app_settings returns valid AppSettings" classname="tests\00-stub-smoke.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tauri IPC stub › get_conversations returns empty array" classname="tests\00-stub-smoke.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Tauri IPC stub › window.__TAURI__ is present (feature detection guard)" classname="tests\00-stub-smoke.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+</testsuites>

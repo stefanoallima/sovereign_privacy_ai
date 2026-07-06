@@ -74,6 +74,35 @@ pnpm tauri dev
 
 <br>
 
+## &#127760; 14 Specialist Advisors (Sovereign Council)
+
+AILocalMind comes with 14 pre-configured personas covering life, work, and security:
+
+### General Advisors (3)
+- 🧠 **Psychologist** — Cognitive behavioral therapy & emotional regulation
+- 🎯 **Life Coach** — Goal-setting, habits, and personal development
+- 💼 **Career Coach** — Professional development, interviews, leadership
+
+### Specialist Advisors (11)
+
+**Batch 1 (Privacy-First):**
+- 🧾 **Tax Navigator** — Dutch tax guidance (local-only, anonymized)
+- 🏥 **Health Coach** — Nutrition & wellness (local-only)
+- ⚖️ **Legal Advisor** — Contract & dispute guidance (anonymized)
+- 💰 **Financial Advisor** — Investment & budgeting (anonymized)
+- 🤝 **Negotiation Coach** — Salary & deal negotiation
+
+**Batch 2 (Complete Vision):**
+- 🎨 **Personal Branding Coach** — LinkedIn strategy & thought leadership (hybrid, optional anonymization)
+- 📱 **Social Media Strategist** — Content calendars & platform optimization (hybrid, optional anonymization)
+- 🏠 **Real Estate Advisor** — Property valuation & investment analysis (hybrid, anonymized)
+- 🔐 **Cybersecurity Advisor** — Privacy & threat response (local-only)
+- 🌍 **Immigration/Visa Advisor** — Visa pathways & relocation (hybrid, anonymized)
+
+Each persona is privacy-first: personal data stays local, cloud-bound messages are anonymized. Choose your backend per-persona: local-only for maximum privacy, cloud for speed, or hybrid for balance.
+
+<br>
+
 ## &#128736; Features
 
 <table>

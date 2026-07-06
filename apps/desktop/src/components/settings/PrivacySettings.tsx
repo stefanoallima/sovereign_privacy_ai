@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
+import { Scale, CheckCircle2, AlertCircle } from "lucide-react";
 import { useSettingsStore } from "@/stores";
 import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
+import { VaultBrowser } from "./VaultBrowser";
+import { getCloudClient } from "@/services/nebius";
 
 interface GlinerModelInfo {
   id: string;
@@ -18,7 +21,7 @@ interface GlinerModelInfo {
 }
 
 export function PrivacySettings() {
-  const { settings, updateSettings, setPrivacyMode, models, ollamaModels } = useSettingsStore();
+  const { settings, updateSettings, setPrivacyMode, setNormattivaApiKey, setNormattivaApiEndpoint, models, ollamaModels } = useSettingsStore();
   const activeProfile = useUserContextStore(selectActiveProfile);
   const {
     addCustomRedactTerm,
@@ -461,6 +464,27 @@ export function PrivacySettings() {
         </div>
       </div>
 
+      {/* PII Vault Browser Section */}
+      <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
+        <div className="p-4 bg-[hsl(var(--muted)/0.3)]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[hsl(var(--violet)/0.15)] text-[hsl(var(--violet))]">
+              <VaultIconSettings />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">Stored PII Entries</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Manage sensitive data automatically substituted in cloud sends
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-[hsl(var(--border)/0.5)]">
+          <VaultBrowser />
+        </div>
+      </div>
+
       {/* Default Privacy Mode Section */}
       <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
         <div className="p-4 bg-[hsl(var(--muted)/0.3)]">
@@ -487,6 +511,7 @@ export function PrivacySettings() {
             <input
               type="radio"
               name="privacyMode"
+              data-testid="privacy-mode-local"
               checked={settings.privacyMode === 'local'}
               onChange={() => setPrivacyMode('local')}
               disabled={!hasAnyLocalModel}
@@ -528,6 +553,7 @@ export function PrivacySettings() {
             <input
               type="radio"
               name="privacyMode"
+              data-testid="privacy-mode-hybrid"
               checked={settings.privacyMode === 'hybrid'}
               onChange={() => setPrivacyMode('hybrid')}
               className="mt-1"
@@ -565,6 +591,7 @@ export function PrivacySettings() {
             <input
               type="radio"
               name="privacyMode"
+              data-testid="privacy-mode-cloud"
               checked={settings.privacyMode === 'cloud'}
               onChange={() => setPrivacyMode('cloud')}
               className="mt-1"
@@ -601,6 +628,42 @@ export function PrivacySettings() {
           <ShieldIcon />
           Other Privacy Settings
         </h3>
+
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <div className="font-medium text-sm">Always review before send</div>
+            <div className="text-xs text-[hsl(var(--muted-foreground))]">
+              Show the privacy review panel before every cloud send, even when no PII is detected
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            data-testid="toggle-always-review"
+            checked={settings.alwaysReviewBeforeSend}
+            onChange={(e) =>
+              useSettingsStore.getState().updateSettings({ alwaysReviewBeforeSend: e.target.checked })
+            }
+            className="h-4 w-4 rounded"
+          />
+        </div>
+
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <div className="font-medium text-sm">Privacy Guard (GLiNER) detection</div>
+            <div className="text-xs text-[hsl(var(--muted-foreground))]">
+              Use the on-device GLiNER neural model to detect novel PII before cloud sends
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            data-testid="toggle-gliner"
+            checked={settings.glinerEnabled}
+            onChange={(e) =>
+              useSettingsStore.getState().updateSettings({ glinerEnabled: e.target.checked })
+            }
+            className="h-4 w-4 rounded"
+          />
+        </div>
 
         <div className="flex items-center justify-between py-2">
           <div>
@@ -653,7 +716,80 @@ export function PrivacySettings() {
           />
         </div>
       </div>
+
+      {/* Normattiva Legal AI (B7a) */}
+      <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
+        <div className="p-4 bg-[hsl(var(--muted)/0.3)]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]">
+              <Scale className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">Normattiva Legal AI</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Italian legal-specialist cloud (codici + massime). Always redacts PII before sending.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-[hsl(var(--border)/0.5)] space-y-3">
+          <div>
+            <label htmlFor="normattiva-api-key" className="text-xs font-semibold text-[hsl(var(--foreground))] block mb-1.5">
+              API Key
+            </label>
+            <input
+              id="normattiva-api-key"
+              type="password"
+              placeholder="sk-..."
+              value={settings.normattivaApiKey}
+              onChange={(e) => setNormattivaApiKey(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+            />
+          </div>
+          <div>
+            <label htmlFor="normattiva-endpoint" className="text-xs font-semibold text-[hsl(var(--foreground))] block mb-1.5">
+              Endpoint
+            </label>
+            <input
+              id="normattiva-endpoint"
+              type="text"
+              value={settings.normattivaApiEndpoint}
+              onChange={(e) => setNormattivaApiEndpoint(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Default: <code>https://api.normattiva.ai/v1</code>. Override for staging/mocks.
+            </p>
+          </div>
+          <NormattivaValidateButton />
+        </div>
+      </div>
     </div>
+  );
+}
+
+function NormattivaValidateButton() {
+  const settings = useSettingsStore((s) => s.settings);
+  const [state, setState] = useState<"idle" | "checking" | "ok" | "fail">("idle");
+
+  const onClick = async () => {
+    setState("checking");
+    const client = getCloudClient("normattiva", settings.normattivaApiKey, settings.normattivaApiEndpoint);
+    const ok = await client.validateApiKey();
+    setState(ok ? "ok" : "fail");
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={state === "checking" || !settings.normattivaApiKey}
+      className="inline-flex items-center px-3 py-1.5 rounded-lg border border-[hsl(var(--border))] bg-transparent text-xs font-medium hover:bg-[hsl(var(--secondary)/0.5)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {state === "checking" ? "Validating..." : "Validate Key"}
+      {state === "ok" && <CheckCircle2 className="ml-2 h-4 w-4 text-green-500" />}
+      {state === "fail" && <AlertCircle className="ml-2 h-4 w-4 text-red-500" />}
+    </button>
   );
 }
 
@@ -706,6 +842,24 @@ function FolderIcon() {
       strokeLinejoin="round"
     >
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function VaultIconSettings() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
   );
 }

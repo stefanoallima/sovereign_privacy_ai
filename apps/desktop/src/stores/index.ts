@@ -5,3 +5,4 @@ export { useVoiceStore } from "./voice";
 export { useAuthStore, useIsAuthenticated, useRequireAuth } from "./auth";
 export { useWizardStore } from "./wizard";
 export { useCanvasStore } from './canvas';
+export { usePiiVaultStore } from "./piiVault";

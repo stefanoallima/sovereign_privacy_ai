@@ -71,6 +71,7 @@ pub async fn make_backend_routing_decision(
             crate::backend_routing::BackendType::Nebius => "nebius".to_string(),
             crate::backend_routing::BackendType::Ollama => "ollama".to_string(),
             crate::backend_routing::BackendType::Hybrid => "hybrid".to_string(),
+            crate::backend_routing::BackendType::Normattiva => "normattiva".to_string(),
         },
         anonymize: decision.anonymize,
         model: decision.model,
@@ -93,7 +94,7 @@ pub async fn validate_persona_backend_config(
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
 
-    if !matches!(preferred_backend.as_str(), "nebius" | "ollama" | "hybrid") {
+    if !matches!(preferred_backend.as_str(), "nebius" | "ollama" | "hybrid" | "normattiva") {
         errors.push(format!(
             "Invalid backend '{}'. Must be one of: nebius, ollama, hybrid",
             preferred_backend

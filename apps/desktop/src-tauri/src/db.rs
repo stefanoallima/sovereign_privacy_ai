@@ -50,7 +50,7 @@ pub struct Persona {
     pub updated_at: String,
     // LLM Backend Configuration (Proposal 3: Persona Backend Config)
     pub enable_local_anonymizer: bool,
-    pub preferred_backend: String, // 'nebius' | 'ollama' | 'hybrid'
+    pub preferred_backend: String, // 'nebius' | 'ollama' | 'hybrid' | 'normattiva'
     pub anonymization_mode: String, // 'none' | 'optional' | 'required'
     pub local_ollama_model: Option<String>,
     // Smart cloud delegation (orchestration)

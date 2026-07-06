@@ -1,0 +1,31 @@
+Navigate to http://localhost:5173 and perform persona integration tests:
+
+STEP 1: App Load
+- Go to http://localhost:5173/
+- Wait 3 seconds
+- Take screenshot of initial state
+
+STEP 2: Console Check
+- Open DevTools (F12)
+- Go to Console tab
+- Take screenshot of console
+- Document any errors or warnings
+
+STEP 3: Find Persona Selector
+- Look for dropdown or select element with persona options
+- Usually in top navigation bar
+- Click to open dropdown
+
+STEP 4: Capture Personas
+- Take screenshot showing all personas
+- Count total personas
+- Document each persona name
+- Look for emoji icons (brain, target, briefcase, etc.)
+- Look for privacy badges (lock, shield, warning)
+- Check for group headers
+
+STEP 5: Create Report
+- List all personas found
+- Show complete console screenshot
+- Document groups and icons
+- List any errors found

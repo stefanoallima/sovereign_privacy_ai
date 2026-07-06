@@ -27,6 +27,10 @@ pub enum BackendType {
     Ollama,
     /// Local anonymization then cloud (balanced)
     Hybrid,
+    /// Italian legal-specialist cloud API (Normattiva).
+    /// Same privacy posture as Nebius but with required anonymization
+    /// for the legal persona by default.
+    Normattiva,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -40,11 +44,14 @@ pub enum AnonymizationMode {
 }
 
 impl AnonymizationMode {
-    pub fn from_string(s: &str) -> Self {
-        match s {
-            "optional" => AnonymizationMode::Optional,
-            "required" => AnonymizationMode::Required,
-            _ => AnonymizationMode::None,
+    pub fn from_string(s: &str) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let trimmed = s.trim();
+        match trimmed {
+            "optional" => Ok(AnonymizationMode::Optional),
+            "required" => Ok(AnonymizationMode::Required),
+            "none" => Ok(AnonymizationMode::None),
+            "" => Err("anonymization_mode cannot be empty".into()),
+            _ => Err(format!("invalid anonymization_mode: '{}' (expected 'none', 'optional', or 'required')", trimmed).into()),
         }
     }
 }
@@ -119,10 +126,11 @@ pub async fn determine_backend(persona: &Persona, inference: &dyn LocalInference
     let backend = match backend_str.as_str() {
         "ollama" => BackendType::Ollama,
         "hybrid" => BackendType::Hybrid,
+        "normattiva" => BackendType::Normattiva,
         _ => BackendType::Nebius, // Default
     };
 
-    let anonymization_mode = AnonymizationMode::from_string(&persona.anonymization_mode);
+    let anonymization_mode = AnonymizationMode::from_string(&persona.anonymization_mode)?;
     let enable_anonymization = persona.enable_local_anonymizer;
 
     // Validate configuration
@@ -163,7 +171,7 @@ pub async fn make_routing_decision(
     _request_text: &str,
 ) -> Result<BackendDecision, Box<dyn Error + Send + Sync>> {
     let backend_str = persona.preferred_backend.to_lowercase();
-    let anonymization_mode = AnonymizationMode::from_string(&persona.anonymization_mode);
+    let anonymization_mode = AnonymizationMode::from_string(&persona.anonymization_mode)?;
     let enable_anonymization = persona.enable_local_anonymizer;
 
     // Check Ollama availability upfront
@@ -187,6 +195,9 @@ pub async fn make_routing_decision(
                 warn!("Nebius backend with required anonymization - using attributes-only mode");
                 BackendDecision {
                     backend: BackendType::Nebius,
+                    // anonymize: false means "do not perform anonymization in the routing layer"
+                    // (this backend is cloud-only, no local anonymization possible).
+                    // The actual PII redaction is handled by the desktop pipeline (GLiNER → redactForCloud).
                     anonymize: false,
                     model: persona.preferred_model_id.clone().into(),
                     reason: "Cloud direct with attributes-only (required privacy mode)".to_string(),
@@ -200,6 +211,33 @@ pub async fn make_routing_decision(
                     anonymize: false,
                     model: persona.preferred_model_id.clone().into(),
                     reason: "Cloud direct (fastest)".to_string(),
+                    content_mode: ContentMode::FullText,
+                    fallback: FallbackEvent::None,
+                    is_safe: true,
+                }
+            }
+        }
+        "normattiva" => {
+            if matches!(anonymization_mode, AnonymizationMode::Required) && enable_anonymization {
+                warn!("Normattiva backend with required anonymization - using attributes-only mode");
+                BackendDecision {
+                    backend: BackendType::Normattiva,
+                    // anonymize: false means "do not perform anonymization in the routing layer"
+                    // (this backend is cloud-only, no local anonymization possible).
+                    // The actual PII redaction is handled by the desktop pipeline (GLiNER → redactForCloud).
+                    anonymize: false,
+                    model: persona.preferred_model_id.clone().into(),
+                    reason: "Legal AI (Normattiva) with attributes-only (required privacy mode)".to_string(),
+                    content_mode: ContentMode::AttributesOnly,
+                    fallback: FallbackEvent::None,
+                    is_safe: true,
+                }
+            } else {
+                BackendDecision {
+                    backend: BackendType::Normattiva,
+                    anonymize: false,
+                    model: persona.preferred_model_id.clone().into(),
+                    reason: "Legal AI (Normattiva) direct cloud (fastest)".to_string(),
                     content_mode: ContentMode::FullText,
                     fallback: FallbackEvent::None,
                     is_safe: true,
@@ -383,6 +421,7 @@ pub fn log_backend_decision(
         BackendType::Nebius => "nebius",
         BackendType::Ollama => "ollama",
         BackendType::Hybrid => "hybrid",
+        BackendType::Normattiva => "normattiva",
     };
 
     info!(
@@ -398,10 +437,16 @@ mod tests {
 
     #[test]
     fn test_anonymization_mode_from_string() {
-        assert_eq!(AnonymizationMode::from_string("optional"), AnonymizationMode::Optional);
-        assert_eq!(AnonymizationMode::from_string("required"), AnonymizationMode::Required);
-        assert_eq!(AnonymizationMode::from_string("none"), AnonymizationMode::None);
-        assert_eq!(AnonymizationMode::from_string("invalid"), AnonymizationMode::None);
+        // Valid cases
+        assert!(AnonymizationMode::from_string("optional").is_ok());
+        assert!(AnonymizationMode::from_string("required").is_ok());
+        assert!(AnonymizationMode::from_string("none").is_ok());
+
+        // Invalid cases - should return Err
+        assert!(AnonymizationMode::from_string("").is_err());
+        assert!(AnonymizationMode::from_string("   ").is_err());
+        assert!(AnonymizationMode::from_string("require").is_err()); // typo
+        assert!(AnonymizationMode::from_string("invalid").is_err());
     }
 
     #[test]
@@ -448,5 +493,198 @@ mod tests {
         assert!(can_process_with_anonymization_mode(&AnonymizationMode::Optional, true));
         assert!(!can_process_with_anonymization_mode(&AnonymizationMode::Required, false));
         assert!(can_process_with_anonymization_mode(&AnonymizationMode::Required, true));
+    }
+
+    #[tokio::test]
+    async fn determine_backend_maps_normattiva_string_to_enum() {
+        use crate::db::Persona;
+        use crate::inference::{InferenceError, LocalInference, ModelStatus};
+
+        let persona = Persona {
+            id: "p1".into(),
+            name: "Legal".into(),
+            description: "".into(),
+            system_prompt: "".into(),
+            voice_id: "".into(),
+            preferred_model_id: "normattiva-legal-pro".into(),
+            temperature: 0.2,
+            max_tokens: 4096,
+            is_built_in: true,
+            created_at: "2026-01-01".into(),
+            updated_at: "2026-01-01".into(),
+            enable_local_anonymizer: true,
+            preferred_backend: "normattiva".into(),
+            anonymization_mode: "required".into(),
+            local_ollama_model: None,
+            enable_cloud_delegation: false,
+            cloud_delegation_threshold: 0.5,
+        };
+
+        struct Stub;
+        #[async_trait::async_trait]
+        impl LocalInference for Stub {
+            async fn is_available(&self) -> bool { false }
+            async fn generate(&self, _prompt: &str, _model: &str) -> Result<String, InferenceError> {
+                unimplemented!()
+            }
+            async fn generate_json(&self, _prompt: &str) -> Result<String, InferenceError> {
+                unimplemented!()
+            }
+            async fn ensure_model(&self, _model_name: &str) -> Result<(), InferenceError> {
+                unimplemented!()
+            }
+            fn default_model(&self) -> &str { "stub" }
+            async fn get_model_status(&self) -> ModelStatus {
+                ModelStatus {
+                    is_downloaded: false,
+                    is_loaded: false,
+                    download_progress: 0,
+                    model_name: "stub".into(),
+                    model_size_bytes: 0,
+                    gpu_layers: 0,
+                    gpu_enabled: false,
+                    last_gen_speed_tps: 0.0,
+                }
+            }
+        }
+
+        let config = determine_backend(&persona, &Stub).await.unwrap();
+        assert_eq!(config.backend, BackendType::Normattiva);
+    }
+
+    #[tokio::test]
+    async fn make_routing_decision_returns_normattiva_for_normattiva_preferred_backend() {
+        use crate::db::Persona;
+        use crate::inference::{InferenceError, LocalInference, ModelStatus};
+
+        let persona = Persona {
+            id: "p1".into(),
+            name: "Legal".into(),
+            description: "".into(),
+            system_prompt: "".into(),
+            voice_id: "".into(),
+            preferred_model_id: "normattiva-legal-pro".into(),
+            temperature: 0.2,
+            max_tokens: 4096,
+            is_built_in: true,
+            created_at: "2026-01-01".into(),
+            updated_at: "2026-01-01".into(),
+            enable_local_anonymizer: true,
+            preferred_backend: "normattiva".into(),
+            anonymization_mode: "required".into(),
+            local_ollama_model: None,
+            enable_cloud_delegation: false,
+            cloud_delegation_threshold: 0.5,
+        };
+
+        struct Stub;
+        #[async_trait::async_trait]
+        impl LocalInference for Stub {
+            async fn is_available(&self) -> bool { false }
+            async fn generate(&self, _prompt: &str, _model: &str) -> Result<String, InferenceError> {
+                unimplemented!()
+            }
+            async fn generate_json(&self, _prompt: &str) -> Result<String, InferenceError> {
+                unimplemented!()
+            }
+            async fn ensure_model(&self, _model_name: &str) -> Result<(), InferenceError> {
+                unimplemented!()
+            }
+            fn default_model(&self) -> &str { "stub" }
+            async fn get_model_status(&self) -> ModelStatus {
+                ModelStatus {
+                    is_downloaded: false,
+                    is_loaded: false,
+                    download_progress: 0,
+                    model_name: "stub".into(),
+                    model_size_bytes: 0,
+                    gpu_layers: 0,
+                    gpu_enabled: false,
+                    last_gen_speed_tps: 0.0,
+                }
+            }
+        }
+
+        let decision = make_routing_decision(&persona, &Stub, "test request").await.unwrap();
+        assert_eq!(decision.backend, BackendType::Normattiva);
+        assert!(decision.is_safe);
+    }
+
+    #[tokio::test]
+    async fn make_routing_decision_normattiva_required_uses_attributes_only() {
+        use crate::db::Persona;
+        use crate::inference::{InferenceError, LocalInference, ModelStatus};
+
+        let persona = Persona {
+            id: "legal-advisor-it".into(),
+            name: "Legal Advisor IT".into(),
+            description: "".into(),
+            system_prompt: "".into(),
+            voice_id: "".into(),
+            preferred_model_id: "normattiva-legal-pro".into(),
+            temperature: 0.2,
+            max_tokens: 4096,
+            is_built_in: true,
+            created_at: "2026-01-01".into(),
+            updated_at: "2026-01-01".into(),
+            enable_local_anonymizer: true,
+            preferred_backend: "normattiva".into(),
+            anonymization_mode: "required".into(),
+            local_ollama_model: None,
+            enable_cloud_delegation: false,
+            cloud_delegation_threshold: 0.5,
+        };
+
+        struct Stub;
+        #[async_trait::async_trait]
+        impl LocalInference for Stub {
+            async fn is_available(&self) -> bool { false }
+            async fn generate(&self, _prompt: &str, _model: &str) -> Result<String, InferenceError> {
+                unimplemented!()
+            }
+            async fn generate_json(&self, _prompt: &str) -> Result<String, InferenceError> {
+                unimplemented!()
+            }
+            async fn ensure_model(&self, _model_name: &str) -> Result<(), InferenceError> {
+                unimplemented!()
+            }
+            fn default_model(&self) -> &str { "stub" }
+            async fn get_model_status(&self) -> ModelStatus {
+                ModelStatus {
+                    is_downloaded: false,
+                    is_loaded: false,
+                    download_progress: 0,
+                    model_name: "stub".into(),
+                    model_size_bytes: 0,
+                    gpu_layers: 0,
+                    gpu_enabled: false,
+                    last_gen_speed_tps: 0.0,
+                }
+            }
+        }
+
+        let decision = make_routing_decision(&persona, &Stub, "test request").await.unwrap();
+        assert_eq!(decision.backend, BackendType::Normattiva);
+        assert_eq!(decision.content_mode, ContentMode::AttributesOnly);
+        assert_eq!(decision.fallback, FallbackEvent::None);
+        assert!(decision.is_safe);
+    }
+
+    #[test]
+    fn test_anonymization_mode_built_in_personas_load() {
+        // Verify that the 6 built-in personas all parse their anonymization_mode successfully
+        let built_in_personas = vec![
+            ("psychologist", "optional"),
+            ("life-coach", "optional"),
+            ("career-coach", "optional"),
+            ("tax-accountant", "required"),
+            ("tax-audit", "required"),
+            ("legal-advisor-it", "required"),
+        ];
+
+        for (persona_name, mode_str) in built_in_personas {
+            let result = AnonymizationMode::from_string(mode_str);
+            assert!(result.is_ok(), "persona '{}' with mode '{}' should parse successfully", persona_name, mode_str);
+        }
     }
 }

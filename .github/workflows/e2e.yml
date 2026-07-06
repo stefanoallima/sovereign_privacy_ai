@@ -1,0 +1,67 @@
+# E2E test suite — runs Playwright against the Tauri debug binary on every push/PR.
+# Estimated CI time: build ~12 min + tests ~8 min = ~20 min total.
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  e2e-windows:
+    name: E2E Tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CARGO_TARGET_DIR: D:\ct
+      CMAKE: "C:\\Program Files\\CMake\\bin\\cmake.exe"
+      AILOCALMIND_TEST_MODE: "1"
+      AILOCALMIND_MOCK_CLOUD: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: apps/desktop
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: apps/desktop
+
+      - name: Build Tauri (debug)
+        run: pnpm tauri build --debug
+        working-directory: apps/desktop
+
+      - name: Run E2E tests
+        run: pnpm test:e2e
+        working-directory: apps/desktop
+        env:
+          SKIP_TAURI_BUILD: "1"   # binary already built above
+          TAURI_BIN: D:\ct\debug\ailocalmind.exe
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: |
+            apps/desktop/e2e/reports/
+            apps/desktop/test-results/
