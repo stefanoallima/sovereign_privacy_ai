@@ -5,6 +5,10 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
+    // Several tests spin up a real mock HTTP server; the 5s vitest default is too
+    // tight under the full suite's parallel load, causing flaky timeouts. Give
+    // integration tests headroom (per-test overrides, e.g. the e2e 20s, still win).
+    testTimeout: 15000,
     include: [
       "src/**/*.test.ts",
       "src/**/*.test.tsx",
