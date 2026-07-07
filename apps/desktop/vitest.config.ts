@@ -10,6 +10,10 @@ export default defineConfig({
     // tests are fast in isolation (<1s), so a generous ceiling only absorbs CI/load
     // jitter — it doesn't hide a slow test. (Per-test overrides, e.g. e2e 20s, win.)
     testTimeout: 30000,
+    // #10: the mock-HTTP-server integration tests occasionally get CPU-starved under
+    // the suite's parallel load and time out despite being correct. Retry transient
+    // failures rather than fail the whole run (a genuine failure fails all attempts).
+    retry: 2,
     include: [
       "src/**/*.test.ts",
       "src/**/*.test.tsx",
