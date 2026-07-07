@@ -32,6 +32,19 @@ export const test = base.extend<{ page: Page }>({
     // Inject the Tauri IPC stub so @tauri-apps/api invoke() resolves without a real binary.
     await page.addInitScript(TAURI_IPC_STUB_SCRIPT);
 
+    // Skip the onboarding wizard so tests land on the main app (App.tsx gates on
+    // `wizardCompleted`). addInitScript re-applies on every navigation, so it survives the
+    // one-time reset below and the reload-persistence tests.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "assistant-wizard",
+        JSON.stringify({
+          state: { wizardCompleted: true, tourCompleted: true, firstSendTourCompleted: true },
+          version: 0,
+        })
+      );
+    });
+
     // Reset persisted state ONCE, on the app's real origin. Two constraints:
     //   - page.evaluate(() => localStorage.clear()) throws "SecurityError: Access is denied"
     //     on about:blank (before any navigation) in current Chromium — so we navigate first;
