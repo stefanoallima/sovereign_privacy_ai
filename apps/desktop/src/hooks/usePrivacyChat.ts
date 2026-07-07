@@ -1463,12 +1463,16 @@ export function usePrivacyChat() {
 
         let fullContent = "";
         let xNormattiva: NormattivaExtension | undefined;
+        let streamInputTokens: number | undefined;
+        let streamOutputTokens: number | undefined;
         // Manual iteration so we capture the generator's RETURN value (x_normattiva
-        // citations/cost accumulated from the SSE stream); `for await` discards it.
+        // citations/cost + exact token usage); `for await` discards it.
         while (true) {
           const next = await stream.next();
           if (next.done) {
             xNormattiva = next.value?.xNormattiva;
+            streamInputTokens = next.value?.inputTokens;
+            streamOutputTokens = next.value?.outputTokens;
             break;
           }
           fullContent += next.value;
@@ -1489,10 +1493,12 @@ export function usePrivacyChat() {
         }
 
         const latencyMs = Date.now() - startTime;
-        const inputTokens = Math.ceil(
-          messages.reduce((sum, m) => sum + m.content.length, 0) / 4
-        );
-        const outputTokens = Math.ceil(fullContent.length / 4);
+        // B2a: prefer the platform's exact token counts (from the stream usage chunk);
+        // fall back to a char/4 estimate only when the platform didn't emit usage.
+        const inputTokens =
+          streamInputTokens ??
+          Math.ceil(messages.reduce((sum, m) => sum + m.content.length, 0) / 4);
+        const outputTokens = streamOutputTokens ?? Math.ceil(fullContent.length / 4);
 
         finalizeStreaming(
           currentConversationId!,
@@ -2133,11 +2139,15 @@ export function usePrivacyChat() {
 
       let fullContent = "";
       let xNormattiva: NormattivaExtension | undefined;
-      // Manual iteration to capture the generator RETURN (x_normattiva); for-await drops it.
+      let streamInputTokens: number | undefined;
+      let streamOutputTokens: number | undefined;
+      // Manual iteration to capture the generator RETURN (x_normattiva + exact usage).
       while (true) {
         const next = await stream.next();
         if (next.done) {
           xNormattiva = next.value?.xNormattiva;
+          streamInputTokens = next.value?.inputTokens;
+          streamOutputTokens = next.value?.outputTokens;
           break;
         }
         fullContent += next.value;
@@ -2157,10 +2167,12 @@ export function usePrivacyChat() {
       }
 
       const latencyMs = Date.now() - startTime;
-      const inputTokens = Math.ceil(
-        messages.reduce((sum, m) => sum + m.content.length, 0) / 4
-      );
-      const outputTokens = Math.ceil(fullContent.length / 4);
+      // B2a: prefer the platform's exact token counts (from the stream usage chunk);
+      // fall back to a char/4 estimate only when the platform didn't emit usage.
+      const inputTokens =
+        streamInputTokens ??
+        Math.ceil(messages.reduce((sum, m) => sum + m.content.length, 0) / 4);
+      const outputTokens = streamOutputTokens ?? Math.ceil(fullContent.length / 4);
 
       finalizeStreaming(
         currentConversationId!,

@@ -93,4 +93,53 @@ describe("streamChatCompletion — x_normattiva accumulation (B1)", () => {
     );
     expect(ret.xNormattiva).toBeUndefined();
   });
+
+  // B2a: request stream_options.include_usage and use the platform's exact token counts.
+  it("sends stream_options.include_usage and returns the platform's exact token counts", async () => {
+    let sentBody: { stream?: boolean; stream_options?: { include_usage?: boolean } } | undefined;
+    const lines = [
+      chunk({
+        id: "c", object: "chat.completion.chunk", created: 1, model: "m",
+        choices: [{ index: 0, delta: { content: "ciao" }, finish_reason: null }],
+      }),
+      // The include_usage final chunk: empty choices, exact usage.
+      chunk({
+        id: "c", object: "chat.completion.chunk", created: 1, model: "m",
+        choices: [], usage: { prompt_tokens: 312, completion_tokens: 184, total_tokens: 496 },
+      }),
+      "data: [DONE]\n\n",
+    ];
+    global.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      sentBody = JSON.parse(String(init?.body));
+      return sseResponse(lines);
+    }) as typeof fetch;
+
+    const client = getCloudClient("normattiva", "k", "https://example.test/api/v1");
+    const { ret } = await drain(
+      client.streamChatCompletion({ model: "m", messages: [{ role: "user", content: "hi" }] })
+    );
+
+    expect(sentBody?.stream).toBe(true);
+    expect(sentBody?.stream_options?.include_usage).toBe(true);
+    // Exact counts from the platform, not a char/4 estimate.
+    expect(ret.inputTokens).toBe(312);
+    expect(ret.outputTokens).toBe(184);
+  });
+
+  it("falls back to an estimate when the platform emits no usage chunk", async () => {
+    const lines = [
+      chunk({
+        id: "c", object: "chat.completion.chunk", created: 1, model: "m",
+        choices: [{ index: 0, delta: { content: "some words here" }, finish_reason: null }],
+      }),
+      "data: [DONE]\n\n",
+    ];
+    global.fetch = (async () => sseResponse(lines)) as typeof fetch;
+    const client = getCloudClient("normattiva", "k", "https://example.test/api/v1");
+    const { ret } = await drain(
+      client.streamChatCompletion({ model: "m", messages: [{ role: "user", content: "hi" }] })
+    );
+    // No usage chunk → estimated (non-zero) counts, not the exact platform values.
+    expect(ret.outputTokens).toBeGreaterThan(0);
+  });
 });

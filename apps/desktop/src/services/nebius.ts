@@ -11,6 +11,8 @@ export interface ChatCompletionOptions {
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
+  /** OpenAI-SDK convention: ask for a final usage chunk with exact token counts (B2a). */
+  stream_options?: { include_usage?: boolean };
 }
 
 export interface ChatCompletionChunk {
@@ -29,6 +31,9 @@ export interface ChatCompletionChunk {
   /** Additive Normattiva extension. The platform may emit it on the final
    *  content chunk (or a dedicated chunk); streamChatCompletion accumulates it. */
   x_normattiva?: NormattivaExtension;
+  /** Exact token counts, emitted in a dedicated final chunk (choices: []) when
+   *  stream_options.include_usage=true (B2a). */
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
 }
 
 export interface ChatCompletionResponse {
@@ -132,6 +137,8 @@ export class OpenAICompatibleClient {
         ...options,
         messages,
         stream: true,
+        // B2a: request a final usage chunk with exact token counts (caller may override).
+        stream_options: { include_usage: true, ...options.stream_options },
       }),
     });
 
@@ -149,6 +156,7 @@ export class OpenAICompatibleClient {
     let buffer = "";
     let totalContent = "";
     let xNormattiva: NormattivaExtension | undefined;
+    let usageFromStream: ChatCompletionChunk["usage"] | undefined;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -175,6 +183,10 @@ export class OpenAICompatibleClient {
             if (json.x_normattiva) {
               xNormattiva = { ...xNormattiva, ...json.x_normattiva };
             }
+            // B2a: the include_usage final chunk carries exact token counts.
+            if (json.usage) {
+              usageFromStream = json.usage;
+            }
           } catch {
             // Skip invalid JSON
           }
@@ -182,16 +194,16 @@ export class OpenAICompatibleClient {
       }
     }
 
-    // Estimate tokens (rough: ~4 chars per token)
-    const inputTokens = Math.ceil(
-      messages.reduce((sum, m) => sum + m.content.length, 0) / 4
-    );
-    const outputTokens = Math.ceil(totalContent.length / 4);
+    // B2a: prefer the platform's EXACT token counts (from the include_usage final
+    // chunk); fall back to a char/4 estimate only if the platform didn't emit usage.
+    const inputTokens =
+      usageFromStream?.prompt_tokens ??
+      Math.ceil(messages.reduce((sum, m) => sum + m.content.length, 0) / 4);
+    const outputTokens =
+      usageFromStream?.completion_tokens ?? Math.ceil(totalContent.length / 4);
 
-    // B1: x_normattiva (citations + cost) is now accumulated across SSE chunks and
-    // returned, so the chat can render citation chips + a cost footer on the message.
-    // Still deferred (B2a): exact token usage from a stream_options.include_usage
-    // chunk — inputTokens/outputTokens remain a char/4 estimate for now.
+    // B1: x_normattiva (citations + cost) accumulated across SSE chunks and returned so
+    // the chat can render citation chips + a cost footer on the finalized message.
     return { inputTokens, outputTokens, xNormattiva };
   }
 
