@@ -8,7 +8,7 @@ import { vi } from "vitest";
 // anything else (preserving "unknown command" semantics).
 
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: { text?: string; terms?: Array<{ label: string; value: string; replacement: string }> }) => {
+  invoke: async (cmd: string, args?: { text?: string; terms?: Array<{ label: string; value: string; replacement: string }>; plaintext?: string; ciphertext?: number[] }) => {
     if (cmd === "detect_pii_with_gliner") {
       // Deterministic stand-in for the ONNX GLiNER model: detect a sentinel name
       // so tests can exercise GLiNER-driven redaction (incl. long-document
@@ -41,6 +41,14 @@ vi.mock("@tauri-apps/api/core", () => ({
         mappings,
         redaction_count: Object.keys(mappings).length,
       };
+    }
+    if (cmd === "encrypt_string") {
+      // Test-only reversible stand-in (UTF-8 bytes). Real ChaCha20 crypto is
+      // tested in Rust (crypto.rs); here we only exercise the JS adapter plumbing.
+      return Array.from(new TextEncoder().encode(args?.plaintext ?? ""));
+    }
+    if (cmd === "decrypt_string") {
+      return new TextDecoder().decode(Uint8Array.from(args?.ciphertext ?? []));
     }
     return null;
   },
