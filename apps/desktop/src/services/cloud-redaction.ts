@@ -10,6 +10,11 @@
  * Pattern at every call site: redact -> send -> rehydrate the response with the
  * returned mappings (responses/derived text shown or stored locally get the
  * real values back; only tokens ever go to the cloud).
+ *
+ * ENFORCEMENT: the invariant is not left to convention. The OpenAI-compatible
+ * client (`services/nebius.ts`) runs `redactKnownTerms` on every outbound message
+ * as a mandatory egress backstop, so a call site that forgets to redact cannot
+ * leak already-known PII.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -26,13 +31,13 @@ export interface CloudRedaction {
 const GLINER_MAX_CHARS = 6000;
 
 /**
- * Canonical redactor for cloud-bound text.
- *   1. GLiNER NER -> stable tokens via `ensureRedactTerm` (registers new values
- *      so they are redacted identically everywhere from now on).
- *   2. Profile-wide custom term-matching (Rust `redact_text_command`), covering
- *      every known value including those just registered in step 1.
+ * Known-terms redaction: PII Vault + the profile-wide custom-term registry via
+ * the Rust matcher. This is the CHEAP, deterministic pass (no GLiNER NER). It is
+ * shared by `redactForCloud` (step 2) and, crucially, run by the cloud client as
+ * an EGRESS BACKSTOP so already-known raw PII can never leave — even if a caller
+ * forgot to call `redactForCloud` first.
  */
-export async function redactForCloud(text: string): Promise<CloudRedaction> {
+export async function redactKnownTerms(text: string): Promise<CloudRedaction> {
   const mappings = new Map<string, string>();
   if (!text || !text.trim()) return { redacted: text, mappings };
 
@@ -41,10 +46,8 @@ export async function redactForCloud(text: string): Promise<CloudRedaction> {
   );
   let out = text;
 
-  // 1a. Seed the ONE registry from the PII Vault, so user-saved PII is redacted in
-  //     EVERY cloud path (direct sends + summaries + hybrid) — not only the hybrid
-  //     path that applies the vault manually. Mirrors how GLiNER feeds the registry
-  //     below; ensureRedactTerm dedupes so the same value keeps one stable token.
+  // Seed the ONE registry from the PII Vault so vault-saved values are covered
+  // in every path (F3). ensureRedactTerm dedupes → one stable token per value.
   try {
     const { usePiiVaultStore } = await import("@/stores/piiVault");
     const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
@@ -54,10 +57,51 @@ export async function redactForCloud(text: string): Promise<CloudRedaction> {
       }
     }
   } catch {
-    // Vault unavailable — non-fatal; GLiNER + custom terms below still apply.
+    // Vault unavailable — non-fatal; registry term-match below still applies.
   }
 
-  // 1. GLiNER NER → stable registry tokens.
+  // Profile-wide term-matching against the full registry (Rust).
+  const terms =
+    selectActiveProfile(useUserContextStore.getState())?.customRedactTerms || [];
+  if (terms.length > 0) {
+    try {
+      const result = await invoke<{
+        text: string;
+        mappings: Record<string, string>;
+        redaction_count: number;
+      }>("redact_text_command", {
+        text: out,
+        terms: terms.map((t) => ({
+          label: t.label,
+          value: t.value,
+          replacement: t.replacement,
+        })),
+      });
+      out = result.text;
+      for (const [k, v] of Object.entries(result.mappings)) mappings.set(k, v);
+    } catch {
+      // non-fatal — partial redaction still applied
+    }
+  }
+
+  return { redacted: out, mappings };
+}
+
+/**
+ * Canonical redactor for cloud-bound text.
+ *   1. GLiNER NER -> stable tokens via `ensureRedactTerm` (registers new values
+ *      so they are redacted identically everywhere from now on).
+ *   2. Known-terms pass (`redactKnownTerms`): PII Vault + the profile-wide
+ *      registry, covering every known value including those just registered.
+ */
+export async function redactForCloud(text: string): Promise<CloudRedaction> {
+  const mappings = new Map<string, string>();
+  if (!text || !text.trim()) return { redacted: text, mappings };
+
+  const { useUserContextStore } = await import("@/stores/userContext");
+  let out = text;
+
+  // 1. GLiNER NER → stable registry tokens (novel-PII detection).
   if (text.length <= GLINER_MAX_CHARS) {
     try {
       const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
@@ -86,33 +130,14 @@ export async function redactForCloud(text: string): Promise<CloudRedaction> {
         }
       }
     } catch {
-      // GLiNER unavailable — term-matching below still covers known PII.
+      // GLiNER unavailable — known-terms pass below still covers known PII.
     }
   }
 
-  // 2. Profile-wide term-matching against the full registry.
-  const terms =
-    selectActiveProfile(useUserContextStore.getState())?.customRedactTerms || [];
-  if (terms.length > 0) {
-    try {
-      const result = await invoke<{
-        text: string;
-        mappings: Record<string, string>;
-        redaction_count: number;
-      }>("redact_text_command", {
-        text: out,
-        terms: terms.map((t) => ({
-          label: t.label,
-          value: t.value,
-          replacement: t.replacement,
-        })),
-      });
-      out = result.text;
-      for (const [k, v] of Object.entries(result.mappings)) mappings.set(k, v);
-    } catch {
-      // non-fatal — partial redaction still applied
-    }
-  }
+  // 2. Known-terms pass (PII Vault + registry) — shared with the client backstop.
+  const known = await redactKnownTerms(out);
+  out = known.redacted;
+  for (const [k, v] of known.mappings) mappings.set(k, v);
 
   return { redacted: out, mappings };
 }
