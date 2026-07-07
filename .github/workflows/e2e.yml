@@ -65,8 +65,11 @@ jobs:
           Copy-Item "$env:TEMP\ort\onnxruntime-win-x64-1.20.1\lib\onnxruntime.dll" "apps/desktop/src-tauri/onnxruntime/"
           Copy-Item "$env:TEMP\ort\onnxruntime-win-x64-1.20.1\lib\onnxruntime_providers_shared.dll" "apps/desktop/src-tauri/onnxruntime/"
 
+      # --no-bundle: e2e only needs the app binary for Playwright, not signed
+      # MSI/NSIS installers. Bundling also tries to sign updater artifacts
+      # (createUpdaterArtifacts) which needs TAURI_SIGNING_PRIVATE_KEY, absent here.
       - name: Build Tauri (debug)
-        run: pnpm tauri build --debug
+        run: pnpm tauri build --debug --no-bundle
         working-directory: apps/desktop
 
       - name: Run E2E tests
