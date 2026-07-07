@@ -31,7 +31,11 @@ export interface CloudRedaction {
 // in a long document (e.g. a legal PDF) is still caught.
 const GLINER_MAX_CHARS = 6000;
 
-interface GlinerEntity {
+// Cap total windows so a pathologically long document can't trigger unbounded
+// sequential GLiNER (ONNX) inferences. Beyond this, the tail relies on term-matching.
+const MAX_GLINER_WINDOWS = 48;
+
+export interface GlinerEntity {
   text: string;
   label: string;
   start: number;
@@ -46,23 +50,53 @@ interface GlinerEntity {
 export function glinerWindows(
   text: string,
   windowSize: number = GLINER_MAX_CHARS,
-  overlap = 256
+  overlap = 256,
+  maxWindows: number = MAX_GLINER_WINDOWS
 ): Array<{ offset: number; chunk: string }> {
   if (text.length <= windowSize) return [{ offset: 0, chunk: text }];
   const step = Math.max(1, windowSize - overlap);
   const windows: Array<{ offset: number; chunk: string }> = [];
-  for (let offset = 0; offset < text.length; offset += step) {
+  for (let offset = 0; offset < text.length && windows.length < maxWindows; offset += step) {
     windows.push({ offset, chunk: text.slice(offset, offset + windowSize) });
     if (offset + windowSize >= text.length) break;
   }
   return windows;
 }
 
+/**
+ * Keep only non-overlapping entities (interval scheduling, preferring longer spans)
+ * so the position-based replacement can't corrupt text: a boundary-truncated entity
+ * detected in two overlapping windows can otherwise yield overlapping ranges.
+ */
+export function dropOverlappingEntities(entities: GlinerEntity[]): GlinerEntity[] {
+  const sorted = [...entities].sort(
+    (a, b) => a.start - b.start || b.end - b.start - (a.end - a.start)
+  );
+  const kept: GlinerEntity[] = [];
+  let lastEnd = -1;
+  for (const e of sorted) {
+    if (e.start >= lastEnd) {
+      kept.push(e);
+      lastEnd = e.end;
+    }
+  }
+  return kept;
+}
+
 /** Run GLiNER over every window; return entities with ABSOLUTE positions (deduped). */
 async function detectGlinerEntities(text: string): Promise<GlinerEntity[]> {
   const out: GlinerEntity[] = [];
   const seen = new Set<string>();
-  for (const { offset, chunk } of glinerWindows(text)) {
+  const windows = glinerWindows(text);
+  const last = windows[windows.length - 1];
+  if (last && last.offset + last.chunk.length < text.length) {
+    console.warn(
+      `[cloud-redaction] GLiNER window cap (${windows.length}) reached; ~${
+        text.length - (last.offset + last.chunk.length)
+      } trailing chars scanned by term-matching only.`
+    );
+  }
+  for (const { offset, chunk } of windows) {
     let entities: GlinerEntity[] = [];
     try {
       entities =
@@ -88,7 +122,8 @@ async function detectGlinerEntities(text: string): Promise<GlinerEntity[]> {
       out.push(abs);
     }
   }
-  return out;
+  // Drop overlapping ranges so the position-based replacement stays correct.
+  return dropOverlappingEntities(out);
 }
 
 /**
