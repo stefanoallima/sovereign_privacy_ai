@@ -53,9 +53,15 @@ export function createEncryptedStorage() {
       try {
         const bytes = await invoke<number[]>("encrypt_string", { plaintext: value });
         store.setItem(name, ENC_PREFIX + bytesToBase64(bytes));
-      } catch {
-        // Crypto unavailable (non-Tauri / dev) — keep working; migrates later.
-        store.setItem(name, value);
+      } catch (e) {
+        // NEVER persist raw PII as plaintext. If encryption is unavailable, SKIP the
+        // write — the in-memory store still works and the next change retries. Better
+        // to not persist than to leak plaintext at rest. (In the real Tauri app the
+        // command is always present, so this only affects dev / non-Tauri.)
+        console.warn(
+          "[encrypted-storage] encryption unavailable — not persisting, to avoid plaintext PII at rest",
+          e
+        );
       }
     },
     async removeItem(name: string): Promise<void> {

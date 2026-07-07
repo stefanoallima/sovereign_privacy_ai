@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { redactForCloud, glinerWindows } from "./cloud-redaction";
+import {
+  redactForCloud,
+  glinerWindows,
+  dropOverlappingEntities,
+} from "./cloud-redaction";
 import { usePiiVaultStore } from "@/stores/piiVault";
 import { useUserContextStore } from "@/stores/userContext";
 
@@ -81,5 +85,25 @@ describe("glinerWindows", () => {
     for (let k = 1; k < w.length; k++) {
       expect(w[k].offset).toBeLessThan(w[k - 1].offset + w[k - 1].chunk.length);
     }
+  });
+
+  it("caps the number of windows for a pathologically long document (#8)", () => {
+    const text = "x".repeat(6000 * 100); // 600k chars
+    expect(glinerWindows(text, 6000, 256, 5)).toHaveLength(5);
+  });
+});
+
+describe("dropOverlappingEntities (#9)", () => {
+  const e = (start: number, end: number) => ({ text: "x", label: "L", start, end });
+
+  it("returns a pairwise non-overlapping set", () => {
+    const kept = dropOverlappingEntities([e(0, 5), e(3, 12), e(10, 15), e(10, 20)]);
+    for (let i = 1; i < kept.length; i++) {
+      expect(kept[i].start).toBeGreaterThanOrEqual(kept[i - 1].end);
+    }
+  });
+
+  it("prefers the longer span on a shared start", () => {
+    expect(dropOverlappingEntities([e(0, 5), e(0, 10)])).toEqual([e(0, 10)]);
   });
 });

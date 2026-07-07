@@ -101,9 +101,11 @@ export class OpenAICompatibleClient {
           content: (await redactKnownTerms(m.content)).redacted,
         }))
       );
-    } catch {
+    } catch (e) {
       // If the backstop itself fails, fall back to the caller-redacted messages
-      // rather than blocking the send (callers already redact up front).
+      // rather than blocking the send (callers already redact up front) — but make
+      // the failure VISIBLE, since the last-line guarantee didn't run this time.
+      console.warn("[cloud] egress redaction backstop failed; relying on caller redaction", e);
       return messages;
     }
   }
