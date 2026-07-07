@@ -1,0 +1,49 @@
+name: CI
+
+# Quality gate for pull requests (architecture-review finding #3): typecheck +
+# production build + unit tests must pass before code can merge to main. The
+# release build (release.yml) still validates the full Rust/Tauri bundle on tags;
+# a fast Rust `cargo test` job is a follow-up (it requires the heavy llama.cpp
+# toolchain, so it is intentionally not on every PR yet).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Supersede in-flight runs for the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-frontend:
+    name: Desktop frontend (build · tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `build` = `tsc && vite build`, so this also gates typechecking.
+      - name: Build (typecheck + bundle)
+        run: pnpm build
+
+      - name: Unit tests
+        run: pnpm vitest run

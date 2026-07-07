@@ -81,7 +81,7 @@ export function VaultBrowser({ onOpenEntry }: VaultBrowserProps) {
             )}
           </h3>
           <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
-            Encrypted locally · {entries.length === 0 ? "No entries yet" : "Always substituted in messages"}
+            Stored on this device (not encrypted) · {entries.length === 0 ? "No entries yet" : "Always substituted in messages"}
           </p>
         </div>
         <button
