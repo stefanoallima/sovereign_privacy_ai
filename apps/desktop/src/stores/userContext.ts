@@ -13,6 +13,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createEncryptedStorage } from '@/services/encrypted-storage';
 import type { PIIValues } from '@/services/rehydration-service';
 // ==================== Types ====================
 
@@ -552,7 +553,9 @@ export const useUserContextStore = create<UserContextState>()(
     }),
     {
       name: 'user-context-storage',
-      storage: createJSONStorage(() => localStorage),
+      // Encrypt the registry at rest — it maps raw PII -> tokens, so it's MORE
+      // sensitive than the vault. Same OS-keychain adapter + zero-data-loss migration.
+      storage: createJSONStorage(() => createEncryptedStorage()),
       partialize: (state) => ({
         activeProfileId: state.activeProfileId,
         profiles: state.profiles,
