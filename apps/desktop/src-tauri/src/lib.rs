@@ -10,6 +10,7 @@ mod inference_commands;
 mod llama_backend;
 mod gpu_detect;
 mod crypto;
+mod crypto_commands;
 mod anonymization;
 mod anonymization_commands;
 mod file_parsers;
@@ -285,6 +286,9 @@ pub fn run() {
         .manage(tokio::sync::Mutex::new(local_memory_state))
         .manage(tokio::sync::Mutex::new(knowledge_state))
         .invoke_handler(tauri::generate_handler![
+            // Crypto (at-rest encryption for JS-persisted stores)
+            crypto_commands::encrypt_string,
+            crypto_commands::decrypt_string,
             // Settings
             commands::get_setting,
             commands::set_setting,
