@@ -126,32 +126,35 @@ async function detectGlinerEntities(text: string): Promise<GlinerEntity[]> {
   return dropOverlappingEntities(out);
 }
 
-// #2: the PII vault persists via an ASYNC (encrypted) storage adapter, so a read
-// before hydration completes would see an EMPTY vault and miss a vault-only value.
-// Await hydration ONCE (memoized) before seeding — closing that launch-window race.
-// hasHydrated() short-circuits after the first hydration, so there's normally no wait.
+// #2/#3: the PII vault AND the registry persist via ASYNC (encrypted) storage, so a
+// redaction that reads either store BEFORE it hydrates would see it EMPTY and miss
+// known PII (a launch-window leak / token inconsistency). Await each store's hydration
+// ONCE (memoized per store) before reading it. hasHydrated() short-circuits after the
+// first hydration, so there's normally no wait.
 type PersistApi = {
   persist?: {
     hasHydrated?: () => boolean;
     onFinishHydration?: (cb: () => void) => (() => void) | void;
   };
 };
-let vaultHydration: Promise<void> | null = null;
-function awaitVaultHydrated(store: PersistApi): Promise<void> {
-  if (vaultHydration) return vaultHydration;
-  vaultHydration = new Promise<void>((resolve) => {
-    const p = store.persist;
-    if (!p?.hasHydrated || p.hasHydrated()) {
+const hydrationCache = new WeakMap<object, Promise<void>>();
+function awaitHydrated(store: PersistApi): Promise<void> {
+  const cached = hydrationCache.get(store as object);
+  if (cached) return cached;
+  const p = new Promise<void>((resolve) => {
+    const persistApi = store.persist;
+    if (!persistApi?.hasHydrated || persistApi.hasHydrated()) {
       resolve();
       return;
     }
-    const unsub = p.onFinishHydration?.(() => {
+    const unsub = persistApi.onFinishHydration?.(() => {
       if (typeof unsub === "function") unsub();
       resolve();
     });
     setTimeout(resolve, 1000); // safety: never block a send forever
   });
-  return vaultHydration;
+  hydrationCache.set(store as object, p);
+  return p;
 }
 
 /**
@@ -168,13 +171,14 @@ export async function redactKnownTerms(text: string): Promise<CloudRedaction> {
   const { useUserContextStore, selectActiveProfile } = await import(
     "@/stores/userContext"
   );
+  await awaitHydrated(useUserContextStore as PersistApi); // #3: registry hydrated before term-match
   let out = text;
 
   // Seed the ONE registry from the PII Vault so vault-saved values are covered
   // in every path (F3). ensureRedactTerm dedupes → one stable token per value.
   try {
     const { usePiiVaultStore } = await import("@/stores/piiVault");
-    await awaitVaultHydrated(usePiiVaultStore as PersistApi); // #2: no pre-hydration miss
+    await awaitHydrated(usePiiVaultStore as PersistApi); // #2: vault hydrated before seed
     const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
     for (const entry of usePiiVaultStore.getState().entries) {
       if (entry.text && entry.text.trim().length >= 2) {
@@ -224,6 +228,7 @@ export async function redactForCloud(text: string): Promise<CloudRedaction> {
   if (!text || !text.trim()) return { redacted: text, mappings };
 
   const { useUserContextStore } = await import("@/stores/userContext");
+  await awaitHydrated(useUserContextStore as PersistApi); // #3: registry hydrated before GLiNER seeds it
   let out = text;
 
   // 1. GLiNER NER → stable registry tokens (novel-PII detection), windowed so
