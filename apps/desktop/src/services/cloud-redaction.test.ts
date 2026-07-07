@@ -35,6 +35,24 @@ describe("redactForCloud — PII Vault coverage (F3)", () => {
     const { redacted } = await redactForCloud("Nessun dato sensibile qui.");
     expect(redacted).toBe("Nessun dato sensibile qui.");
   });
+
+  // NORTH STAR: same PII value → same stable token across every send/path. The vault
+  // value is tokenized via the shared registry (ensureRedactTerm), which sendWithPrivacy
+  // now uses too — NOT the vault's private [VAULT_...] placeholder, which would diverge
+  // from the direct/backstop paths.
+  it("gives a vault value the SAME stable registry token every time", async () => {
+    usePiiVaultStore.getState().addEntry("Segreto SpA", "organization");
+
+    const a = await redactForCloud("Il contratto con Segreto SpA è nullo.");
+    const b = await redactForCloud("Di nuovo, Segreto SpA compare qui.");
+    const tokenOf = (m: Map<string, string>) =>
+      [...m.entries()].find(([, v]) => v === "Segreto SpA")?.[0];
+
+    const tA = tokenOf(a.mappings);
+    expect(tA).toBeTruthy();
+    expect(tokenOf(b.mappings)).toBe(tA); // stable across calls/paths
+    expect(tA).not.toMatch(/^\[VAULT_/); // the shared registry token, not the vault placeholder
+  });
 });
 
 // #5: long documents (larger than the GLiNER context window) must still be scanned
