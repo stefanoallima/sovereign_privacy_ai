@@ -23,7 +23,7 @@ import {
   type BackendDecision,
 } from "@/services/backend-routing-service";
 import { invoke } from "@tauri-apps/api/core";
-import type { Persona, FileAttachment } from "@/types";
+import type { Persona, FileAttachment, NormattivaExtension } from "@/types";
 
 /**
  * Pick the right cloud client for a persona + model. Defaults to Nebius
@@ -1462,8 +1462,16 @@ export function usePrivacyChat() {
         });
 
         let fullContent = "";
-        for await (const chunk of stream) {
-          fullContent += chunk;
+        let xNormattiva: NormattivaExtension | undefined;
+        // Manual iteration so we capture the generator's RETURN value (x_normattiva
+        // citations/cost accumulated from the SSE stream); `for await` discards it.
+        while (true) {
+          const next = await stream.next();
+          if (next.done) {
+            xNormattiva = next.value?.xNormattiva;
+            break;
+          }
+          fullContent += next.value;
           // Rehydrate streamed content using all collected mappings (GLiNER + custom redaction)
           const displayed =
             allMappings.size > 0
@@ -1492,7 +1500,10 @@ export function usePrivacyChat() {
           inputTokens,
           outputTokens,
           latencyMs,
-          targetPersona?.id
+          targetPersona?.id,
+          xNormattiva
+            ? { citations: xNormattiva.citations, costEstimateEur: xNormattiva.cost_estimate_eur }
+            : undefined
         );
 
         // Store memories if enabled
@@ -2121,8 +2132,15 @@ export function usePrivacyChat() {
       });
 
       let fullContent = "";
-      for await (const chunk of stream) {
-        fullContent += chunk;
+      let xNormattiva: NormattivaExtension | undefined;
+      // Manual iteration to capture the generator RETURN (x_normattiva); for-await drops it.
+      while (true) {
+        const next = await stream.next();
+        if (next.done) {
+          xNormattiva = next.value?.xNormattiva;
+          break;
+        }
+        fullContent += next.value;
         const displayed =
           directMappings.size > 0
             ? rehydrateResponse(fullContent, directMappings)
@@ -2150,7 +2168,10 @@ export function usePrivacyChat() {
         inputTokens,
         outputTokens,
         latencyMs,
-        targetPersona?.id
+        targetPersona?.id,
+        xNormattiva
+          ? { citations: xNormattiva.citations, costEstimateEur: xNormattiva.cost_estimate_eur }
+          : undefined
       );
 
       if (settings.enableMemory) {

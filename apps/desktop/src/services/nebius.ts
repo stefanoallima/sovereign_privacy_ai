@@ -26,6 +26,9 @@ export interface ChatCompletionChunk {
     };
     finish_reason: string | null;
   }[];
+  /** Additive Normattiva extension. The platform may emit it on the final
+   *  content chunk (or a dedicated chunk); streamChatCompletion accumulates it. */
+  x_normattiva?: NormattivaExtension;
 }
 
 export interface ChatCompletionResponse {
@@ -112,7 +115,10 @@ export class OpenAICompatibleClient {
 
   async *streamChatCompletion(
     options: ChatCompletionOptions
-  ): AsyncGenerator<string, { inputTokens: number; outputTokens: number }> {
+  ): AsyncGenerator<
+    string,
+    { inputTokens: number; outputTokens: number; xNormattiva?: NormattivaExtension }
+  > {
     const url = `${this.baseUrl}/chat/completions`;
     console.debug(`[cloud] POST ${url} model=${options.model} key=${this.apiKey ? 'set' : '(none)'}`);
     const messages = await this.redactBackstop(options.messages);
@@ -142,6 +148,7 @@ export class OpenAICompatibleClient {
     const decoder = new TextDecoder();
     let buffer = "";
     let totalContent = "";
+    let xNormattiva: NormattivaExtension | undefined;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -163,6 +170,11 @@ export class OpenAICompatibleClient {
               totalContent += content;
               yield content;
             }
+            // B1: accumulate the Normattiva extension from any chunk that carries
+            // it (the platform emits it on/near the final chunk). Later fields win.
+            if (json.x_normattiva) {
+              xNormattiva = { ...xNormattiva, ...json.x_normattiva };
+            }
           } catch {
             // Skip invalid JSON
           }
@@ -176,15 +188,11 @@ export class OpenAICompatibleClient {
     );
     const outputTokens = Math.ceil(totalContent.length / 4);
 
-    // TODO(phase-1): Streaming x_normattiva accumulation from SSE chunks.
-    // Currently x_normattiva (citations) is parsed in non-streaming chatCompletion()
-    // but not accumulated across SSE chunks in streamChatCompletion().
-    // Phase 1 will add: (A6) exact usage capture from x_normattiva,
-    // (B8) SSE accumulation of x_normattiva.cost_estimate_eur for real-time billing,
-    // and (C) citations UI for streamed responses.
-    // See: apps/desktop/docs/superpowers/specs/2026-06-15-normattiva-integration-spec.md A6, B8.
-
-    return { inputTokens, outputTokens };
+    // B1: x_normattiva (citations + cost) is now accumulated across SSE chunks and
+    // returned, so the chat can render citation chips + a cost footer on the message.
+    // Still deferred (B2a): exact token usage from a stream_options.include_usage
+    // chunk — inputTokens/outputTokens remain a char/4 estimate for now.
+    return { inputTokens, outputTokens, xNormattiva };
   }
 
   async chatCompletion(

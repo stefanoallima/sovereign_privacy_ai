@@ -1147,6 +1147,8 @@ ${attachment.textContent}`;
                       piiTypesDetected={message.piiTypesDetected}
                       approvalStatus={message.approvalStatus}
                       cloudAssisted={message.cloudAssisted}
+                      citations={message.citations}
+                      costEstimateEur={message.costEstimateEur}
                       canvasDocTitle={canvasTitle}
                       canvasIntro={message.canvasIntro}
                       onViewCanvas={
