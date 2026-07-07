@@ -85,11 +85,35 @@ export class OpenAICompatibleClient {
     }
   }
 
+  /**
+   * EGRESS BACKSTOP (defense-in-depth). Even if a caller forgot to redact, the
+   * client strips all KNOWN PII (PII Vault + profile registry) from every message
+   * before it hits the network — so already-known raw PII can never leave via
+   * this client. Callers still run `redactForCloud` (incl. GLiNER novel-PII NER)
+   * up front; this is the last line, not a replacement.
+   */
+  private async redactBackstop(messages: ChatMessage[]): Promise<ChatMessage[]> {
+    try {
+      const { redactKnownTerms } = await import("./cloud-redaction");
+      return await Promise.all(
+        messages.map(async (m) => ({
+          ...m,
+          content: (await redactKnownTerms(m.content)).redacted,
+        }))
+      );
+    } catch {
+      // If the backstop itself fails, fall back to the caller-redacted messages
+      // rather than blocking the send (callers already redact up front).
+      return messages;
+    }
+  }
+
   async *streamChatCompletion(
     options: ChatCompletionOptions
   ): AsyncGenerator<string, { inputTokens: number; outputTokens: number }> {
     const url = `${this.baseUrl}/chat/completions`;
-    console.debug(`[Nebius] POST ${url} model=${options.model} key=${this.apiKey ? 'set' : '(none)'}`);
+    console.debug(`[cloud] POST ${url} model=${options.model} key=${this.apiKey ? 'set' : '(none)'}`);
+    const messages = await this.redactBackstop(options.messages);
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -98,6 +122,7 @@ export class OpenAICompatibleClient {
       },
       body: JSON.stringify({
         ...options,
+        messages,
         stream: true,
       }),
     });
@@ -145,7 +170,7 @@ export class OpenAICompatibleClient {
 
     // Estimate tokens (rough: ~4 chars per token)
     const inputTokens = Math.ceil(
-      options.messages.reduce((sum, m) => sum + m.content.length, 0) / 4
+      messages.reduce((sum, m) => sum + m.content.length, 0) / 4
     );
     const outputTokens = Math.ceil(totalContent.length / 4);
 
@@ -163,6 +188,7 @@ export class OpenAICompatibleClient {
   async chatCompletion(
     options: ChatCompletionOptions
   ): Promise<ChatCompletionResponse> {
+    const messages = await this.redactBackstop(options.messages);
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -171,6 +197,7 @@ export class OpenAICompatibleClient {
       },
       body: JSON.stringify({
         ...options,
+        messages,
         stream: false,
       }),
     });
