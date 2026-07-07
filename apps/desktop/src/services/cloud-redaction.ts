@@ -26,9 +26,70 @@ export interface CloudRedaction {
   mappings: Map<string, string>;
 }
 
-// GLiNER (ONNX) has a bounded context window; skip oversized text (custom
-// term-matching still covers it).
+// GLiNER (ONNX) has a bounded context window; long text is scanned in overlapping
+// windows of this size (see `glinerWindows`) rather than skipped, so novel PII deep
+// in a long document (e.g. a legal PDF) is still caught.
 const GLINER_MAX_CHARS = 6000;
+
+interface GlinerEntity {
+  text: string;
+  label: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * Split `text` into overlapping windows no larger than the GLiNER context limit so
+ * the WHOLE document is scanned. The overlap catches an entity that would otherwise
+ * straddle a window boundary. Short text yields a single full-text window.
+ */
+export function glinerWindows(
+  text: string,
+  windowSize: number = GLINER_MAX_CHARS,
+  overlap = 256
+): Array<{ offset: number; chunk: string }> {
+  if (text.length <= windowSize) return [{ offset: 0, chunk: text }];
+  const step = Math.max(1, windowSize - overlap);
+  const windows: Array<{ offset: number; chunk: string }> = [];
+  for (let offset = 0; offset < text.length; offset += step) {
+    windows.push({ offset, chunk: text.slice(offset, offset + windowSize) });
+    if (offset + windowSize >= text.length) break;
+  }
+  return windows;
+}
+
+/** Run GLiNER over every window; return entities with ABSOLUTE positions (deduped). */
+async function detectGlinerEntities(text: string): Promise<GlinerEntity[]> {
+  const out: GlinerEntity[] = [];
+  const seen = new Set<string>();
+  for (const { offset, chunk } of glinerWindows(text)) {
+    let entities: GlinerEntity[] = [];
+    try {
+      entities =
+        (await invoke<GlinerEntity[]>("detect_pii_with_gliner", {
+          text: chunk,
+          confidenceThreshold: null,
+          enabledLabels: null,
+        })) || [];
+    } catch {
+      // One bad window is non-fatal; other windows + the known-terms pass apply.
+      continue;
+    }
+    for (const e of entities) {
+      const abs: GlinerEntity = {
+        text: e.text,
+        label: e.label,
+        start: offset + e.start,
+        end: offset + e.end,
+      };
+      const key = `${abs.start}:${abs.end}:${abs.text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(abs);
+    }
+  }
+  return out;
+}
 
 /**
  * Known-terms redaction: PII Vault + the profile-wide custom-term registry via
@@ -101,37 +162,28 @@ export async function redactForCloud(text: string): Promise<CloudRedaction> {
   const { useUserContextStore } = await import("@/stores/userContext");
   let out = text;
 
-  // 1. GLiNER NER → stable registry tokens (novel-PII detection).
-  if (text.length <= GLINER_MAX_CHARS) {
-    try {
-      const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
-      const entities = await invoke<
-        Array<{ text: string; label: string; start: number; end: number }>
-      >("detect_pii_with_gliner", {
-        text: out,
-        confidenceThreshold: null,
-        enabledLabels: null,
-      });
-      if (entities && entities.length > 0) {
-        // Descending by position so replacements don't shift later indices.
-        const sorted = [...entities].sort((a, b) => b.start - a.start);
-        for (const e of sorted) {
-          const original = out.substring(e.start, e.end);
-          if (
-            !original
-              .toLowerCase()
-              .includes(e.text.toLowerCase().substring(0, 3))
-          )
-            continue;
-          const token = ensureRedactTerm(e.label, original);
-          if (!token || token === original) continue;
-          out = out.substring(0, e.start) + token + out.substring(e.end);
-          mappings.set(token, original);
-        }
+  // 1. GLiNER NER → stable registry tokens (novel-PII detection), windowed so
+  //    long documents are fully scanned rather than skipped.
+  try {
+    const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
+    const entities = await detectGlinerEntities(out);
+    if (entities.length > 0) {
+      // Descending by position so replacements don't shift later indices.
+      const sorted = [...entities].sort((a, b) => b.start - a.start);
+      for (const e of sorted) {
+        const original = out.substring(e.start, e.end);
+        if (
+          !original.toLowerCase().includes(e.text.toLowerCase().substring(0, 3))
+        )
+          continue;
+        const token = ensureRedactTerm(e.label, original);
+        if (!token || token === original) continue;
+        out = out.substring(0, e.start) + token + out.substring(e.end);
+        mappings.set(token, original);
       }
-    } catch {
-      // GLiNER unavailable — known-terms pass below still covers known PII.
     }
+  } catch {
+    // GLiNER unavailable — known-terms pass below still covers known PII.
   }
 
   // 2. Known-terms pass (PII Vault + registry) — shared with the client backstop.
