@@ -10,7 +10,20 @@ import { vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: async (cmd: string, args?: { text?: string; terms?: Array<{ label: string; value: string; replacement: string }> }) => {
     if (cmd === "detect_pii_with_gliner") {
-      return [];
+      // Deterministic stand-in for the ONNX GLiNER model: detect a sentinel name
+      // so tests can exercise GLiNER-driven redaction (incl. long-document
+      // windowing) without the real model. Other test PII (e.g. "Mario Rossi") is
+      // covered via the custom-term registry, not here. Called per window, so the
+      // positions are chunk-relative and the caller offsets them to absolute.
+      const text = args?.text ?? "";
+      const SENTINEL = "Giulia Bianchi";
+      const entities: Array<{ text: string; label: string; start: number; end: number }> = [];
+      let i = text.indexOf(SENTINEL);
+      while (i !== -1) {
+        entities.push({ text: SENTINEL, label: "PERSON", start: i, end: i + SENTINEL.length });
+        i = text.indexOf(SENTINEL, i + SENTINEL.length);
+      }
+      return entities;
     }
     if (cmd === "redact_text_command") {
       const text: string = args?.text ?? "";
