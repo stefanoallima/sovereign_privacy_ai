@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { PiiVaultEntry } from "@/types";
+import { createEncryptedStorage } from "@/services/encrypted-storage";
 
 interface PiiVaultStore {
   entries: PiiVaultEntry[];
@@ -120,6 +121,9 @@ export const usePiiVaultStore = create<PiiVaultStore>()(
     }),
     {
       name: "pii-vault",
+      // Encrypt PII at rest with the OS-keychain-backed key (crypto.rs). Legacy
+      // plaintext vaults are migrated on next write — see services/encrypted-storage.
+      storage: createJSONStorage(() => createEncryptedStorage()),
     }
   )
 );
