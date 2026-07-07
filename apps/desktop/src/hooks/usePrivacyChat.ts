@@ -1588,10 +1588,17 @@ export function usePrivacyChat() {
       const vaultEntries = usePiiVaultStore.getState().entries;
       let textAfterGliner = glinerEntityCount > 0 ? glinerSanitized : content;
       if (vaultEntries.length > 0) {
+        // NORTH STAR: a vault value must get the SAME stable token as every other
+        // path (redactForCloud, the egress backstop, sendDirect). Tokenize via the
+        // SHARED registry (ensureRedactTerm) — the exact call redactForCloud's F3
+        // vault-seed uses — NOT the vault's own [VAULT_...] placeholder, otherwise
+        // the same PII is tokenized differently in hybrid vs direct sends.
+        const { useUserContextStore } = await import("@/stores/userContext");
+        const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
         const vaultTerms = vaultEntries.map((e) => ({
           label: e.category,
           value: e.text,
-          replacement: e.placeholder,
+          replacement: ensureRedactTerm(e.category, e.text),
         }));
         const { sanitized: vaultSanitized, mappings: vaultMappings } =
           await applyCustomRedaction(textAfterGliner, vaultTerms);
