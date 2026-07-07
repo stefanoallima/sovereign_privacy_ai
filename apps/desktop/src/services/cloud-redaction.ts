@@ -126,6 +126,34 @@ async function detectGlinerEntities(text: string): Promise<GlinerEntity[]> {
   return dropOverlappingEntities(out);
 }
 
+// #2: the PII vault persists via an ASYNC (encrypted) storage adapter, so a read
+// before hydration completes would see an EMPTY vault and miss a vault-only value.
+// Await hydration ONCE (memoized) before seeding — closing that launch-window race.
+// hasHydrated() short-circuits after the first hydration, so there's normally no wait.
+type PersistApi = {
+  persist?: {
+    hasHydrated?: () => boolean;
+    onFinishHydration?: (cb: () => void) => (() => void) | void;
+  };
+};
+let vaultHydration: Promise<void> | null = null;
+function awaitVaultHydrated(store: PersistApi): Promise<void> {
+  if (vaultHydration) return vaultHydration;
+  vaultHydration = new Promise<void>((resolve) => {
+    const p = store.persist;
+    if (!p?.hasHydrated || p.hasHydrated()) {
+      resolve();
+      return;
+    }
+    const unsub = p.onFinishHydration?.(() => {
+      if (typeof unsub === "function") unsub();
+      resolve();
+    });
+    setTimeout(resolve, 1000); // safety: never block a send forever
+  });
+  return vaultHydration;
+}
+
 /**
  * Known-terms redaction: PII Vault + the profile-wide custom-term registry via
  * the Rust matcher. This is the CHEAP, deterministic pass (no GLiNER NER). It is
@@ -146,6 +174,7 @@ export async function redactKnownTerms(text: string): Promise<CloudRedaction> {
   // in every path (F3). ensureRedactTerm dedupes → one stable token per value.
   try {
     const { usePiiVaultStore } = await import("@/stores/piiVault");
+    await awaitVaultHydrated(usePiiVaultStore as PersistApi); // #2: no pre-hydration miss
     const ensureRedactTerm = useUserContextStore.getState().ensureRedactTerm;
     for (const entry of usePiiVaultStore.getState().entries) {
       if (entry.text && entry.text.trim().length >= 2) {
