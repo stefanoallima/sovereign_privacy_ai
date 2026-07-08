@@ -30,6 +30,14 @@ export interface NormattivaExtension {
   stage?: string;
 }
 
+/** Per-account rate-limit / quota, parsed from the `X-RateLimit-*` response headers (C2). */
+export interface RateLimitInfo {
+  limit?: number | "unlimited";
+  remaining?: number | "unlimited";
+  /** Unix timestamp (seconds) of the next monthly reset, when provided. */
+  reset?: number;
+}
+
 // App Settings
 export interface AppSettings {
   // API Configuration
@@ -190,6 +198,8 @@ export interface Message {
   // response (B1). In-memory only for now — not persisted to the message DB.
   citations?: Citation[];
   costEstimateEur?: number;
+  // Per-account quota from the response's X-RateLimit-* headers (C2). In-memory only.
+  quota?: RateLimitInfo;
 }
 
 // Knowledge Base
