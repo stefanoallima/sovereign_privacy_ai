@@ -108,6 +108,16 @@ export const TAURI_IPC_STUB_SCRIPT = `
   window.__TAURI_INTERNALS__.unregisterCallback = function (id) { callbacks.delete(id); };
   window.__TAURI_INTERNALS__.callbacks = callbacks;
 
+  // Window/webview metadata read by @tauri-apps/api/webviewWindow getCurrentWindow() /
+  // getCurrentWebviewWindow(). ChatWindow.tsx calls getCurrentWebviewWindow().onDragDropEvent()
+  // at mount; without this metadata that threw "Cannot read properties of undefined (reading
+  // 'currentWindow')" and crashed the whole main app. (onDragDropEvent's listen() then resolves
+  // via the stubbed invoke.)
+  window.__TAURI_INTERNALS__.metadata = window.__TAURI_INTERNALS__.metadata || {
+    currentWindow: { label: 'main' },
+    currentWebview: { label: 'main' },
+  };
+
   // Also expose on the legacy window.__TAURI__ path used by some feature checks
   window.__TAURI__ = window.__TAURI__ || {};
   window.__TAURI__.core = { invoke: handleInvoke };

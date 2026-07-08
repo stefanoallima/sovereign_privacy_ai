@@ -18,7 +18,7 @@
  */
 
 import { test as base, type Page } from "@playwright/test";
-import { clearConversations } from "../helpers/store";
+import { TAURI_IPC_STUB_SCRIPT } from "../global-setup";
 
 // Extend the base test with a beforeEach that resets all persisted state.
 // We use base.extend with a custom `page` fixture that wraps the built-in one.
@@ -29,13 +29,34 @@ export const test = base.extend<{ page: Page }>({
     // than after so that a failing test leaves its state intact for
     // post-mortem debugging.
     //
-    // page.evaluate() executes inside the webview/browser context.
-    // localStorage.clear() wipes all Zustand persist keys for the current origin.
-    await page.evaluate(() => {
-      // eslint-disable-next-line no-restricted-globals
-      localStorage.clear();
+    // Inject the Tauri IPC stub so @tauri-apps/api invoke() resolves without a real binary.
+    await page.addInitScript(TAURI_IPC_STUB_SCRIPT);
+
+    // Skip the onboarding wizard so tests land on the main app (App.tsx gates on
+    // `wizardCompleted`). addInitScript re-applies on every navigation, so it survives the
+    // one-time reset below and the reload-persistence tests.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "assistant-wizard",
+        JSON.stringify({
+          state: { wizardCompleted: true, tourCompleted: true, firstSendTourCompleted: true },
+          version: 0,
+        })
+      );
     });
-    await clearConversations(page);
+
+    // Reset persisted state ONCE, on the app's real origin. Two constraints:
+    //   - page.evaluate(() => localStorage.clear()) throws "SecurityError: Access is denied"
+    //     on about:blank (before any navigation) in current Chromium — so we navigate first;
+    //   - clearing via addInitScript would re-run on EVERY navigation, wiping state that the
+    //     reload-persistence tests (e.g. 02-vault-operations' page.reload()) depend on — so we
+    //     clear imperatively, exactly once, here.
+    await page.goto("http://localhost:5173");
+    await page.evaluate(() => {
+      localStorage.clear();
+      indexedDB.deleteDatabase("PrivateAssistantDB");
+      indexedDB.deleteDatabase("ailocalmind");
+    });
 
     await use(page);
   },

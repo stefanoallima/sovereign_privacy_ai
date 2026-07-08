@@ -15,6 +15,18 @@ export const test = base.extend<{ page: Page }>({
     // addInitScript registers the script for execution on every navigation,
     // so it must be called before page.goto().
     await page.addInitScript(TAURI_IPC_STUB_SCRIPT);
+    // Skip the onboarding wizard so tests land on the main app. App.tsx gates the ENTIRE app on
+    // `wizardCompleted` (the "assistant-wizard" persisted store); without this it renders
+    // <SetupWizard/> and no chat/settings/vault UI (data-testid) is reachable.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "assistant-wizard",
+        JSON.stringify({
+          state: { wizardCompleted: true, tourCompleted: true, firstSendTourCompleted: true },
+          version: 0,
+        })
+      );
+    });
     await use(page);
   },
 });
