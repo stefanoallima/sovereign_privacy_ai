@@ -1,4 +1,4 @@
-import type { LLMModel, NormattivaExtension } from "@/types";
+import type { LLMModel, NormattivaExtension, RateLimitInfo } from "@/types";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -59,6 +59,38 @@ export interface ChatCompletionResponse {
    *  cost / (Phase 1) streaming agent stage from here. Optional — omitted
    *  when the platform does not emit it. */
   x_normattiva?: NormattivaExtension;
+}
+
+/** Parse the per-account quota from `X-RateLimit-*` response headers (C2). Values may be
+ *  an integer or the string "unlimited"; returns undefined when the headers are absent. */
+export function parseRateLimit(headers: Headers): RateLimitInfo | undefined {
+  const parseVal = (v: string | null): number | "unlimited" | undefined => {
+    if (v == null) return undefined;
+    if (v.trim().toLowerCase() === "unlimited") return "unlimited";
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const limit = parseVal(headers.get("X-RateLimit-Limit"));
+  const remaining = parseVal(headers.get("X-RateLimit-Remaining"));
+  const resetRaw = headers.get("X-RateLimit-Reset");
+  const reset =
+    resetRaw != null && Number.isFinite(Number(resetRaw)) ? Number(resetRaw) : undefined;
+  if (limit === undefined && remaining === undefined && reset === undefined) return undefined;
+  return { limit, remaining, reset };
+}
+
+/** Friendly, provider-aware message for HTTP 429 (rate limit / monthly quota exhausted). */
+function rateLimitMessage(quota: RateLimitInfo | undefined, baseUrl: string): string {
+  const parts = ["You've hit the request limit."];
+  if (typeof quota?.limit === "number" && typeof quota?.remaining === "number") {
+    parts.push(`Used ${quota.limit - quota.remaining}/${quota.limit} this month.`);
+  }
+  if (baseUrl.includes("codicecivile.ai")) {
+    parts.push("Upgrade at codicecivile.ai/pricing to continue.");
+  } else {
+    parts.push("Please try again later.");
+  }
+  return parts.join(" ");
 }
 
 export class OpenAICompatibleClient {
@@ -122,7 +154,12 @@ export class OpenAICompatibleClient {
     options: ChatCompletionOptions
   ): AsyncGenerator<
     string,
-    { inputTokens: number; outputTokens: number; xNormattiva?: NormattivaExtension }
+    {
+      inputTokens: number;
+      outputTokens: number;
+      xNormattiva?: NormattivaExtension;
+      quota?: RateLimitInfo;
+    }
   > {
     const url = `${this.baseUrl}/chat/completions`;
     console.debug(`[cloud] POST ${url} model=${options.model} key=${this.apiKey ? 'set' : '(none)'}`);
@@ -142,7 +179,13 @@ export class OpenAICompatibleClient {
       }),
     });
 
+    // C2: per-account quota rides on the response headers (present on 200 and 429).
+    const quota = parseRateLimit(response.headers);
+
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error(rateLimitMessage(quota, this.baseUrl));
+      }
       const error = await response.text();
       throw new Error(`Nebius API error: ${response.status} - ${error}\n(endpoint: ${url}, model: ${options.model})`);
     }
@@ -204,7 +247,7 @@ export class OpenAICompatibleClient {
 
     // B1: x_normattiva (citations + cost) accumulated across SSE chunks and returned so
     // the chat can render citation chips + a cost footer on the finalized message.
-    return { inputTokens, outputTokens, xNormattiva };
+    return { inputTokens, outputTokens, xNormattiva, quota };
   }
 
   async chatCompletion(
@@ -225,6 +268,9 @@ export class OpenAICompatibleClient {
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error(rateLimitMessage(parseRateLimit(response.headers), this.baseUrl));
+      }
       const error = await response.text();
       throw new Error(`Nebius API error: ${response.status} - ${error}`);
     }

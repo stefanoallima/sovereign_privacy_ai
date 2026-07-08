@@ -38,7 +38,7 @@ interface ChatStore {
   // Message actions
   addMessage: (conversationId: string, message: Omit<Message, "id" | "createdAt">) => Promise<void>;
   updateStreamingContent: (content: string) => void;
-  finalizeStreaming: (conversationId: string, modelId: string, inputTokens: number, outputTokens: number, latencyMs: number, personaId?: string, extension?: Pick<Message, 'citations' | 'costEstimateEur'>) => Promise<void>;
+  finalizeStreaming: (conversationId: string, modelId: string, inputTokens: number, outputTokens: number, latencyMs: number, personaId?: string, extension?: Pick<Message, 'citations' | 'costEstimateEur' | 'quota'>) => Promise<void>;
   approveMessage: (messageId: string) => Promise<void>;
   linkMessageToCanvas: (messageId: string, canvasDocId: string, canvasIntro: string) => Promise<void>;
   setLoading: (loading: boolean) => void;
@@ -398,6 +398,7 @@ export const useChatStore = create<ChatStore>()(
           // only (not written to dbOps.createMessage — no DB column yet).
           citations: extension?.citations,
           costEstimateEur: extension?.costEstimateEur,
+          quota: extension?.quota,
         };
 
         // Skip persistence for incognito conversations
