@@ -1151,6 +1151,7 @@ ${attachment.textContent}`;
                       costEstimateEur={message.costEstimateEur}
                       consultedConceptIds={message.consultedConceptIds}
                       consultedConcepts={message.consultedConcepts}
+                      quota={message.quota}
                       canvasDocTitle={canvasTitle}
                       canvasIntro={message.canvasIntro}
                       onViewCanvas={
