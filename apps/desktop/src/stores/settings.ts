@@ -138,11 +138,28 @@ const DEFAULT_NORMATTIVA_MODELS: LLMModel[] = [
   },
 ];
 
+// The live codicecivile.ai OpenAI-compatible base URL (ratified cross-repo 2026-07-07:
+// the `api.` host + `/api/v1` path — NOT the apex, which serves the SPA). See the
+// collaboration folder's CONTRACT.md §2 / DESKTOP_STATUS_2026-07-07.md (TASK-B5).
+export const NORMATTIVA_DEFAULT_ENDPOINT = "https://api.codicecivile.ai/api/v1";
+// Dead defaults shipped by earlier builds. Installs still pointing at one of these are
+// auto-migrated to the live endpoint (v18); a user's own custom endpoint is preserved.
+const LEGACY_NORMATTIVA_ENDPOINTS = ["https://api.normattiva.ai/v1"];
+
+/**
+ * B5: resolve the Normattiva endpoint to persist. Repoints a dead/legacy default (or a
+ * missing value) to the live endpoint, but keeps any value the user set themselves.
+ */
+export function resolveNormattivaEndpoint(stored: string | undefined | null): string {
+  if (stored && !LEGACY_NORMATTIVA_ENDPOINTS.includes(stored)) return stored;
+  return NORMATTIVA_DEFAULT_ENDPOINT;
+}
+
 const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiKey: "",
   nebiusApiEndpoint: "https://api.tokenfactory.nebius.com/v1",
   normattivaApiKey: "",
-  normattivaApiEndpoint: "https://api.normattiva.ai/v1",
+  normattivaApiEndpoint: NORMATTIVA_DEFAULT_ENDPOINT,
   mem0ApiKey: "",
   enableMemory: false,
   useLocalMemory: true,
@@ -452,7 +469,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 17, // v17: add normattivaApiKey + normattivaApiEndpoint
+      version: 18, // v18: repoint normattiva endpoint to the live codicecivile.ai host (B5)
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -478,7 +495,8 @@ export const useSettingsStore = create<SettingsStore>()(
             useLocalMemory: old.useLocalMemory ?? true,
             cloudTrustLevel: old.cloudTrustLevel ?? null,
             normattivaApiKey: old.normattivaApiKey ?? "",
-            normattivaApiEndpoint: old.normattivaApiEndpoint ?? "https://api.normattiva.ai/v1",
+            // B5: move installs off the dead default; keep a user's custom endpoint.
+            normattivaApiEndpoint: resolveNormattivaEndpoint(old.normattivaApiEndpoint),
           },
           models: DEFAULT_MODELS,
           ollamaModels: DEFAULT_OLLAMA_MODELS,

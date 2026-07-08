@@ -215,7 +215,8 @@ export class OpenAICompatibleClient {
 
 // One client per (provider, baseUrl, apiKey) — keyed so different API keys can
 // coexist. Normattiva and Nebius each get their own default endpoint.
-const NORMATTIVA_DEFAULT_BASE = "https://api.normattiva.ai/v1";
+// Live codicecivile.ai OpenAI-compatible base (ratified 2026-07-07: `api.` host, `/api/v1` path).
+const NORMATTIVA_DEFAULT_BASE = "https://api.codicecivile.ai/api/v1";
 const NEBIUS_DEFAULT_BASE = "https://api.tokenfactory.nebius.com/v1";
 
 const clientCache = new Map<string, OpenAICompatibleClient>();

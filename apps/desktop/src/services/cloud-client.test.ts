@@ -42,7 +42,7 @@ describe("getCloudClient factory", () => {
     try {
       const client = getCloudClient("normattiva", "k");
       await client.validateApiKey();
-      expect(observedUrl.startsWith("https://api.normattiva.ai/v1/")).toBe(true);
+      expect(observedUrl.startsWith("https://api.codicecivile.ai/api/v1/")).toBe(true);
     } finally {
       global.fetch = originalFetch;
     }

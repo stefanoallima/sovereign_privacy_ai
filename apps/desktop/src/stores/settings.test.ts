@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useSettingsStore } from "@/stores/settings";
+import {
+  useSettingsStore,
+  resolveNormattivaEndpoint,
+  NORMATTIVA_DEFAULT_ENDPOINT,
+} from "@/stores/settings";
 
 describe("settings store — normattiva models", () => {
   beforeEach(() => {
@@ -29,15 +33,39 @@ describe("settings store — normattiva api key", () => {
     useSettingsStore.getState().resetToDefaults();
   });
 
-  it("defaults normattivaApiKey to empty string and endpoint to the normattiva host", () => {
+  it("defaults normattivaApiKey to empty string and endpoint to the live codicecivile.ai host", () => {
     const { settings } = useSettingsStore.getState();
     expect(settings.normattivaApiKey).toBe("");
-    expect(settings.normattivaApiEndpoint).toBe("https://api.normattiva.ai/v1");
+    expect(settings.normattivaApiEndpoint).toBe("https://api.codicecivile.ai/api/v1");
+    expect(settings.normattivaApiEndpoint).toBe(NORMATTIVA_DEFAULT_ENDPOINT);
   });
 
   it("setNormattivaApiKey updates settings.normattivaApiKey", () => {
     useSettingsStore.getState().setNormattivaApiKey("sk-test-1234");
     expect(useSettingsStore.getState().settings.normattivaApiKey).toBe("sk-test-1234");
+  });
+});
+
+// B5: the v18 persist migration repoints existing installs off the dead
+// api.normattiva.ai default onto the live codicecivile.ai endpoint, without
+// clobbering an endpoint the user set themselves (staging/mock).
+describe("resolveNormattivaEndpoint (B5 endpoint flip / v18 migration)", () => {
+  it("repoints the dead legacy default to the live codicecivile.ai endpoint", () => {
+    expect(resolveNormattivaEndpoint("https://api.normattiva.ai/v1")).toBe(
+      "https://api.codicecivile.ai/api/v1"
+    );
+  });
+
+  it("fills a missing/empty stored endpoint with the live default", () => {
+    expect(resolveNormattivaEndpoint(undefined)).toBe(NORMATTIVA_DEFAULT_ENDPOINT);
+    expect(resolveNormattivaEndpoint(null)).toBe(NORMATTIVA_DEFAULT_ENDPOINT);
+    expect(resolveNormattivaEndpoint("")).toBe(NORMATTIVA_DEFAULT_ENDPOINT);
+  });
+
+  it("preserves a user's custom endpoint (staging/mock override)", () => {
+    expect(resolveNormattivaEndpoint("http://localhost:8000/api/v1")).toBe(
+      "http://localhost:8000/api/v1"
+    );
   });
 });
 
