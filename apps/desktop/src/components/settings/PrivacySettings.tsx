@@ -759,7 +759,7 @@ export function PrivacySettings() {
               className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Default: <code>https://api.normattiva.ai/v1</code>. Override for staging/mocks.
+              Default: <code>https://api.codicecivile.ai/api/v1</code>. Override for staging/mocks.
             </p>
           </div>
           <NormattivaValidateButton />
