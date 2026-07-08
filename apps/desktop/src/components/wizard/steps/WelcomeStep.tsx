@@ -72,7 +72,10 @@ export function WelcomeStep() {
     }
   };
 
-  const isDownloaded = choices.localModelDownloaded || models.find((m) => m.model_id === targetModel)?.downloaded;
+  // `models` can be null before loadLocalModels() resolves (and the E2E Tauri stub returns null
+  // for the models command); calling .find on it crashed the whole app on startup ("crashed on
+  // startup" boundary). Guard with optional chaining.
+  const isDownloaded = choices.localModelDownloaded || models?.find((m) => m.model_id === targetModel)?.downloaded;
 
   return (
     <div className="flex flex-col items-center text-center max-w-lg mx-auto">
