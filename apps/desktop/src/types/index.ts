@@ -186,6 +186,10 @@ export interface Message {
   canvasIntro?: string;
   // Attachments
   attachments?: FileAttachment[];
+  // Normattiva legal citations (from x_normattiva) attached to a live assistant
+  // response (B1). In-memory only for now — not persisted to the message DB.
+  citations?: Citation[];
+  costEstimateEur?: number;
 }
 
 // Knowledge Base

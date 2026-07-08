@@ -2,10 +2,10 @@ import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SpeakButton } from "./VoiceButton";
-import { Bot, Copy, Check, ShieldAlert, Send, FileText, File, Lock, ShieldCheck, Zap, ClipboardPaste } from "lucide-react";
+import { Bot, Copy, Check, ShieldAlert, Send, FileText, File, Lock, ShieldCheck, Zap, ClipboardPaste, Scale, ExternalLink } from "lucide-react";
 import { PrivacyIndicator, PrivacyLevel } from "./PrivacyIndicator";
 import { useChatStore } from "@/stores";
-import type { FileAttachment } from "@/types";
+import type { FileAttachment, Citation } from "@/types";
 
 // Backend privacy modes for personas
 export type BackendPrivacyMode = 'local' | 'hybrid' | 'cloud';
@@ -31,6 +31,10 @@ interface MessageBubbleProps {
   attachments?: FileAttachment[];
   /** Whether this response was enhanced by cloud delegation */
   cloudAssisted?: boolean;
+  /** Normattiva legal citations (from x_normattiva.citations) — rendered as chips (B1) */
+  citations?: Citation[];
+  /** Estimated EUR cost of this response (from x_normattiva.cost_estimate_eur) (B1) */
+  costEstimateEur?: number;
 }
 
 // Helper to get privacy icon for backend mode
@@ -125,6 +129,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   onViewCanvas,
   attachments,
   cloudAssisted,
+  citations,
+  costEstimateEur,
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
@@ -375,6 +381,41 @@ export const MessageBubble = React.memo(function MessageBubble({
                     {mainContent}
                   </ReactMarkdown>
                 </div>
+
+                {/* Normattiva legal citations (B1) — clickable chips linking to the article/massima */}
+                {citations && citations.length > 0 && (
+                  <div
+                    data-testid="message-citations"
+                    className="flex flex-wrap gap-1.5 px-4 pb-2"
+                  >
+                    {citations.map((c, i) => (
+                      <a
+                        key={`${c.ref}-${i}`}
+                        href={c.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={c.title}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium
+                          bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--primary))] border border-[hsl(var(--primary)/0.2)]
+                          hover:bg-[hsl(var(--primary)/0.15)] transition-colors"
+                      >
+                        <Scale className="h-3 w-3 flex-shrink-0" />
+                        <span>{c.ref}</span>
+                        <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {/* Cost footer (B1) — estimated EUR cost from x_normattiva.cost_estimate_eur */}
+                {typeof costEstimateEur === "number" && (
+                  <div
+                    data-testid="message-cost"
+                    className="px-4 pb-2 text-[11px] text-[hsl(var(--muted-foreground)/0.7)]"
+                  >
+                    Costo stimato: €{costEstimateEur.toFixed(4)}
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 {!isStreaming && mainContent && (
