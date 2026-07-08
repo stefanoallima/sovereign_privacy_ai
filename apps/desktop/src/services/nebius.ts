@@ -11,6 +11,8 @@ export interface ChatCompletionOptions {
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
+  /** OpenAI-SDK convention: ask for a final usage chunk with exact token counts (B2a). */
+  stream_options?: { include_usage?: boolean };
 }
 
 export interface ChatCompletionChunk {
@@ -26,6 +28,12 @@ export interface ChatCompletionChunk {
     };
     finish_reason: string | null;
   }[];
+  /** Additive Normattiva extension. The platform may emit it on the final
+   *  content chunk (or a dedicated chunk); streamChatCompletion accumulates it. */
+  x_normattiva?: NormattivaExtension;
+  /** Exact token counts, emitted in a dedicated final chunk (choices: []) when
+   *  stream_options.include_usage=true (B2a). */
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
 }
 
 export interface ChatCompletionResponse {
@@ -112,7 +120,10 @@ export class OpenAICompatibleClient {
 
   async *streamChatCompletion(
     options: ChatCompletionOptions
-  ): AsyncGenerator<string, { inputTokens: number; outputTokens: number }> {
+  ): AsyncGenerator<
+    string,
+    { inputTokens: number; outputTokens: number; xNormattiva?: NormattivaExtension }
+  > {
     const url = `${this.baseUrl}/chat/completions`;
     console.debug(`[cloud] POST ${url} model=${options.model} key=${this.apiKey ? 'set' : '(none)'}`);
     const messages = await this.redactBackstop(options.messages);
@@ -126,6 +137,8 @@ export class OpenAICompatibleClient {
         ...options,
         messages,
         stream: true,
+        // B2a: request a final usage chunk with exact token counts (caller may override).
+        stream_options: { include_usage: true, ...options.stream_options },
       }),
     });
 
@@ -142,6 +155,8 @@ export class OpenAICompatibleClient {
     const decoder = new TextDecoder();
     let buffer = "";
     let totalContent = "";
+    let xNormattiva: NormattivaExtension | undefined;
+    let usageFromStream: ChatCompletionChunk["usage"] | undefined;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -163,6 +178,15 @@ export class OpenAICompatibleClient {
               totalContent += content;
               yield content;
             }
+            // B1: accumulate the Normattiva extension from any chunk that carries
+            // it (the platform emits it on/near the final chunk). Later fields win.
+            if (json.x_normattiva) {
+              xNormattiva = { ...xNormattiva, ...json.x_normattiva };
+            }
+            // B2a: the include_usage final chunk carries exact token counts.
+            if (json.usage) {
+              usageFromStream = json.usage;
+            }
           } catch {
             // Skip invalid JSON
           }
@@ -170,21 +194,17 @@ export class OpenAICompatibleClient {
       }
     }
 
-    // Estimate tokens (rough: ~4 chars per token)
-    const inputTokens = Math.ceil(
-      messages.reduce((sum, m) => sum + m.content.length, 0) / 4
-    );
-    const outputTokens = Math.ceil(totalContent.length / 4);
+    // B2a: prefer the platform's EXACT token counts (from the include_usage final
+    // chunk); fall back to a char/4 estimate only if the platform didn't emit usage.
+    const inputTokens =
+      usageFromStream?.prompt_tokens ??
+      Math.ceil(messages.reduce((sum, m) => sum + m.content.length, 0) / 4);
+    const outputTokens =
+      usageFromStream?.completion_tokens ?? Math.ceil(totalContent.length / 4);
 
-    // TODO(phase-1): Streaming x_normattiva accumulation from SSE chunks.
-    // Currently x_normattiva (citations) is parsed in non-streaming chatCompletion()
-    // but not accumulated across SSE chunks in streamChatCompletion().
-    // Phase 1 will add: (A6) exact usage capture from x_normattiva,
-    // (B8) SSE accumulation of x_normattiva.cost_estimate_eur for real-time billing,
-    // and (C) citations UI for streamed responses.
-    // See: apps/desktop/docs/superpowers/specs/2026-06-15-normattiva-integration-spec.md A6, B8.
-
-    return { inputTokens, outputTokens };
+    // B1: x_normattiva (citations + cost) accumulated across SSE chunks and returned so
+    // the chat can render citation chips + a cost footer on the finalized message.
+    return { inputTokens, outputTokens, xNormattiva };
   }
 
   async chatCompletion(
