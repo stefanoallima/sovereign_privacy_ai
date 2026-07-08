@@ -1149,6 +1149,7 @@ ${attachment.textContent}`;
                       cloudAssisted={message.cloudAssisted}
                       citations={message.citations}
                       costEstimateEur={message.costEstimateEur}
+                      quota={message.quota}
                       canvasDocTitle={canvasTitle}
                       canvasIntro={message.canvasIntro}
                       onViewCanvas={

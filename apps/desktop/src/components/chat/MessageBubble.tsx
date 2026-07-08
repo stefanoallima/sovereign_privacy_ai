@@ -5,7 +5,7 @@ import { SpeakButton } from "./VoiceButton";
 import { Bot, Copy, Check, ShieldAlert, Send, FileText, File, Lock, ShieldCheck, Zap, ClipboardPaste, Scale, ExternalLink } from "lucide-react";
 import { PrivacyIndicator, PrivacyLevel } from "./PrivacyIndicator";
 import { useChatStore } from "@/stores";
-import type { FileAttachment, Citation } from "@/types";
+import type { FileAttachment, Citation, RateLimitInfo } from "@/types";
 
 // Backend privacy modes for personas
 export type BackendPrivacyMode = 'local' | 'hybrid' | 'cloud';
@@ -35,6 +35,8 @@ interface MessageBubbleProps {
   citations?: Citation[];
   /** Estimated EUR cost of this response (from x_normattiva.cost_estimate_eur) (B1) */
   costEstimateEur?: number;
+  /** Per-account quota (from the X-RateLimit-* headers) — "used this month" line (C2) */
+  quota?: RateLimitInfo;
 }
 
 // Helper to get privacy icon for backend mode
@@ -131,6 +133,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   cloudAssisted,
   citations,
   costEstimateEur,
+  quota,
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
@@ -414,6 +417,16 @@ export const MessageBubble = React.memo(function MessageBubble({
                     className="px-4 pb-2 text-[11px] text-[hsl(var(--muted-foreground)/0.7)]"
                   >
                     Costo stimato: €{costEstimateEur.toFixed(4)}
+                  </div>
+                )}
+
+                {/* Quota footer (C2) — "N di M query usate questo mese" from X-RateLimit-* */}
+                {typeof quota?.limit === "number" && typeof quota?.remaining === "number" && (
+                  <div
+                    data-testid="message-quota"
+                    className="px-4 pb-2 text-[11px] text-[hsl(var(--muted-foreground)/0.7)]"
+                  >
+                    {quota.limit - quota.remaining} di {quota.limit} query usate questo mese
                   </div>
                 )}
 

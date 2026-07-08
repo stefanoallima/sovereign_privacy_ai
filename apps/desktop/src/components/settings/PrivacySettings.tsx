@@ -746,6 +746,19 @@ export function PrivacySettings() {
               onChange={(e) => setNormattivaApiKey(e.target.value)}
               className="w-full px-3 py-2 text-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.5)] font-mono"
             />
+            {/* C1: sign-up deep-link. Opens the codicecivile.ai signup in the browser; the
+                user copies their key from the /api-keys page and pastes it above. */}
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Non hai una chiave?{" "}
+              <button
+                type="button"
+                onClick={() => openUrl("https://codicecivile.ai/signup?ref=sovereign-ai&plan=desktop")}
+                className="text-[hsl(var(--primary))] font-medium hover:underline"
+              >
+                Registrati su codicecivile.ai
+              </button>
+              , poi incolla qui la chiave che copi.
+            </p>
           </div>
           <div>
             <label htmlFor="normattiva-endpoint" className="text-xs font-semibold text-[hsl(var(--foreground))] block mb-1.5">
