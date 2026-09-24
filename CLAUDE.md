@@ -31,13 +31,53 @@ pnpm tauri build -- --features cuda
 cd src-tauri && cargo test
 ```
 
+### macOS build (Apple Silicon)
+
+```bash
+cd apps/desktop
+
+# 1. Bundle ONNX Runtime (GLiNER). tauri.macos.conf.json requires this file;
+#    it is gitignored. Use the osx-x86_64 archive for an Intel build.
+mkdir -p src-tauri/onnxruntime
+curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-osx-arm64-1.20.1.tgz | tar -xz -C /tmp
+cp /tmp/onnxruntime-osx-arm64-1.20.1/lib/libonnxruntime.1.20.1.dylib src-tauri/onnxruntime/libonnxruntime.dylib
+
+# 2. Pin the macOS target. Without this, llama.cpp fails with
+#    "'path' is unavailable: introduced in macOS 10.15" (same flags as release.yml).
+export MACOSX_DEPLOYMENT_TARGET=11.0
+export CFLAGS="--target=arm64-apple-macos11.0 -mmacosx-version-min=11.0"
+export CXXFLAGS="$CFLAGS"
+
+# 3. Build. Updater artifacts need TAURI_SIGNING_PRIVATE_KEY (CI secret);
+#    disable them for local builds.
+pnpm tauri build --bundles app dmg -c '{"bundle":{"createUpdaterArtifacts":false}}'
+# Output: src-tauri/target/release/bundle/{macos/Sovereign AI.app,dmg/*.dmg}
+
+# 4. Verify the bundle is sealed (an unsealed bundle shows as "damaged" once downloaded)
+codesign --verify --deep --strict --verbose=2 "src-tauri/target/release/bundle/macos/Sovereign AI.app"
+```
+
+- If a build failed before the flags were set, CMake caches the bad flags:
+  `cd src-tauri && cargo clean -p llama-cpp-sys-2 --release`, then rebuild.
+- Builds are **ad-hoc signed** (`signingIdentity: "-"` in `tauri.macos.conf.json`),
+  so library validation is disabled in `entitlements.plist` to load the bundled
+  dylib. Users approve the first launch via System Settings → Privacy & Security →
+  Open Anyway. A Developer ID + notarization would remove that step; the secrets
+  to add are listed in `.github/workflows/release.yml`.
+- **Don't launch a local build against your real app data.** On first launch the
+  key moves from `~/Library/Application Support/PrivateAssistant/.encryption.key`
+  into the macOS Keychain and the file is deleted.
+- `git-lfs` hooks are installed but the repo stores nothing in LFS; if a push fails
+  with "git-lfs was not found", use `git push --no-verify` or `brew install git-lfs`.
+
 ## Prerequisites
 
 - Node.js 22+, pnpm 10+
 - Rust 1.75+ (via rustup)
 - CMake (must be in PATH)
 - LLVM/libclang (for bindgen)
-- Visual Studio Build Tools 2022 with C++ workload
+- Windows: Visual Studio Build Tools 2022 with C++ workload
+- macOS: Xcode Command Line Tools (`xcode-select --install`), then `brew install cmake llvm`
 
 ## Architecture
 
