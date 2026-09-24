@@ -12,7 +12,7 @@ import type { FullConfig } from "@playwright/test";
 // ---------------------------------------------------------------------------
 
 export const STUB_APP_SETTINGS = {
-  nebiusApiKey: "",
+  nebiusApiKey: "e2e-stub-key",
   nebiusApiEndpoint: "https://api.tokenfactory.nebius.com/v1",
   mem0ApiKey: "",
   enableMemory: false,
@@ -77,6 +77,33 @@ export const TAURI_IPC_STUB_SCRIPT = `
 
       case 'get_conversations':
         return Promise.resolve([]);
+
+      // At-rest encryption for zustand stores (services/encrypted-storage).
+      // Fake, reversible "cipher": the UTF-8 bytes themselves, so stores persist
+      // and tests can read them back (see getStoreState in helpers/store.ts).
+      case 'encrypt_string':
+        return Promise.resolve(
+          Array.from(new TextEncoder().encode((args && args.plaintext) || ''))
+        );
+
+      case 'decrypt_string':
+        return Promise.resolve(
+          new TextDecoder().decode(new Uint8Array((args && args.ciphertext) || []))
+        );
+
+      // Privacy routing: behave like a safe hybrid/full-text decision that
+      // passes the (already locally redacted) text through unchanged. A test
+      // can override fields (e.g. attributes_only) via
+      // window.__E2E_PRIVACY_DECISION__.
+      case 'process_chat_with_privacy':
+        return Promise.resolve(Object.assign({
+          prompt: (args && args.text) || '',
+          backend: 'hybrid',
+          model: null,
+          is_safe: true,
+          content_mode: 'full_text',
+          info: 'E2E stub: full text',
+        }, window.__E2E_PRIVACY_DECISION__ || {}));
 
       // Graceful no-ops for commands not covered by the stub
       default:

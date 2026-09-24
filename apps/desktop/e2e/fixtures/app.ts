@@ -19,6 +19,7 @@
 
 import { test as base, type Page } from "@playwright/test";
 import { TAURI_IPC_STUB_SCRIPT } from "../global-setup";
+import { DEFAULT_APP_SETTINGS } from "../helpers/store";
 
 // Extend the base test with a beforeEach that resets all persisted state.
 // We use base.extend with a custom `page` fixture that wraps the built-in one.
@@ -44,6 +45,18 @@ export const test = base.extend<{ page: Page }>({
         })
       );
     });
+
+    // Default settings (incl. a stub API key) whenever none are persisted, so
+    // App.tsx does not auto-open the Settings dialog over the chat input.
+    // Only fills a gap: tests' seedSettings() values and reload-persistence win.
+    await page.addInitScript((settings) => {
+      if (!localStorage.getItem("assistant-settings")) {
+        localStorage.setItem(
+          "assistant-settings",
+          JSON.stringify({ state: { settings }, version: 18 })
+        );
+      }
+    }, DEFAULT_APP_SETTINGS);
 
     // Reset persisted state ONCE, on the app's real origin. Two constraints:
     //   - page.evaluate(() => localStorage.clear()) throws "SecurityError: Access is denied"
