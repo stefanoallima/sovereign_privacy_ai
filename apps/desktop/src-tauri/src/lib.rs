@@ -44,6 +44,7 @@ mod knowledge_commands;
 mod chunker;
 mod orchestration;
 mod orchestration_commands;
+mod key_rotation;
 
 use commands::DbState;
 use tts::PiperTts;
@@ -191,18 +192,32 @@ pub fn run() {
         };
     let llama_backend_state = LlamaBackendState(Arc::new(tokio::sync::Mutex::new(llama_backend_opt)));
 
-    // Initialize encryption key manager
+    // Initialize encryption key manager (panics with actionable message if
+    // OS keychain is unavailable and the dev fallback env var is not set).
     let encryption_key = EncryptionKeyManager::new()
         .unwrap_or_else(|e| {
             eprintln!("Failed to initialize encryption key manager: {}", e);
-            eprintln!("PII encryption will not be available");
-            panic!("Critical: encryption key manager failed");
+            eprintln!("PII encryption will not be available.");
+            panic!("Critical: encryption key manager failed: {e}");
         });
+    let encryption_key: Arc<std::sync::Mutex<EncryptionKeyManager>> =
+        Arc::new(std::sync::Mutex::new(encryption_key));
 
-    // Initialize user profile store (uses a clone of the encryption key)
+    // Determine the data dir up-front; both UserProfileState and the
+    // pending-swap recovery need it.
     let profile_data_dir = directories::ProjectDirs::from("", "", "PrivateAssistant")
         .map(|d| d.data_dir().to_path_buf())
         .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    // Recover any in-flight key swap from a previous crash. No-op when no
+    // pending marker is present.
+    if let Err(e) = key_rotation::KeyRotator::recover_pending_swap(&profile_data_dir, &encryption_key) {
+        eprintln!("[startup] Pending key-swap recovery failed: {e}");
+        eprintln!("[startup] The vault may be in a half-rotated state. Investigate the .key_pending_swap marker.");
+    }
+
+    // Initialize user profile store sharing the SAME Arc<Mutex<…>> so that
+    // rotation immediately propagates to user_profile_commands.
     let user_profile_state = UserProfileState {
         store: UserProfileStore::new(&profile_data_dir),
         key_manager: encryption_key.clone(),
@@ -235,8 +250,9 @@ pub fn run() {
         })
         .with_key_manager(encryption_key.clone());
 
-    // Initialize tax knowledge base
-    let tax_knowledge = TaxKnowledgeBase::new();
+    // Initialize tax knowledge base (load from disk overlay if present, fall back to embedded)
+    let tax_catalog_path = profile_data_dir.join("tax_catalog.json");
+    let tax_knowledge = TaxKnowledgeBase::new_with_overlay(&tax_catalog_path);
 
     // Initialize GLiNER backend for PII detection (non-fatal — PII shield degrades gracefully)
     let gliner_backend = GlinerBackend::new()
@@ -275,7 +291,7 @@ pub fn run() {
         .manage(SttState(Mutex::new(stt)))
         .manage(inference_state)
         .manage(llama_backend_state)
-        .manage(Mutex::new(encryption_key))
+        .manage(encryption_key.clone())
         .manage(AnonymizationState(Mutex::new(anonymization)))
         .manage(Mutex::new(tax_knowledge))
         .manage(tokio::sync::Mutex::new(backend_routing))
@@ -365,6 +381,7 @@ pub fn run() {
             profile_commands::analyze_accountant_request,
             profile_commands::get_tax_concept,
             profile_commands::list_tax_concepts,
+            profile_commands::build_tax_grounding,
             // Backend Routing
             backend_routing_commands::make_backend_routing_decision,
             backend_routing_commands::validate_persona_backend_config,
@@ -425,6 +442,11 @@ pub fn run() {
             // Orchestration (smart cloud delegation)
             orchestration_commands::orchestrated_generate,
             orchestration_commands::check_response_uncertainty,
+            // Encryption / key custody (keychain-backed master key + rotation + BYOK)
+            crypto_commands::get_encryption_status,
+            crypto_commands::rotate_encryption_key,
+            crypto_commands::import_encryption_key,
+            crypto_commands::export_encryption_key,
         ])
         .setup(|app| {
             // Point ort to the bundled ONNX Runtime so GLiNER works on user machines

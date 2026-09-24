@@ -11,13 +11,18 @@ const PII_EXTRACTION_MODEL: &str = "mistral:7b-instruct-q5_K_M";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PIIExtraction {
-    pub bsn: Option<String>,
     pub name: Option<String>,
     pub surname: Option<String>,
+    pub bsn: Option<String>,
+    pub ssn: Option<String>,
     pub phone: Option<String>,
     pub address: Option<String>,
     pub email: Option<String>,
+    pub date_of_birth: Option<String>,
+    pub nationality: Option<String>,
+    pub employer: Option<String>,
     pub income: Option<String>,
+    pub iban: Option<String>,
     #[serde(default)]
     pub confidence_scores: PIIConfidenceScores,
 }
@@ -29,14 +34,20 @@ pub struct DynamicPIIExtraction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)] // models may omit scores for fields they did not extract
 pub struct PIIConfidenceScores {
-    pub bsn: f32,
     pub name: f32,
     pub surname: f32,
+    pub bsn: f32,
+    pub ssn: f32,
     pub phone: f32,
     pub address: f32,
     pub email: f32,
+    pub date_of_birth: f32,
+    pub nationality: f32,
+    pub employer: f32,
     pub income: f32,
+    pub iban: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

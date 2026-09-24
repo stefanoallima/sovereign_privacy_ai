@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 import { VaultBrowser } from "./VaultBrowser";
 import { getCloudClient } from "@/services/nebius";
+import { EncryptionSettings } from "./EncryptionSettings";
 
 interface GlinerModelInfo {
   id: string;
@@ -155,6 +156,9 @@ export function PrivacySettings() {
 
   return (
     <div className="space-y-6">
+      {/* Encryption (master-key custody, rotation, BYOK) */}
+      <EncryptionSettings />
+
       {/* Privacy Engine — Reference to Models tab */}
       <div className="rounded-xl border-2 border-[hsl(var(--border))] overflow-hidden">
         <div className="p-4 bg-[hsl(var(--muted)/0.3)]">

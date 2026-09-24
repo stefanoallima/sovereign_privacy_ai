@@ -10,7 +10,6 @@ import { MobileHeader } from "@/components/layout/MobileHeader";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
 import { useIsMobile } from "@/hooks/useMediaQuery";
-// Tax Audit is now a persona - TaxAuditLayout removed
 import { DocumentUploadWidget } from "@/components/pii/DocumentUploadWidget";
 import { useProfileStore } from "@/stores/profiles";
 import { useWizardStore } from "@/stores/wizard";

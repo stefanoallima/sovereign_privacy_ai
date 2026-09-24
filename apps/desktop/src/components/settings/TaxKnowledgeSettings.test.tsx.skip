@@ -1,0 +1,34 @@
+// Vitest + @testing-library/react are not yet configured in this project.
+// When they are, rename this file to TaxKnowledgeSettings.test.tsx and run.
+//
+// Required dev dependencies (when promoting):
+//   pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom
+// Required vite.config.ts addition:
+//   test: { environment: 'jsdom', globals: true }
+
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { TaxKnowledgeSettings } from './TaxKnowledgeSettings';
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(async (cmd: string) => {
+    if (cmd === 'list_tax_concepts') return [];
+    return null;
+  }),
+}));
+
+describe('TaxKnowledgeSettings (smoke)', () => {
+  it('renders the Knowledge Base sub-tab by default', () => {
+    render(<TaxKnowledgeSettings />);
+    expect(screen.getByText('Tax Knowledge')).toBeInTheDocument();
+    expect(screen.getByText('Dutch Tax Knowledge Base')).toBeInTheDocument();
+  });
+
+  it('switches to the Request Analyzer sub-tab on click', () => {
+    render(<TaxKnowledgeSettings />);
+    fireEvent.click(screen.getByRole('button', { name: /Request Analyzer/i }));
+    expect(
+      screen.getByPlaceholderText(/Beste, graag ontvang ik/i)
+    ).toBeInTheDocument();
+  });
+});
