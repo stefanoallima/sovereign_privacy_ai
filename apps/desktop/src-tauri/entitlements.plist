@@ -15,7 +15,14 @@
   <false/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
   <false/>
+  <!--
+    Library validation is OFF while macOS builds are ad-hoc signed
+    (signingIdentity "-" in tauri.macos.conf.json): ad-hoc signatures carry no
+    Team ID, so validation would refuse to dlopen the bundled
+    libonnxruntime.dylib (GLiNER). Flip back to false once releases are signed
+    with a Developer ID, which signs the bundled dylib with the same team.
+  -->
   <key>com.apple.security.cs.disable-library-validation</key>
-  <false/>
+  <true/>
 </dict>
 </plist>
