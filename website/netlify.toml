@@ -7,3 +7,8 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/install.sh"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"

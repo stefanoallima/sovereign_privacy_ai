@@ -54,6 +54,14 @@
       </div>
       <div id="download-alt" style="margin-top: 12px; font-size: 0.82rem; color: var(--text-muted);">
       </div>
+      <div id="mac-install" hidden style="margin: 16px auto 0; max-width: 660px; font-size: 0.82rem; color: var(--text-muted);">
+        <div style="margin-bottom: 6px;"><strong>Recommended on Mac:</strong> install from Terminal &mdash; opens without a security prompt.</div>
+        <div style="display: flex; gap: 8px; align-items: stretch;">
+          <code id="mac-install-cmd" style="flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; padding: 8px 10px; border-radius: 8px; background: rgba(127,127,127,0.12); text-align: left;">curl -fsSL https://sovereign-ai-app.netlify.app/install.sh | bash</code>
+          <button id="mac-install-copy" type="button" class="btn btn-secondary" style="padding: 6px 12px;">Copy</button>
+        </div>
+        <div style="margin-top: 6px;">Using the download button instead? Open the app once, then approve it in System Settings &rarr; Privacy &amp; Security &rarr; <em>Open Anyway</em>.</div>
+      </div>
       <div class="hero-trust">
         <div class="trust-item">
           <span class="trust-icon">&#128274;</span>
@@ -999,6 +1007,21 @@
       var label = isWin ? 'Download for Windows' : isMac ? 'Download for macOS' : 'Download';
       text.textContent = label;
       ctaText.textContent = label;
+
+      // Mac: the app isn't notarized, so browser downloads are quarantined and
+      // Gatekeeper blocks the first launch. The curl installer avoids that.
+      if (isMac) {
+        var macInstall = document.getElementById('mac-install');
+        var copyBtn = document.getElementById('mac-install-copy');
+        macInstall.hidden = false;
+        copyBtn.addEventListener('click', function () {
+          var cmd = document.getElementById('mac-install-cmd').textContent;
+          navigator.clipboard.writeText(cmd).then(function () {
+            copyBtn.textContent = 'Copied';
+            setTimeout(function () { copyBtn.textContent = 'Copy'; }, 2000);
+          });
+        });
+      }
 
       // Fetch latest release to get real asset URLs (no hardcoded versions)
       fetch(apiUrl).then(function (r) {
