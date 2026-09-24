@@ -79,6 +79,37 @@ codesign --verify --deep --strict --verbose=2 "src-tauri/target/release/bundle/m
 - Windows: Visual Studio Build Tools 2022 with C++ workload
 - macOS: Xcode Command Line Tools (`xcode-select --install`), then `brew install cmake llvm`
 
+## Distribution (releases, website, macOS installer)
+
+**Pipeline — nothing version-specific to edit:**
+- Push a `v*` tag → `.github/workflows/release.yml` builds Windows + macOS (arm64, x64) and publishes a GitHub Release.
+- `website/` is deployed by Netlify automatically on every push to `main` (https://sovereign-ai-app.netlify.app).
+- The website's Download button and `website/install.sh` both query the GitHub API for the **latest** release at runtime, so a new tag is picked up with no website change.
+
+**macOS is ad-hoc signed, not notarized** (decision: no Apple Developer Program). A DMG downloaded in a browser is quarantined, so Gatekeeper blocks the first launch (users must use Privacy & Security → Open Anyway). The recommended Mac install path is therefore:
+
+```bash
+curl -fsSL https://sovereign-ai-app.netlify.app/install.sh | bash
+```
+
+`install.sh` downloads with curl (no quarantine flag), verifies the asset's SHA-256 against GitHub's published digest plus the code signature, and installs to `/Applications`. The in-app updater also downloads outside the browser, so updates are not blocked.
+
+**Contract — do not break without updating `install.sh` and `website/index.html`:**
+- `productName` stays **"Sovereign AI"** → bundle `Sovereign AI.app`, release assets `Sovereign.AI_aarch64.app.tar.gz` / `Sovereign.AI_x64.app.tar.gz` (installer), `*aarch64*.dmg` / `*x64*.dmg` / `*.exe` (Download button).
+- `bundle.createUpdaterArtifacts` stays `true` — it produces the `.app.tar.gz` files the installer uses.
+- `signingIdentity: "-"` stays in `tauri.macos.conf.json` — without it the bundle is unsealed and macOS reports the download as "damaged".
+- Binary name `ailocalmind` (the installer checks it isn't running).
+
+**After changing `website/install.sh`:** test without touching `/Applications`:
+`mkdir -p /tmp/sa-test && INSTALL_DIR=/tmp/sa-test bash website/install.sh`
+
+**Release checklist (after the workflow finishes):**
+1. Download both DMGs and run `codesign --verify --deep --strict` on the app inside (CI also runs this).
+2. `curl -s https://api.github.com/repos/stefanoallima/sovereign_privacy_ai/releases/latest` shows the new tag with `.dmg`, `.exe` and `.app.tar.gz` assets.
+3. Run the live installer with `INSTALL_DIR` pointing to a temp folder.
+
+**Public repo:** this repository is public. Internal tooling directories that are listed in `.gitignore` must never be committed, and must not be referenced in commit messages, PR titles/descriptions, or release notes.
+
 ## Architecture
 
 Privacy-first AI desktop assistant built with Tauri 2 + React 19 + Rust.
