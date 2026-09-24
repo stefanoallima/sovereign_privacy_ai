@@ -45,6 +45,20 @@ export class ChatPage {
   }
 
   /**
+   * The app starts on a welcome screen with no chat input; start a new chat
+   * via the sidebar when no conversation is open yet.
+   */
+  async ensureConversation(): Promise<void> {
+    const ready = await this.input
+      .waitFor({ state: "visible", timeout: 2_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!ready) {
+      await this.page.getByTestId("new-chat").click({ timeout: TIMEOUT });
+    }
+  }
+
+  /**
    * Types a message into the chat input and submits it.
    *
    * Submission uses the Send button when it is enabled; if the button is not
@@ -56,6 +70,7 @@ export class ChatPage {
    * @throws if the input cannot be focused/filled within the timeout.
    */
   async sendMessage(text: string): Promise<void> {
+    await this.ensureConversation();
     try {
       await this.input.waitFor({ state: "visible", timeout: TIMEOUT });
       await this.input.fill(text);

@@ -132,7 +132,9 @@ test.describe("always-review-mode", () => {
     page,
   }) => {
     // Start with always-review ON so we can verify it works, then turn it off.
-    await seedSettings(page, { alwaysReviewBeforeSend: true });
+    // Cloud mode: hybrid reviews every send by design, so only in cloud mode
+    // does the always-review toggle decide whether a plain message is reviewed.
+    await seedSettings(page, { alwaysReviewBeforeSend: true, privacyMode: "cloud" });
     await page.goto(APP_URL);
 
     const chat = new ChatPage(page);

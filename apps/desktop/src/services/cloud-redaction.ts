@@ -18,6 +18,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { jsFallbackRedact } from "./redact-fallback";
 
 export interface CloudRedaction {
   /** Text with PII replaced by stable, profile-wide tokens. */
@@ -208,8 +209,13 @@ export async function redactKnownTerms(text: string): Promise<CloudRedaction> {
       });
       out = result.text;
       for (const [k, v] of Object.entries(result.mappings)) mappings.set(k, v);
-    } catch {
-      // non-fatal — partial redaction still applied
+    } catch (err) {
+      // Fail closed: the Rust matcher is unavailable or failed — redact the
+      // known terms in JS instead of letting them leave in the clear.
+      console.warn("[cloud-redaction] redact_text_command failed, using JS fallback:", err);
+      const fallback = jsFallbackRedact(out, terms);
+      out = fallback.text;
+      for (const [k, v] of fallback.mappings) mappings.set(k, v);
     }
   }
 

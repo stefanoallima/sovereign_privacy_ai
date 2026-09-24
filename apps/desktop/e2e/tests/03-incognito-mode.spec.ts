@@ -172,12 +172,11 @@ test.describe("incognito-mode", () => {
       // Step 3: reload to simulate app restart.
       await page.reload();
 
-      // Step 4: the "Quick Chat" section header must be visible, indicating at
-      // least one non-incognito, non-project conversation was loaded from IndexedDB.
-      // Note: the DOM text is "Quick Chat" — CSS text-transform: uppercase only
-      // changes the visual appearance, not the underlying DOM text content.
-      const quickChatHeader = page.getByText("Quick Chat", { exact: true });
-      await expect(quickChatHeader).toBeVisible({ timeout: 10_000 });
+      // Step 4: the sidebar's "Quick Chat" section must list the conversation
+      // loaded back from IndexedDB. The header is always rendered, so assert its
+      // conversation count ("Quick Chat 1") rather than mere visibility.
+      const quickChatSection = page.getByRole("button", { name: /^Quick Chat\s*1$/ });
+      await expect(quickChatSection).toBeVisible({ timeout: 10_000 });
     }
   );
 

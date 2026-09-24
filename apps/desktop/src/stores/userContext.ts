@@ -219,6 +219,20 @@ const generateId = () => Math.random().toString(36).substring(2, 15);
 
 const createEmptyPII = (): PIIValues => ({});
 
+/**
+ * Redaction terms live on the active profile. Without one (fresh install, user
+ * never opened Privacy settings) every term write was silently dropped, so
+ * vault values and GLiNER detections never reached the registry and the
+ * known-terms pass / egress backstop had nothing to redact. Make sure a
+ * profile is active before storing a term.
+ */
+function ensureActiveProfile(): void {
+  const s = useUserContextStore.getState();
+  if (s.profiles.some((p) => p.id === s.activeProfileId)) return;
+  if (s.profiles.length > 0) s.setActiveProfile(s.profiles[0].id);
+  else s.createProfile("My Profile", "Default privacy profile");
+}
+
 export const useUserContextStore = create<UserContextState>()(
   persist(
     (set, get) => ({
@@ -368,6 +382,7 @@ export const useUserContextStore = create<UserContextState>()(
       },
 
       addCustomRedactTerm: (label, value) => {
+        ensureActiveProfile();
         set((state) => {
           const activeProfile = state.profiles.find((p) => p.id === state.activeProfileId);
           const currentTerms = activeProfile?.customRedactTerms || [];
@@ -404,6 +419,7 @@ export const useUserContextStore = create<UserContextState>()(
         if (normalizedValue.length < 2) return normalizedValue;
         const key = canonicalRedactKey(value);
 
+        ensureActiveProfile();
         const state = get();
         const activeProfile = state.profiles.find(
           (p) => p.id === state.activeProfileId
@@ -461,6 +477,7 @@ export const useUserContextStore = create<UserContextState>()(
       },
 
       importCustomRedactTerms: (csv) => {
+        ensureActiveProfile();
         const lines = csv.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
         const parsed: Array<{ label: string; value: string }> = [];
 

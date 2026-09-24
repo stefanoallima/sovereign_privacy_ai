@@ -111,7 +111,7 @@ test.describe("vault-operations", () => {
 
       // Raw name must be absent; vault placeholder must be present.
       await verifyRedaction(processedPrompt, PERSON_NAME);
-      await verifyPlaceholder(processedPrompt, /\[VAULT_PERSON_NAME_\d+\]/);
+      await verifyPlaceholder(processedPrompt, /\bper_?\d+_*/);
     }
   );
 
@@ -284,15 +284,18 @@ test.describe("vault-operations", () => {
   // -------------------------------------------------------------------------
 
   test(
-    "vault substitution in chat — [VAULT_*] placeholder in review panel, raw name not in cloud request",
+    "vault substitution in chat — registry token in review panel, raw name not in cloud request",
     async ({ page }) => {
       await seedVault(page, [{ text: PERSON_NAME, category: PERSON_CATEGORY }]);
       await page.reload();
 
       const chatPage = new ChatPage(page);
 
+      // Stub BEFORE capture: routes run LIFO, so the capture route (registered
+      // last) sees the request first and continues to the stub.
+      await stubCloudApi(page, STUB_RESPONSE);
+
       const cloudPayload = await captureCloudPayload(page, async () => {
-        await stubCloudApi(page, STUB_RESPONSE);
         await chatPage.sendMessage(
           `I need help preparing a tax return for ${PERSON_NAME}.`
         );
@@ -302,7 +305,7 @@ test.describe("vault-operations", () => {
 
         // Review panel must show the vault placeholder, not the raw name.
         await verifyRedaction(processedPrompt, PERSON_NAME);
-        await verifyPlaceholder(processedPrompt, /\[VAULT_PERSON_NAME_\d+\]/);
+        await verifyPlaceholder(processedPrompt, /\bper_?\d+_*/);
 
         await reviewPanel.approve();
       });
@@ -384,9 +387,10 @@ test.describe("vault-operations", () => {
       const allEntries = await vaultPage.getEntries();
       expect(allEntries).toHaveLength(3);
 
-      // Type a search term that matches only the person name entry.
+      // Type a search term that matches only the person name entry ("Jan"
+      // alone also matches the email address, search is case-insensitive).
       const searchInput = vaultPage.vault.getByTestId("vault-search");
-      await searchInput.fill("Jan");
+      await searchInput.fill("de Vries");
 
       // After filtering, only the matching entry should be shown.
       const filtered = await vaultPage.getEntries();

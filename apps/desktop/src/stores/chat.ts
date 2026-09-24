@@ -40,6 +40,7 @@ interface ChatStore {
   updateStreamingContent: (content: string) => void;
   finalizeStreaming: (conversationId: string, modelId: string, inputTokens: number, outputTokens: number, latencyMs: number, personaId?: string, extension?: Pick<Message, 'citations' | 'costEstimateEur' | 'consultedConceptIds' | 'consultedConcepts'>) => Promise<void>;
   approveMessage: (messageId: string) => Promise<void>;
+  deleteMessage: (conversationId: string, messageId: string) => Promise<void>;
   linkMessageToCanvas: (messageId: string, canvasDocId: string, canvasIntro: string) => Promise<void>;
   setLoading: (loading: boolean) => void;
 
@@ -325,6 +326,18 @@ export const useChatStore = create<ChatStore>()(
       },
 
       // Message actions
+      deleteMessage: async (conversationId, messageId) => {
+        await dbOps.deleteMessage(messageId);
+        set((state) => ({
+          messages: {
+            ...state.messages,
+            [conversationId]: (state.messages[conversationId] || []).filter(
+              (m) => m.id !== messageId
+            ),
+          },
+        }));
+      },
+
       addMessage: async (conversationId, message) => {
         const id = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         const now = new Date();

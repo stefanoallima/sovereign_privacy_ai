@@ -61,8 +61,12 @@ interface AppSettings {
 // Defaults (must stay in sync with src/stores/settings.ts DEFAULT_SETTINGS)
 // ---------------------------------------------------------------------------
 
-const DEFAULT_APP_SETTINGS: AppSettings = {
-  nebiusApiKey: "",
+// A non-empty (fake) API key: with an empty key App.tsx auto-opens the
+// Settings dialog, which covers the chat input. Cloud calls are stubbed.
+export const E2E_STUB_API_KEY = "e2e-stub-key";
+
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  nebiusApiKey: E2E_STUB_API_KEY,
   nebiusApiEndpoint: "https://api.tokenfactory.nebius.com/v1",
   mem0ApiKey: "",
   enableMemory: false,
@@ -150,6 +154,8 @@ export async function seedVault(
     },
     { key: "pii-vault", value: storageValue }
   );
+  // Zustand hydrates once at startup — reload so the app picks the seed up.
+  await page.reload();
 }
 
 /**
@@ -186,7 +192,7 @@ export async function seedSettings(
 
   const storageValue = JSON.stringify({
     state: { settings: merged },
-    version: 16,
+    version: 18, // keep in sync with src/stores/settings.ts
   });
 
   await page.evaluate(
@@ -195,6 +201,8 @@ export async function seedSettings(
     },
     { key: "assistant-settings", value: storageValue }
   );
+  // Zustand hydrates once at startup — reload so the app picks the seed up.
+  await page.reload();
 }
 
 /**
@@ -245,8 +253,15 @@ export async function getStoreState(
   storeName: string
 ): Promise<unknown> {
   return page.evaluate((key: string) => {
-    const raw = localStorage.getItem(key);
+    let raw = localStorage.getItem(key);
     if (raw === null) return null;
+    // Encrypted stores are written as "enc:v1:<base64>"; the e2e IPC stub's
+    // fake cipher stores the plaintext UTF-8 bytes, so base64-decoding is enough.
+    const ENC_PREFIX = "enc:v1:";
+    if (raw.startsWith(ENC_PREFIX)) {
+      const bin = atob(raw.slice(ENC_PREFIX.length));
+      raw = new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+    }
     try {
       return JSON.parse(raw) as unknown;
     } catch {

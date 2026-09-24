@@ -112,7 +112,7 @@ test.describe("prompt-transparency", () => {
    *  6. Approve and verify no raw PII in cloud payload
    */
   test(
-    '"No PII in prompt" badge shown when all PII is replaced by placeholders',
+    '"No PII in prompt" badge shown when only categorical attributes reach the cloud',
     async ({ page }) => {
       await page.goto(APP_URL);
 
@@ -124,6 +124,17 @@ test.describe("prompt-transparency", () => {
         { text: PERSON_NAME, category: "person name" },
         { text: INCOME_AMOUNT, category: "income amount" },
       ]);
+
+      // The badge is tied to attributes-only routing (design.md §3.5). Have
+      // the IPC stub return that decision, as the Rust router does for
+      // attributes-only personas.
+      await page.evaluate(() => {
+        (window as unknown as { __E2E_PRIVACY_DECISION__: object }).__E2E_PRIVACY_DECISION__ = {
+          content_mode: "attributes_only",
+          attributes_count: 2,
+          prompt: "Client wants investment advice. Income bracket: [ATTR_INCOME_BRACKET].",
+        };
+      });
 
       const chatPage = new ChatPage(page);
       await stubCloudApi(page, STUB_RESPONSE);
@@ -245,7 +256,7 @@ test.describe("prompt-transparency", () => {
       await verifyRedaction(processedPrompt, PERSON_NAME);
 
       // Processed prompt must contain a vault placeholder token.
-      await verifyPlaceholder(processedPrompt, /\[VAULT_PERSON_NAME_\d+\]/);
+      await verifyPlaceholder(processedPrompt, /\bper_?\d+_*/);
 
       // 2. Original message section must contain the raw name.
       const originalMessage = await reviewPanel.getOriginalMessage();
@@ -302,11 +313,13 @@ test.describe("prompt-transparency", () => {
         const processedPrompt = await reviewPanel.getProcessedPrompt();
 
         // The processed prompt must contain at least one placeholder token.
-        // Vault-seeded entries produce [VAULT_*_N] tokens; attribute extraction
-        // may produce [ATTR_*] tokens — either pattern is acceptable.
+        // Vault-seeded entries are tokenized by the shared registry (e.g.
+        // "per_1___"); attribute extraction may produce [ATTR_*] tokens.
         const hasPlaceholder =
           /\[VAULT_\w+_\d+\]/.test(processedPrompt) ||
-          /\[ATTR_\w+\]/.test(processedPrompt);
+          /\[ATTR_\w+\]/.test(processedPrompt) ||
+          // shared-registry tokens (e.g. "per_1_______", see generateReplacementString)
+          /\b[a-z]{1,3}_?\d+_*(?![a-z])/.test(processedPrompt);
 
         expect(
           hasPlaceholder,

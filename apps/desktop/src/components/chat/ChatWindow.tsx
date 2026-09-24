@@ -1335,7 +1335,10 @@ ${attachment.textContent}`;
                 onApprove={(editedPrompt, opts) =>
                   void approveAndSend(editedPrompt, opts)
                 }
-                onCancel={cancelReview}
+                onCancel={() => {
+                  const original = cancelReview();
+                  if (original) setInput(original);
+                }}
               />
             </div>
           )}

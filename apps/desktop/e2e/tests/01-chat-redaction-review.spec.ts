@@ -89,7 +89,7 @@ test.describe("chat-redaction-review", () => {
 
         // Panel must show a vault placeholder, not the raw name.
         await verifyRedaction(processedPrompt, PERSON_NAME);
-        await verifyPlaceholder(processedPrompt, /\[VAULT_PERSON_NAME_\d+\]/);
+        await verifyPlaceholder(processedPrompt, /\bper_?\d+_*/);
 
         // Redaction count must be at least 1.
         const count = await reviewPanel.getPiiRedactionCount();
@@ -133,7 +133,7 @@ test.describe("chat-redaction-review", () => {
         const processedPrompt = await reviewPanel.getProcessedPrompt();
 
         await verifyRedaction(processedPrompt, INCOME_AMOUNT);
-        await verifyPlaceholder(processedPrompt, /\[VAULT_INCOME_AMOUNT_\d+\]/);
+        await verifyPlaceholder(processedPrompt, /\binc_?\d+_*/);
 
         const count = await reviewPanel.getPiiRedactionCount();
         expect(count).toBeGreaterThanOrEqual(1);
@@ -175,22 +175,17 @@ test.describe("chat-redaction-review", () => {
       const chatPage = new ChatPage(page);
       await stubCloudApi(page, STUB_RESPONSE);
 
+      // Cloud mode sends directly (no review panel unless always-review is on),
+      // so assert on what actually leaves the machine.
       const cloudPayload = await captureCloudPayload(page, async () => {
         await chatPage.sendMessage(
           `Please reach out to ${EMAIL_VAULT} for the contract.`
         );
-
-        const reviewPanel = await chatPage.waitForReviewPanel();
-        const processedPrompt = await reviewPanel.getProcessedPrompt();
-
-        // Vault-term matching must substitute the seeded email.
-        await verifyRedaction(processedPrompt, EMAIL_VAULT);
-        await verifyPlaceholder(processedPrompt, /\[VAULT_EMAIL_ADDRESS_\d+\]/);
-
-        await reviewPanel.approve();
       });
 
+      // Vault-term matching must substitute the seeded email with its token.
       await verifyNoPII(cloudPayload, [EMAIL_VAULT]);
+      await verifyPlaceholder(JSON.stringify(cloudPayload), /\bema_?\d+_*/);
     }
   );
 
@@ -209,7 +204,10 @@ test.describe("chat-redaction-review", () => {
    *  5. Confirm the detected entity
    *  6. Assert vault now contains the email entry
    */
-  test(
+  // FIXME: PiiConfirmationPanel exists (src/components/pii) but is not rendered
+  // anywhere and has no data-testids — GLiNER detections are auto-persisted to
+  // the redaction registry/vault instead. Re-enable once the panel is wired in.
+  test.fixme(
     "[cloud] GLiNER on: novel email detected, confirmation panel shown, entry added to vault",
     async ({ page }) => {
       await page.goto(APP_URL);

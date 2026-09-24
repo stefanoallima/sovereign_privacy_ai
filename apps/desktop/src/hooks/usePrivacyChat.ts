@@ -15,6 +15,8 @@ import { getCloudClient, type ChatMessage } from "@/services/nebius";
 import { getMem0Client, formatMemoriesAsContext } from "@/services/mem0";
 import { previewPrivacyProcessing } from "@/services/privacy-chat-service";
 import { getTaxGroundingContext } from "@/services/tax-grounding-service";
+import { withoutCurrentMessage } from "@/services/chat-history";
+import { jsFallbackRedact } from "@/services/redact-fallback";
 import {
   processChatWithPrivacy,
   type ProcessedChatRequest,
@@ -192,33 +194,6 @@ async function rustRedact(
     );
     return jsFallbackRedact(text, terms);
   }
-}
-
-/**
- * JS fallback redaction (case-insensitive). Used only when Rust backend
- * is unavailable.
- */
-function jsFallbackRedact(
-  text: string,
-  terms: Array<{ label: string; value: string; replacement: string }>
-): { text: string; mappings: Map<string, string>; count: number } {
-  const mappings = new Map<string, string>();
-  let result = text;
-  let count = 0;
-
-  for (const term of terms) {
-    if (!term.value || term.value.length < 2) continue;
-    const escaped = term.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(escaped, "gi");
-    const matches = result.match(regex);
-    if (matches && matches.length > 0) {
-      count += matches.length;
-      result = result.replace(regex, term.replacement);
-      mappings.set(term.replacement, term.value);
-    }
-  }
-
-  return { text: result, mappings, count };
 }
 
 /**
@@ -454,6 +429,7 @@ export function usePrivacyChat() {
     finalizeStreaming,
     setLoading,
     contexts,
+    deleteMessage,
   } = useChatStore();
 
   const { settings, getModelById, getEnabledModels, isAirplaneModeActive } =
@@ -516,8 +492,13 @@ export function usePrivacyChat() {
       } else if (privacyMode === "hybrid") {
         await sendWithPrivacy(content, targetPersona, model);
       } else {
-        // Cloud mode — still run privacy pipeline if persona requires anonymization
-        if (targetPersona?.enable_local_anonymizer) {
+        // Cloud mode — still run the privacy pipeline if the persona requires
+        // anonymization, or if the user wants to review every cloud send
+        // (sendDirect has no review step).
+        if (
+          targetPersona?.enable_local_anonymizer ||
+          settings.alwaysReviewBeforeSend
+        ) {
           await sendWithPrivacy(content, targetPersona, model);
         } else {
           await sendDirect(content, targetPersona, model);
@@ -913,7 +894,7 @@ export function usePrivacyChat() {
 
       // Gather context for token-budgeted prompt
       const conversation = getCurrentConversation();
-      const history = getCurrentMessages();
+      const history = withoutCurrentMessage(getCurrentMessages(), content);
       const activeContexts = contexts.filter((ctx) =>
         conversation?.activeContextIds?.includes(ctx.id)
       );
@@ -1336,7 +1317,7 @@ export function usePrivacyChat() {
 
       // Add conversation history (default: include unless explicitly excluded)
       if (sendOpts?.includeHistory !== false) {
-        const history = getCurrentMessages();
+        const history = withoutCurrentMessage(getCurrentMessages(), content);
         if (!autoRedactAllContent) {
           // Redaction off — push history unchanged (behavior preserved).
           for (const msg of history) {
@@ -1709,10 +1690,13 @@ export function usePrivacyChat() {
       }
 
       // Step 3: Check if this needs user review before cloud send
+      // alwaysReviewBeforeSend wins over skipCloudReview ("trust cloud
+      // provider"): the user explicitly asked to see every cloud send.
       const needsReview =
-        !settings.skipCloudReview &&
-        (processed.content_mode === "attributes_only" ||
-          processed.backend === "hybrid");
+        settings.alwaysReviewBeforeSend ||
+        (!settings.skipCloudReview &&
+          (processed.content_mode === "attributes_only" ||
+            processed.backend === "hybrid"));
 
       if (needsReview) {
         // Build comprehensive PII report covering ALL content sources
@@ -1994,9 +1978,19 @@ export function usePrivacyChat() {
   );
 
   /**
-   * Cancel a pending review — no cloud request is made
+   * Cancel a pending review — no cloud request is made. The user message was
+   * stored before review; delete it so the cancelled (unredacted) text is not
+   * shown as sent nor included as history in a later cloud request. Returns
+   * the original text so the caller can put it back in the input.
    */
-  const cancelReview = useCallback(() => {
+  const cancelReview = useCallback((): string | undefined => {
+    const original = pendingReview?.originalMessage;
+    if (original && currentConversationId) {
+      const stored = [...getCurrentMessages()]
+        .reverse()
+        .find((m) => m.role === "user" && m.content === original.trim());
+      if (stored) void deleteMessage(currentConversationId, stored.id);
+    }
     setPendingReview(null);
     setPrivacyStatus({
       mode: "idle",
@@ -2005,7 +1999,8 @@ export function usePrivacyChat() {
       explanation: "Review cancelled — no data sent to cloud",
       hadFallback: false,
     });
-  }, []);
+    return original;
+  }, [pendingReview, currentConversationId, getCurrentMessages, deleteMessage]);
 
   /**
    * Send directly without privacy processing (for non-privacy personas)
@@ -2152,7 +2147,7 @@ export function usePrivacyChat() {
         }
       }
 
-      const history = getCurrentMessages();
+      const history = withoutCurrentMessage(getCurrentMessages(), content);
       for (const msg of history) {
         messages.push({
           role: msg.role,
