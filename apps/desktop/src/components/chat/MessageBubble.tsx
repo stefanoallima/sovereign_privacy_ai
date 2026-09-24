@@ -35,6 +35,10 @@ interface MessageBubbleProps {
   citations?: Citation[];
   /** Estimated EUR cost of this response (from x_normattiva.cost_estimate_eur) (B1) */
   costEstimateEur?: number;
+  /** Concept IDs consulted from the tax knowledge base (Sources strip) */
+  consultedConceptIds?: string[];
+  /** Concept metadata for the Sources strip (term + definition for tooltip) */
+  consultedConcepts?: { term: string; definition: string; box_number?: string | null; applicable_year?: number | null }[];
 }
 
 // Helper to get privacy icon for backend mode
@@ -131,6 +135,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   cloudAssisted,
   citations,
   costEstimateEur,
+  consultedConceptIds,
+  consultedConcepts,
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
@@ -414,6 +420,29 @@ export const MessageBubble = React.memo(function MessageBubble({
                     className="px-4 pb-2 text-[11px] text-[hsl(var(--muted-foreground)/0.7)]"
                   >
                     Costo stimato: €{costEstimateEur.toFixed(4)}
+                  </div>
+                )}
+
+                {/* Sources strip (tax-grounded responses) */}
+                {!isStreaming && consultedConceptIds && consultedConceptIds.length > 0 && (
+                  <div className="px-4 pb-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[hsl(var(--muted-foreground))]">
+                    <span className="font-semibold uppercase tracking-wider">Sources:</span>
+                    {(consultedConcepts && consultedConcepts.length > 0
+                      ? consultedConcepts
+                      : (consultedConceptIds || []).map((id) => ({ term: id, definition: '', box_number: null, applicable_year: null }))
+                    ).map((c, idx) => {
+                      const yearStr = c.applicable_year ? ' (' + c.applicable_year + ')' : '';
+                      const boxStr = c.box_number ? ' · ' + c.box_number : '';
+                      return (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center px-2 py-0.5 rounded-full bg-[hsl(var(--primary)/0.08)] border border-[hsl(var(--primary)/0.2)] text-[hsl(var(--primary))] font-medium"
+                          title={c.definition ? c.definition + boxStr + yearStr : (consultedConceptIds || [])[idx]}
+                        >
+                          {c.term}{yearStr}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
 

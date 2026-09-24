@@ -18,8 +18,5 @@ export type { default as DocumentUploadWidgetType } from './DocumentUploadWidget
 export { ProfileBrowser } from './ProfileBrowser';
 export type { default as ProfileBrowserType } from './ProfileBrowser';
 
-export { TaxConceptBrowser } from './TaxConceptBrowser';
-export type { default as TaxConceptBrowserType } from './TaxConceptBrowser';
-
 export { PiiConfirmationPanel } from './PiiConfirmationPanel';
 export type { DetectedPiiEntity } from './PiiConfirmationPanel';

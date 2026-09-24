@@ -68,6 +68,11 @@ ollama-rs = "0.2"
 chacha20poly1305 = "0.10"
 zeroize = "1.7"
 rand = "0.8"
+hex = "0.4"
+
+# OS-keychain custody for the encryption key
+# (Win Credential Manager / macOS Keychain / Linux Secret Service)
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "vendored"] }
 
 # File parsing
 pdf = "0.9"
@@ -83,15 +88,15 @@ orp = "0.9"
 # the prebuilt ONNX Runtime, which prevents LNK2038 RuntimeLibrary mismatch with esaxx-rs/llama-cpp-2.
 ort = { version = "=2.0.0-rc.9", features = ["load-dynamic"] }
 
-# Windows Credential Manager
-winapi = { version = "0.3", features = ["wincred", "winerror"] }
-
 # Additional utilities
 log = "0.4"
 env_logger = "0.11"
+
+[target.'cfg(windows)'.dependencies]
+# Windows Credential Manager (legacy key location, read for migration)
+winapi = { version = "0.3", features = ["wincred", "winerror"] }
 
 [patch.crates-io]
 # esaxx-rs hardcodes .static_crt(true) in its build script, causing LNK2005/LNK1169
 # when mixed with llama-cpp-sys-2 (/MD dynamic CRT). This patch changes it to /MD.
 esaxx-rs = { path = "patches/esaxx-rs" }
-
