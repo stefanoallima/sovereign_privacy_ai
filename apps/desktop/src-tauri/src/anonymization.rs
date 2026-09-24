@@ -1,4 +1,5 @@
 use crate::crypto::{EncryptionKeyManager, PiiEncryption};
+use std::sync::{Arc, Mutex};
 use crate::db::PiiMapping;
 use crate::ollama::PIIExtraction;
 use uuid::Uuid;
@@ -23,7 +24,8 @@ pub struct AnonymizationService {
     confidence_threshold: f32,
     // Optional key manager: when present, PII values in mappings are encrypted
     // at rest. Absent (e.g. in pattern-only tests) → legacy behavior, no value stored.
-    key_manager: Option<EncryptionKeyManager>,
+    // Shared with the app-wide manager so a key rotation is seen immediately.
+    key_manager: Option<Arc<Mutex<EncryptionKeyManager>>>,
 }
 
 impl AnonymizationService {
@@ -53,7 +55,7 @@ impl AnonymizationService {
     /// Attach the encryption key manager so PII values in newly-created
     /// mappings are encrypted at rest (`is_encrypted = true`). Without it,
     /// mappings persist no PII value — never cleartext. Additive/chainable.
-    pub fn with_key_manager(mut self, key_manager: EncryptionKeyManager) -> Self {
+    pub fn with_key_manager(mut self, key_manager: Arc<Mutex<EncryptionKeyManager>>) -> Self {
         self.key_manager = Some(key_manager);
         self
     }
@@ -267,8 +269,8 @@ impl AnonymizationService {
             return None;
         }
         if mapping.is_encrypted {
-            let km = self.key_manager.as_ref()?;
-            PiiEncryption::decrypt(&mapping.pii_value_encrypted, km).ok()
+            let km = self.key_manager.as_ref()?.lock().ok()?;
+            PiiEncryption::decrypt(&mapping.pii_value_encrypted, &km).ok()
         } else {
             String::from_utf8(mapping.pii_value_encrypted.clone()).ok()
         }
@@ -369,7 +371,11 @@ impl AnonymizationService {
         // On failure, or when no key manager is attached, persist NO value
         // (empty blob, is_encrypted = false) — never cleartext.
         let (pii_value_encrypted, is_encrypted) = match &self.key_manager {
-            Some(km) => match PiiEncryption::encrypt(pii_value, km) {
+            Some(km) => match km
+                .lock()
+                .map_err(|e| e.to_string().into())
+                .and_then(|km| PiiEncryption::encrypt(pii_value, &km))
+            {
                 Ok(ciphertext) => (ciphertext, true),
                 Err(e) => {
                     warn!("PII value encryption failed; persisting mapping without value: {}", e);
@@ -464,7 +470,13 @@ mod tests {
 
     #[test]
     fn test_mapping_encrypts_pii_value_roundtrip() {
-        let key = EncryptionKeyManager::from_raw_key(vec![0x11u8; 32]);
+        let key = Arc::new(Mutex::new(
+            EncryptionKeyManager::from_parts(
+                vec![0x11u8; 32],
+                crate::crypto::KeyCustody::FileFallback { path: std::env::temp_dir().join("unused.key") },
+            )
+            .unwrap(),
+        ));
         let service = AnonymizationService::new().unwrap().with_key_manager(key);
 
         let (new_text, mapping) =

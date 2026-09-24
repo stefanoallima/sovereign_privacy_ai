@@ -1149,6 +1149,8 @@ ${attachment.textContent}`;
                       cloudAssisted={message.cloudAssisted}
                       citations={message.citations}
                       costEstimateEur={message.costEstimateEur}
+                      consultedConceptIds={message.consultedConceptIds}
+                      consultedConcepts={message.consultedConcepts}
                       canvasDocTitle={canvasTitle}
                       canvasIntro={message.canvasIntro}
                       onViewCanvas={

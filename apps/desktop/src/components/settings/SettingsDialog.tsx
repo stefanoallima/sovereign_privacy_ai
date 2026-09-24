@@ -7,13 +7,14 @@ import { KnowledgeBaseSettings } from "./KnowledgeBaseSettings";
 import { SharedContextSettings } from "./SharedContextSettings";
 import { PrivacySettings } from "./PrivacySettings";
 import { MyInfoPanel } from "./MyInfoPanel";
+import { TaxKnowledgeSettings } from "./TaxKnowledgeSettings";
 
 interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type TabId = "api" | "models" | "privacy" | "myinfo" | "personas" | "knowledge" | "context" | "appearance";
+type TabId = "api" | "models" | "privacy" | "myinfo" | "personas" | "knowledge" | "tax_knowledge" | "context" | "appearance";
 
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<TabId>("api");
@@ -40,6 +41,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             <div className="my-2 border-t border-[hsl(var(--border))]" />
             <TabButton label="Personas" active={activeTab === "personas"} onClick={() => setActiveTab("personas")} icon={<PersonaIcon />} />
             <TabButton label="Knowledge Bases" active={activeTab === "knowledge"} onClick={() => setActiveTab("knowledge")} icon={<DatabaseIcon />} />
+            <TabButton label="Tax Knowledge" active={activeTab === "tax_knowledge"} onClick={() => setActiveTab("tax_knowledge")} icon={<TaxIcon />} />
             <TabButton label="Shared Context" active={activeTab === "context"} onClick={() => setActiveTab("context")} icon={<FileTextIcon />} />
             <div className="my-2 border-t border-[hsl(var(--border))]" />
             <TabButton label="Appearance" active={activeTab === "appearance"} onClick={() => setActiveTab("appearance")} icon={<PaletteIcon />} />
@@ -67,6 +69,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               {activeTab === "myinfo" && <MyInfoPanel />}
               {activeTab === "personas" && <PersonaSettings />}
               {activeTab === "knowledge" && <KnowledgeBaseSettings />}
+              {activeTab === "tax_knowledge" && <TaxKnowledgeSettings />}
               {activeTab === "context" && <SharedContextSettings />}
               {activeTab === "appearance" && <AppearanceSettings />}
             </div>
@@ -147,6 +150,22 @@ function DatabaseIcon() {
       <ellipse cx="12" cy="5" rx="9" ry="3" />
       <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
       <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+    </svg>
+  )
+}
+
+function TaxIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <line x1="8" y1="6" x2="16" y2="6" />
+      <line x1="8" y1="10" x2="10" y2="10" />
+      <line x1="12" y1="10" x2="14" y2="10" />
+      <line x1="16" y1="10" x2="16" y2="10" />
+      <line x1="8" y1="14" x2="10" y2="14" />
+      <line x1="12" y1="14" x2="14" y2="14" />
+      <line x1="16" y1="14" x2="16" y2="14" />
+      <line x1="8" y1="18" x2="14" y2="18" />
     </svg>
   )
 }

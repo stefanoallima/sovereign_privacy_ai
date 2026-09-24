@@ -59,6 +59,12 @@ impl UserProfileStore {
         Self { profile_path }
     }
 
+    /// Path of the encrypted profile file. Used by KeyRotator to re-encrypt
+    /// the file out-of-band without going through the typed save/load.
+    pub fn profile_path(&self) -> &std::path::Path {
+        &self.profile_path
+    }
+
     /// Serialize + encrypt + write the profile to disk.
     pub fn save(
         &self,
@@ -105,12 +111,22 @@ impl UserProfileStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto::KeyCustody;
     use tempfile::TempDir;
+
+    /// Test helper: builds an EncryptionKeyManager whose custody is a file in
+    /// the given tempdir. Avoids hitting the real OS keychain in tests.
+    fn test_km(dir: &std::path::Path) -> EncryptionKeyManager {
+        let custody = KeyCustody::FileFallback { path: dir.join("upm_test.key") };
+        let key = EncryptionKeyManager::generate_new_key().unwrap();
+        custody.store(&key).unwrap();
+        EncryptionKeyManager::from_parts(key, custody).unwrap()
+    }
 
     #[test]
     fn test_save_and_load_roundtrip() {
         let tmp = TempDir::new().unwrap();
-        let key_manager = EncryptionKeyManager::new().unwrap();
+        let key_manager = test_km(tmp.path());
         let store = UserProfileStore::new(&tmp.path().to_path_buf());
 
         let profile = UserProfile {
@@ -141,7 +157,7 @@ mod tests {
     #[test]
     fn test_load_returns_default_when_no_file() {
         let tmp = TempDir::new().unwrap();
-        let key_manager = EncryptionKeyManager::new().unwrap();
+        let key_manager = test_km(tmp.path());
         let store = UserProfileStore::new(&tmp.path().to_path_buf());
 
         let profile = store.load(&key_manager).unwrap();
@@ -152,7 +168,7 @@ mod tests {
     #[test]
     fn test_save_load_round_trip_all_fields() {
         let tmp = TempDir::new().unwrap();
-        let key_manager = EncryptionKeyManager::new().unwrap();
+        let key_manager = test_km(tmp.path());
         let store = UserProfileStore::new(&tmp.path().to_path_buf());
 
         let mut custom = HashMap::new();
@@ -204,7 +220,7 @@ mod tests {
     #[test]
     fn test_load_nonexistent() {
         let tmp = TempDir::new().unwrap();
-        let key_manager = EncryptionKeyManager::new().unwrap();
+        let key_manager = test_km(tmp.path());
         // Point to a subdirectory that does not exist
         let sub = tmp.path().join("nonexistent_subdir");
         let store = UserProfileStore::new(&sub);
@@ -219,7 +235,7 @@ mod tests {
     #[test]
     fn test_custom_fields_persist() {
         let tmp = TempDir::new().unwrap();
-        let key_manager = EncryptionKeyManager::new().unwrap();
+        let key_manager = test_km(tmp.path());
         let store = UserProfileStore::new(&tmp.path().to_path_buf());
 
         let mut custom = HashMap::new();
@@ -245,7 +261,7 @@ mod tests {
     #[test]
     fn test_address_round_trip() {
         let tmp = TempDir::new().unwrap();
-        let key_manager = EncryptionKeyManager::new().unwrap();
+        let key_manager = test_km(tmp.path());
         let store = UserProfileStore::new(&tmp.path().to_path_buf());
 
         let profile = UserProfile {

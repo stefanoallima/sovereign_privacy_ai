@@ -190,6 +190,9 @@ export interface Message {
   // response (B1). In-memory only for now — not persisted to the message DB.
   citations?: Citation[];
   costEstimateEur?: number;
+  // Tax knowledge grounding (Sources strip)
+  consultedConceptIds?: string[];
+  consultedConcepts?: { term: string; definition: string; box_number?: string | null; applicable_year?: number | null }[];
 }
 
 // Knowledge Base

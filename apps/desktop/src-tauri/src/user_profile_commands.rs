@@ -1,3 +1,4 @@
+use std::sync::{Arc, Mutex as StdMutex};
 use tokio::sync::Mutex;
 
 use log::info;
@@ -7,12 +8,14 @@ use crate::crypto::EncryptionKeyManager;
 use crate::user_profile::{UserProfile, UserProfileStore};
 
 /// Tauri-managed state for the encrypted user-profile store.
+///
+/// `key_manager` is shared (Arc) with the global EncryptionKeyManager managed
+/// by Tauri so that key rotation immediately propagates to every reader.
 pub struct UserProfileState {
     pub store: UserProfileStore,
-    pub key_manager: EncryptionKeyManager,
+    pub key_manager: Arc<StdMutex<EncryptionKeyManager>>,
 }
 
-/// Save (overwrite) the user profile to encrypted storage.
 #[tauri::command]
 pub async fn save_user_profile(
     profile: UserProfile,
@@ -20,21 +23,20 @@ pub async fn save_user_profile(
 ) -> Result<(), String> {
     info!("Saving user profile (id={})", profile.id);
     let guard = state.lock().await;
-    guard.store.save(&profile, &guard.key_manager)
+    let km = guard.key_manager.lock().map_err(|e| format!("Mutex poisoned: {e}"))?;
+    guard.store.save(&profile, &km)
 }
 
-/// Load the user profile from encrypted storage.
-/// Returns a default (empty) profile if none has been saved yet.
 #[tauri::command]
 pub async fn load_user_profile(
     state: State<'_, Mutex<UserProfileState>>,
 ) -> Result<UserProfile, String> {
     info!("Loading user profile");
     let guard = state.lock().await;
-    guard.store.load(&guard.key_manager)
+    let km = guard.key_manager.lock().map_err(|e| format!("Mutex poisoned: {e}"))?;
+    guard.store.load(&km)
 }
 
-/// Backup custom redaction terms to encrypted storage.
 #[tauri::command]
 pub async fn backup_redaction_terms(
     terms: Vec<crate::user_profile::CustomRedactTerm>,
@@ -42,18 +44,19 @@ pub async fn backup_redaction_terms(
 ) -> Result<(), String> {
     info!("Backing up {} custom redaction terms", terms.len());
     let guard = state.lock().await;
-    let mut profile = guard.store.load(&guard.key_manager)?;
+    let km = guard.key_manager.lock().map_err(|e| format!("Mutex poisoned: {e}"))?;
+    let mut profile = guard.store.load(&km)?;
     profile.custom_redact_terms = terms;
-    guard.store.save(&profile, &guard.key_manager)
+    guard.store.save(&profile, &km)
 }
 
-/// Restore custom redaction terms from encrypted storage.
 #[tauri::command]
 pub async fn restore_redaction_terms(
     state: State<'_, Mutex<UserProfileState>>,
 ) -> Result<Vec<crate::user_profile::CustomRedactTerm>, String> {
     info!("Restoring custom redaction terms from backup");
     let guard = state.lock().await;
-    let profile = guard.store.load(&guard.key_manager)?;
+    let km = guard.key_manager.lock().map_err(|e| format!("Mutex poisoned: {e}"))?;
+    let profile = guard.store.load(&km)?;
     Ok(profile.custom_redact_terms)
 }

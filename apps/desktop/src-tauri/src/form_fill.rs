@@ -57,28 +57,31 @@ pub fn build_field_extraction_prompt(form_text: &str) -> String {
         form_text
     };
     format!(
-        r#"You are a form analyzer. Analyze the following form template and identify all fillable fields.
+        r#"You are a form structure analyzer. Your task is to identify the SCHEMA of a blank form template - the fields that need to be filled in.
+
+IMPORTANT: Do NOT extract or list any actual content from the document. Do NOT identify PII values. This is purely structural analysis - what fields exist on this form, what are they called, and what type of data they expect.
 
 For each field, determine:
-- "label": the field name as shown in the form
+- "label": the field name as shown in the form (e.g., "Full Name", "Date of Birth", "Reason for Application")
 - "category": map to one of these standard categories if applicable: full_name, date_of_birth, bsn, nationality, email, phone, address, employer_name, employment_type, job_title, income_bracket, bank_name, iban, or "custom" if none match
 - "type": "simple" if it's a direct value (name, date, number), "reasoning" if it requires composed text (descriptions, explanations, reasons)
 - "hint": for reasoning fields, describe what kind of text is expected
 
-Return ONLY a JSON array. No other text.
+Return ONLY a valid JSON array. No explanations, no other text, no PII values.
 
-Example output:
+Example output (showing FORM STRUCTURE only, no actual values):
 [
   {{"label": "Full Name", "category": "full_name", "type": "simple"}},
-  {{"label": "Reason for application", "category": "custom", "type": "reasoning", "hint": "Brief explanation of why you are applying"}}
+  {{"label": "Date of Birth", "category": "date_of_birth", "type": "simple"}},
+  {{"label": "Reason for Application", "category": "custom", "type": "reasoning", "hint": "One sentence explanation of your situation"}}
 ]
 
-FORM TEMPLATE:
+FORM TEMPLATE (identify the FIELDS, not the content):
 ---
 {}
 ---
 
-Return the JSON array of fields:"#,
+Return the JSON array of form fields only:"#,
         text
     )
 }
@@ -128,7 +131,7 @@ Output ONLY the field text, nothing else."#,
 // ---------------------------------------------------------------------------
 
 /// Parse the LLM response into a Vec<FormField>.
-/// Handles common LLM quirks (markdown code blocks, extra text).
+/// Handles common LLM quirks (markdown code blocks, extra text, duplicated arrays).
 pub fn parse_field_extraction_response(response: &str) -> Result<Vec<FormField>, String> {
     let trimmed = response.trim();
 
@@ -136,10 +139,35 @@ pub fn parse_field_extraction_response(response: &str) -> Result<Vec<FormField>,
     let start = trimmed
         .find('[')
         .ok_or_else(|| "No JSON array found in response".to_string())?;
-    let end = trimmed
-        .rfind(']')
-        .ok_or_else(|| "No closing bracket found in response".to_string())?
-        + 1;
+
+    // Find the LAST complete JSON array in the response
+    // LLM often outputs: [array1] } --- ```json [array2] } --- ```json [array3] ]
+    // We want the last complete array (array3 in this example)
+    let mut end = trimmed.len();
+    let bytes = trimmed.as_bytes();
+
+    // Find all ']' characters and try parsing from each
+    // Start from the end and work backwards
+    let mut bracket_positions: Vec<usize> = Vec::new();
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b'[' || b == b']' {
+            bracket_positions.push(i);
+        }
+    }
+
+    // Try parsing from each ']' going backwards, use the first one that parses
+    for &pos in bracket_positions.iter().rev() {
+        if bytes[pos] == b']' {
+            let candidate = &trimmed[start..=pos];
+            if let Ok(fields) = serde_json::from_str::<Vec<FormField>>(candidate) {
+                // Got a valid parse - check it's not just a fragment
+                if fields.len() > 0 {
+                    end = pos + 1;
+                    break;
+                }
+            }
+        }
+    }
 
     let json_str = &trimmed[start..end];
 
@@ -147,11 +175,12 @@ pub fn parse_field_extraction_response(response: &str) -> Result<Vec<FormField>,
         .map_err(|e| format!("Failed to parse fields JSON: {}. Raw: {}", e, json_str))?;
 
     // Assign unique IDs to fields that do not have one
-    for (i, field) in fields.iter_mut().enumerate() {
+    let fields = fields.into_iter().enumerate().map(|(i, mut field)| {
         if field.id.is_empty() {
             field.id = format!("field_{}", i);
         }
-    }
+        field
+    }).collect();
 
     Ok(fields)
 }
