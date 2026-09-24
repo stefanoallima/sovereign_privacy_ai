@@ -145,8 +145,13 @@ pub fn get_db_path() -> PathBuf {
 pub fn init_db() -> Result<Connection> {
     let db_path = get_db_path();
     let conn = Connection::open(&db_path)?;
+    create_schema(&conn)?;
+    Ok(conn)
+}
 
-    // Create tables
+/// Apply the full table-creation DDL to the given connection. Used by
+/// init_db() at runtime and by tests that open an in-memory connection.
+pub fn create_schema(conn: &Connection) -> Result<()> {
     conn.execute_batch(r#"
         -- Settings table for app configuration
         CREATE TABLE IF NOT EXISTS settings (
@@ -297,7 +302,7 @@ pub fn init_db() -> Result<Connection> {
         CREATE INDEX IF NOT EXISTS idx_tax_concepts_term ON tax_concepts(term);
     "#)?;
 
-    Ok(conn)
+    Ok(())
 }
 
 /// Run migrations for new features
@@ -827,4 +832,41 @@ pub fn get_tax_concept(conn: &Connection, term: &str) -> Result<Option<TaxConcep
     } else {
         Ok(None)
     }
+}
+
+
+// ===========================================================================
+// Key-rotation helpers (Proposal: keychain-custody_01)
+// Thin SQL wrappers used by the KeyRotator. Kept here so SQL stays out of the
+// rotation module.
+// ===========================================================================
+
+/// (id, value_encrypted) for every row in pii_values.
+pub fn iter_pii_values(conn: &Connection) -> Result<Vec<(String, Vec<u8>)>> {
+    let mut stmt = conn.prepare("SELECT id, value_encrypted FROM pii_values WHERE is_encrypted = 1")?;
+    let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?)))?;
+    rows.collect()
+}
+
+pub fn update_pii_value_blob(conn: &Connection, id: &str, new_blob: &[u8]) -> Result<()> {
+    conn.execute(
+        "UPDATE pii_values SET value_encrypted = ? WHERE id = ?",
+        params![new_blob, id],
+    )?;
+    Ok(())
+}
+
+/// (id, pii_value_encrypted) for every row in pii_mappings.
+pub fn iter_pii_mappings(conn: &Connection) -> Result<Vec<(String, Vec<u8>)>> {
+    let mut stmt = conn.prepare("SELECT id, pii_value_encrypted FROM pii_mappings WHERE is_encrypted = 1")?;
+    let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?)))?;
+    rows.collect()
+}
+
+pub fn update_pii_mapping_blob(conn: &Connection, id: &str, new_blob: &[u8]) -> Result<()> {
+    conn.execute(
+        "UPDATE pii_mappings SET pii_value_encrypted = ? WHERE id = ?",
+        params![new_blob, id],
+    )?;
+    Ok(())
 }

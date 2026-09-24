@@ -96,8 +96,8 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
         LocalModelInfo {
             id: "gemma4-e2b".into(),
             name: "Gemma 4 E2B (Compact)".into(),
-            filename: "gemma-4-e2b-it-Q8_0.gguf".into(),
-            url: "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-e2b-it-Q8_0.gguf".into(),
+            filename: "gemma-4-E2B-it-Q8_0.gguf".into(),
+            url: "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q8_0.gguf".into(),
             size_bytes: 4_970_000_000,
             ctx_size: 32768,
             description: "Gemma 4 compact. 128K capable, 32K default. Fast multimodal.".into(),
@@ -109,8 +109,8 @@ pub fn local_model_registry() -> Vec<LocalModelInfo> {
         LocalModelInfo {
             id: "gemma4-e4b".into(),
             name: "Gemma 4 E4B (Recommended)".into(),
-            filename: "gemma-4-e4b-it-Q4_K_M.gguf".into(),
-            url: "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-e4b-it-Q4_K_M.gguf".into(),
+            filename: "gemma-4-E4B-it-Q4_K_M.gguf".into(),
+            url: "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf".into(),
             size_bytes: 5_340_000_000,
             ctx_size: 32768,
             description: "Best local model. 128K capable, 32K default. Multimodal ready.".into(),

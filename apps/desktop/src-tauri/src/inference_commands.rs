@@ -208,16 +208,13 @@ pub async fn extract_pii_from_document(
         &text
     };
 
-    let prompt = format!(
-        r#"/no_think
-Extract PII from this text. Return ONLY a JSON object, no other text.
-
-{{"bsn":"9-digit BSN or null","name":"first name or null","surname":"last name or null","phone":"phone or null","address":"address or null","email":"email or null","income":"income or null"}}
-
-Text:
+let prompt = format!(
+        r#"From the document below, extract PII fields. Output ONLY JSON, no other text.
+Document:
 {}
 
-JSON:"#,
+If a field is not in the document, use null. Example: {{"name":"Jan de Vries","bsn":"187234567","email":null}}
+Output JSON: "#,
         truncated
     );
 
@@ -232,8 +229,19 @@ JSON:"#,
                 return Err("Local AI model returned empty response. The model may still be loading — please try again in a moment.".to_string());
             }
             info!("PII extraction raw response: {}", &response[..response.len().min(500)]);
-            // Try parsing the JSON response; if it fails, try to extract JSON from the text
-            let extraction: PIIExtraction = match serde_json::from_str(&response) {
+            eprintln!("[PII extract] raw model output: {}", &response[..response.len().min(300)]);
+            // Find just the first JSON object in the response (model may output extra text)
+            let trimmed = response.trim();
+            let json_str = if let Some(start) = trimmed.find('{') {
+                if let Some(end) = trimmed[start..].find('}') {
+                    &trimmed[start..=start + end]
+                } else {
+                    trimmed
+                }
+            } else {
+                trimmed
+            };
+            let extraction: PIIExtraction = match serde_json::from_str(json_str) {
                 Ok(e) => e,
                 Err(e1) => {
                     // Try to find a JSON object in the response (model may have added extra text)
@@ -380,22 +388,20 @@ pub async fn extract_pii_dynamic(
     };
 
     let prompt = format!(
-        r#"/no_think
-Extract ALL personal information from this document. The document may contain a table with multiple people.
+        r#"You are analyzing a document for privacy protection. Identify which fields/columns contain personally identifiable information (PII).
 
 Return a JSON object with:
-- "columns": array of column/field names found (e.g. ["Name", "Surname", "BSN", "SSN"])
-- "records": array of objects, one per person/row found
+- "columns": array of field/column names that contain PII
+- "records": array of one object where each key is a field name and value is null (only identify WHICH fields have PII, not actual values)
 
-Example: {{"columns":["Name","Email"],"records":[{{"Name":"John","Email":"john@x.com"}},{{"Name":"Jane","Email":"jane@x.com"}}]}}
+Example: {{"columns":["Name","Email","BSN"],"records":[{{"Name":null,"Email":null,"BSN":null}}]}}
 
-If only one person, still use the records array with one entry.
-Keep the response under 500 tokens. Return ONLY the JSON.
+Do NOT include any actual PII values. Return ONLY the JSON.
 
-Text:
+Document text:
 {}
 
-JSON:"#,
+JSON: "#,
         truncated
     );
 
@@ -403,15 +409,26 @@ JSON:"#,
         return Err("Local AI model is not loaded. Please download a model in Settings.".to_string());
     }
 
-    match inference.generate_json_short(&prompt, 512).await {
+    match inference.generate_json_short(&prompt, 64).await {
         Ok(response) => {
             if response.trim().is_empty() {
                 return Err("Local AI model returned empty response.".to_string());
             }
             info!("Dynamic PII extraction raw response: {}", &response[..response.len().min(500)]);
-
+            eprintln!("[PII dynamic] raw model output: {}", &response[..response.len().min(300)]);
+            // Find just the first JSON object
+            let trimmed = response.trim();
+            let json_str = if let Some(start) = trimmed.find('{') {
+                if let Some(end) = trimmed[start..].find('}') {
+                    &trimmed[start..=start + end]
+                } else {
+                    trimmed
+                }
+            } else {
+                trimmed
+            };
             // Try direct parse first
-            let extraction: DynamicPIIExtraction = match serde_json::from_str(&response) {
+            let extraction: DynamicPIIExtraction = match serde_json::from_str(json_str) {
                 Ok(e) => e,
                 Err(e1) => {
                     // Fallback: extract JSON object from response text
