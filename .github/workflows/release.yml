@@ -174,8 +174,10 @@ jobs:
           # cert is configured as a secret. Defining APPLE_CERTIFICATE from a missing
           # secret yields an EMPTY string, which makes tauri-action attempt a keychain
           # import of an empty cert and fail ("security import: failed to import keychain
-          # certificate"). Leaving these unset makes tauri-action build macOS UNSIGNED
-          # (Gatekeeper warns on first launch; users right-click → Open).
+          # certificate"). Without them the bundle is AD-HOC signed (signingIdentity "-"
+          # in tauri.macos.conf.json). A fully unsigned bundle is rejected as "damaged"
+          # on Apple Silicon; ad-hoc lets users approve it via System Settings →
+          # Privacy & Security → Open Anyway.
           # To ship signed + notarized macOS builds, add these as repo secrets and
           # re-add the env entries: APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
           # APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID.
@@ -192,3 +194,14 @@ jobs:
           prerelease: false
           updaterJsonKeepUniversal: true
           args: --target ${{ matrix.target }}
+
+      # Fail the release if the macOS bundle is not properly sealed. An app that
+      # only carries the linker's ad-hoc signature ("code has no resources but
+      # signature indicates they must be present") is reported by Gatekeeper as
+      # "damaged and can't be opened" once downloaded — v0.3.2 shipped like that.
+      - name: Verify macOS code signature
+        if: runner.os == 'macOS'
+        run: |
+          APP=$(ls -d "$CARGO_TARGET_DIR/${{ matrix.target }}/release/bundle/macos/"*.app | head -1)
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv "$APP" 2>&1 | grep -E 'Signature|Sealed Resources'
