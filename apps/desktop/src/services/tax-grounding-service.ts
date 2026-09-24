@@ -44,3 +44,43 @@ export async function buildTaxGrounding(
     personaSystemPrompt,
   });
 }
+
+export interface TaxGroundingContext {
+  /** The "## Tax Concepts Available" block alone — public reference text, no user content. */
+  context: string;
+  consultedConceptIds: string[];
+  consultedConcepts: TaxConceptDto[];
+}
+
+/**
+ * Grounding for the live send paths. Keyword matching runs locally on the raw
+ * message; only the concept block is returned (the message suffix the backend
+ * appends is stripped) so callers can add it as a system message while the
+ * user's text keeps going through the normal redaction pipeline.
+ * Never throws: returns null when not applicable or on failure.
+ */
+export async function getTaxGroundingContext(
+  message: string,
+  persona: { name?: string; system_prompt?: string; systemPrompt?: string } | null | undefined
+): Promise<TaxGroundingContext | null> {
+  if (!persona || !message.trim()) return null;
+  try {
+    const block = await buildTaxGrounding(message, persona);
+    if (!block.injected) return null;
+    const suffix = `\n\n---\n\n${message}`;
+    const context = block.augmented_message.endsWith(suffix)
+      ? block.augmented_message.slice(0, -suffix.length)
+      : null;
+    // If the backend format ever changes, refuse rather than risk sending the
+    // raw message outside the redaction pipeline.
+    if (!context) return null;
+    return {
+      context,
+      consultedConceptIds: block.consulted_concept_ids,
+      consultedConcepts: block.concepts_used,
+    };
+  } catch (e) {
+    console.warn('[tax-grounding] failed, continuing without grounding:', e);
+    return null;
+  }
+}

@@ -14,6 +14,7 @@ import { useUserContextStore, selectActiveProfile } from "@/stores/userContext";
 import { getCloudClient, type ChatMessage } from "@/services/nebius";
 import { getMem0Client, formatMemoriesAsContext } from "@/services/mem0";
 import { previewPrivacyProcessing } from "@/services/privacy-chat-service";
+import { getTaxGroundingContext } from "@/services/tax-grounding-service";
 import {
   processChatWithPrivacy,
   type ProcessedChatRequest,
@@ -956,6 +957,14 @@ export function usePrivacyChat() {
         }
       }
 
+      // Tax-knowledge grounding for tax personas (local keyword match).
+      const taxGrounding = await getTaxGroundingContext(content, targetPersona);
+      if (taxGrounding) {
+        ragDocumentContent = ragDocumentContent
+          ? ragDocumentContent + "\n\n" + taxGrounding.context
+          : taxGrounding.context;
+      }
+
       const fullPrompt = buildLocalPrompt({
         systemMsg: buildSystemPrompt(targetPersona),
         summary: conversation?.summary,
@@ -1088,7 +1097,13 @@ export function usePrivacyChat() {
           estimateTokens(fullPrompt),
           estimateTokens(cleaned),
           latencyMs,
-          targetPersona?.id
+          targetPersona?.id,
+          taxGrounding
+            ? {
+                consultedConceptIds: taxGrounding.consultedConceptIds,
+                consultedConcepts: taxGrounding.consultedConcepts,
+              }
+            : undefined
         );
 
         // Mark the last assistant message with cloudAssisted flag
@@ -1225,6 +1240,17 @@ export function usePrivacyChat() {
             "\n\n[Privacy Mode: User input has been converted to categorical attributes. No personal details are included.]";
         }
         messages.push({ role: "system", content: systemPrompt });
+      }
+
+      // Tax-knowledge grounding: public concept text only, matched locally on
+      // the user's message. Skipped in attributes-only mode, whose contract is
+      // that nothing derived from the raw message reaches the cloud.
+      const taxGrounding =
+        processed.content_mode === "attributes_only"
+          ? null
+          : await getTaxGroundingContext(content, targetPersona);
+      if (taxGrounding) {
+        messages.push({ role: "system", content: taxGrounding.context });
       }
 
       // Add contexts
@@ -1507,9 +1533,17 @@ export function usePrivacyChat() {
           outputTokens,
           latencyMs,
           targetPersona?.id,
-          xNormattiva
-            ? { citations: xNormattiva.citations, costEstimateEur: xNormattiva.cost_estimate_eur }
-            : undefined
+          {
+            ...(xNormattiva
+              ? { citations: xNormattiva.citations, costEstimateEur: xNormattiva.cost_estimate_eur }
+              : {}),
+            ...(taxGrounding
+              ? {
+                  consultedConceptIds: taxGrounding.consultedConceptIds,
+                  consultedConcepts: taxGrounding.consultedConcepts,
+                }
+              : {}),
+          }
         );
 
         // Store memories if enabled
@@ -2033,6 +2067,12 @@ export function usePrivacyChat() {
         messages.push({ role: "system", content: targetPersona.systemPrompt });
       }
 
+      // Tax-knowledge grounding (public concept text, matched locally).
+      const taxGrounding = await getTaxGroundingContext(content, targetPersona);
+      if (taxGrounding) {
+        messages.push({ role: "system", content: taxGrounding.context });
+      }
+
       const conversation = getCurrentConversation();
       const activeContexts = contexts.filter((ctx) =>
         conversation?.activeContextIds.includes(ctx.id)
@@ -2181,9 +2221,17 @@ export function usePrivacyChat() {
         outputTokens,
         latencyMs,
         targetPersona?.id,
-        xNormattiva
-          ? { citations: xNormattiva.citations, costEstimateEur: xNormattiva.cost_estimate_eur }
-          : undefined
+        {
+          ...(xNormattiva
+            ? { citations: xNormattiva.citations, costEstimateEur: xNormattiva.cost_estimate_eur }
+            : {}),
+          ...(taxGrounding
+            ? {
+                consultedConceptIds: taxGrounding.consultedConceptIds,
+                consultedConcepts: taxGrounding.consultedConcepts,
+              }
+            : {}),
+        }
       );
 
       if (settings.enableMemory) {
