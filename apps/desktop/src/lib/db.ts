@@ -187,6 +187,11 @@ export const dbOps = {
     return full;
   },
 
+  /** Hard delete — used for a message whose send was cancelled at review. */
+  async deleteMessage(id: string): Promise<void> {
+    await db.messages.delete(id);
+  },
+
   async updateMessage(
     id: string,
     updates: Partial<Pick<LocalMessage, 'canvasDocId' | 'canvasIntro' | 'approvalStatus'>>

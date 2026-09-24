@@ -76,9 +76,9 @@ export function PrivacySettings() {
   const loadGlinerModels = useCallback(async () => {
     try {
       const models = await invoke<GlinerModelInfo[]>('list_gliner_models');
-      setGlinerModels(models);
+      setGlinerModels(models ?? []);
       const dir = await invoke<string>('get_gliner_models_dir');
-      setGlinerModelsDir(dir);
+      setGlinerModelsDir(dir ?? "");
     } catch (error) {
       console.error('Failed to load GLiNER models:', error);
     }
