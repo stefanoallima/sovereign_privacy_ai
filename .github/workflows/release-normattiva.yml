@@ -1,9 +1,13 @@
 name: Release Normattiva
 
+# MANUAL ONLY (for now). This workflow was forked from release.yml before the
+# auto-updater fix (bundle.createUpdaterArtifacts), the macOS ad-hoc-signing fix and the
+# signature verification step landed on main. Tagging v* must not publish a second,
+# stale-pipeline release next to the Sovereign one. Before re-enabling the tag trigger,
+# port those pipeline changes from release.yml and decide where Normattiva releases and
+# its updater feed live.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write

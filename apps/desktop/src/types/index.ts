@@ -94,7 +94,7 @@ export interface AppSettings {
   // Auto-redact all cloud-bound content (history, context, memories)
   autoRedactAllContent: boolean;
 
-  // Dual-marketing build flavor (added in v18)
+  // Dual-marketing build flavor (added in v19)
   brand: "sovereign" | "normattiva";
   legalDisclaimerAcknowledged: boolean;
 }

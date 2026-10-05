@@ -192,13 +192,13 @@ const DEFAULT_SETTINGS: AppSettings = {
   glinerConfidenceThreshold: 0.4,
   // Auto-redact all cloud-bound content
   autoRedactAllContent: true,
-  // Dual-marketing build flavor (v18)
+  // Dual-marketing build flavor (v19)
   brand: BRAND,
   legalDisclaimerAcknowledged: false,
 };
 
 // Fresh-install state: DEFAULT_SETTINGS merged with brand-specific overrides
-// (persona, backend, endpoint, model, hideWizard, etc.). Existing v18 fields in
+// (persona, backend, endpoint, model, hideWizard, etc.). Existing fields in
 // DEFAULT_SETTINGS remain the source of truth for non-brand-specific settings.
 const FRESH_INSTALL_DEFAULTS = {
   ...DEFAULT_SETTINGS,
