@@ -3,13 +3,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BRAND } from "@/config/branding";
 import { BRAND_DEFAULTS } from "@/config/defaults";
 
-describe("settings store v18 migration", () => {
+describe("settings store v19 migration", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.resetModules();
   });
 
-  describe("v17 → v18 migration", () => {
+  describe("v18 → v19 migration", () => {
     it("sets brand = BRAND when existing settings lack the brand field", async () => {
       localStorage.setItem(
         "assistant-settings",
@@ -19,7 +19,7 @@ describe("settings store v18 migration", () => {
             models: [],
             ollamaModels: [],
           },
-          version: 17,
+          version: 18,
         })
       );
 
@@ -38,7 +38,7 @@ describe("settings store v18 migration", () => {
             models: [],
             ollamaModels: [],
           },
-          version: 17,
+          version: 18,
         })
       );
 
@@ -50,7 +50,7 @@ describe("settings store v18 migration", () => {
       ).toBe(false);
     });
 
-    it("preserves existing user settings during v17 → v18 migration", async () => {
+    it("preserves existing user settings during v18 → v19 migration", async () => {
       localStorage.setItem(
         "assistant-settings",
         JSON.stringify({
@@ -62,7 +62,7 @@ describe("settings store v18 migration", () => {
             models: [],
             ollamaModels: [],
           },
-          version: 17,
+          version: 18,
         })
       );
 
@@ -89,7 +89,7 @@ describe("settings store v18 migration", () => {
             models: [],
             ollamaModels: [],
           },
-          version: 17,
+          version: 18,
         })
       );
 
