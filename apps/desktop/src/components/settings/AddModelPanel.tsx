@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useSettingsStore } from "@/stores";
 import {
   fetchEndpointModels,
+  isValidModelId,
   ModelDiscoveryError,
   type DiscoveryProvider,
 } from "@/services/model-discovery";
@@ -33,6 +34,9 @@ export function AddModelPanel() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
+  // Bumped on every provider change / new fetch so a slow response for a previous
+  // provider can never overwrite the list shown for the current one.
+  const fetchSeq = useRef(0);
 
   const apiKey = provider === "normattiva" ? settings.normattivaApiKey : settings.nebiusApiKey;
   const endpoint =
@@ -46,6 +50,8 @@ export function AddModelPanel() {
   );
 
   const resetFetch = () => {
+    fetchSeq.current += 1;
+    setFetching(false);
     setFetched(null);
     setFetchError(null);
     setSelected(new Set());
@@ -61,6 +67,10 @@ export function AddModelPanel() {
   const handleAdd = () => {
     const id = apiModelId.trim();
     if (!id) return;
+    if (!isValidModelId(id)) {
+      setNotice({ kind: "error", text: "Model ids can't contain spaces or control characters." });
+      return;
+    }
     if (existing.has(id)) {
       setNotice({ kind: "error", text: `"${id}" is already in the ${PROVIDER_LABEL[provider]} list.` });
       return;
@@ -83,17 +93,20 @@ export function AddModelPanel() {
   };
 
   const handleFetch = async () => {
-    setFetching(true);
     resetFetch();
+    const seq = fetchSeq.current;
+    setFetching(true);
     setNotice(null);
     try {
-      setFetched(await fetchEndpointModels(endpoint, apiKey));
+      const ids = await fetchEndpointModels(endpoint, apiKey);
+      if (seq === fetchSeq.current) setFetched(ids);
     } catch (e) {
+      if (seq !== fetchSeq.current) return;
       setFetchError(
         e instanceof ModelDiscoveryError ? e.message : "Couldn't fetch the model list."
       );
     } finally {
-      setFetching(false);
+      if (seq === fetchSeq.current) setFetching(false);
     }
   };
 

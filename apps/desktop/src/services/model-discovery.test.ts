@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   fetchEndpointModels,
+  isSafeEndpoint,
+  isValidModelId,
   parseModelIds,
   ModelDiscoveryError,
 } from "./model-discovery";
@@ -31,6 +33,51 @@ describe("parseModelIds", () => {
     expect(parseModelIds({ models: [{ id: "m" }] })).toEqual(["m"]);
     expect(parseModelIds({})).toEqual([]);
     expect(parseModelIds(null)).toEqual([]);
+  });
+});
+
+describe("isValidModelId / parseModelIds hardening", () => {
+  it("accepts typical ids and rejects whitespace, control chars and oversize", () => {
+    for (const ok of ["gpt-4o", "meta-llama/Llama-3.3-70B-Instruct", "org/m:tag_1.2"]) {
+      expect(isValidModelId(ok)).toBe(true);
+    }
+    for (const bad of ["", "a b", "a\tb", "a\u0000b", "x".repeat(201)]) {
+      expect(isValidModelId(bad)).toBe(false);
+    }
+  });
+
+  it("drops invalid ids and caps the list", () => {
+    expect(parseModelIds({ data: [{ id: "good" }, { id: "bad id" }, { id: "x".repeat(500) }] })).toEqual(["good"]);
+    const many = { data: Array.from({ length: 5000 }, (_, i) => ({ id: `m-${i}` })) };
+    expect(parseModelIds(many)).toHaveLength(2000);
+  });
+});
+
+describe("isSafeEndpoint", () => {
+  it("allows https and loopback http only", () => {
+    expect(isSafeEndpoint("https://api.example.com/v1")).toBe(true);
+    expect(isSafeEndpoint("http://localhost:11434/v1")).toBe(true);
+    expect(isSafeEndpoint("http://127.0.0.1:8000/v1")).toBe(true);
+    expect(isSafeEndpoint("http://api.example.com/v1")).toBe(false);
+    expect(isSafeEndpoint("ftp://x")).toBe(false);
+    expect(isSafeEndpoint("javascript:alert(1)")).toBe(false);
+    expect(isSafeEndpoint("not a url")).toBe(false);
+  });
+
+  it("never sends the API key to an insecure endpoint", async () => {
+    const f = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", f);
+    await expect(fetchEndpointModels("http://api.example.com/v1", "sk-secret")).rejects.toThrow(
+      /insecure/i
+    );
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it("sends a trimmed key", async () => {
+    const f = vi.fn(async (_u: string, _i?: RequestInit) => new Response(JSON.stringify({ data: [] })));
+    vi.stubGlobal("fetch", f);
+    await fetchEndpointModels("https://x.example/v1", "  sk-abc  ");
+    expect((f.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe("Bearer sk-abc");
   });
 });
 

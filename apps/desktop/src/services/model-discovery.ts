@@ -19,6 +19,30 @@ export class ModelDiscoveryError extends Error {
 }
 
 const TIMEOUT_MS = 10_000;
+const MAX_MODEL_IDS = 2000;
+
+/**
+ * A model id is sent back to the API as-is, so only accept plain identifiers: no
+ * whitespace/control characters, bounded length. (Ids look like `org/Model-7B:tag`.)
+ */
+export function isValidModelId(id: string): boolean {
+  return id.length > 0 && id.length <= 200 && /^[^\s\u0000-\u001f\u007f]+$/.test(id);
+}
+
+/** Plain http would put the API key on the wire in clear text; allow it only for loopback. */
+export function isSafeEndpoint(baseUrl: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(baseUrl);
+  } catch {
+    return false;
+  }
+  if (u.protocol === "https:") return true;
+  return (
+    u.protocol === "http:" &&
+    (u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "[::1]")
+  );
+}
 
 /** Pull model ids out of the shapes OpenAI-compatible servers return. */
 export function parseModelIds(body: unknown): string[] {
@@ -38,8 +62,8 @@ export function parseModelIds(body: unknown): string[] {
           : ""
     )
     .map((id) => id.trim())
-    .filter(Boolean);
-  return [...new Set(ids)].sort((a, b) => a.localeCompare(b));
+    .filter(isValidModelId);
+  return [...new Set(ids)].sort((a, b) => a.localeCompare(b)).slice(0, MAX_MODEL_IDS);
 }
 
 /**
@@ -52,13 +76,19 @@ export async function fetchEndpointModels(
 ): Promise<string[]> {
   const base = baseUrl.trim().replace(/\/+$/, "");
   if (!base) throw new ModelDiscoveryError("No API endpoint configured.");
-  if (!apiKey.trim()) throw new ModelDiscoveryError("Add an API key first.");
+  const key = apiKey.trim();
+  if (!key) throw new ModelDiscoveryError("Add an API key first.");
+  if (!isSafeEndpoint(base)) {
+    throw new ModelDiscoveryError(
+      "Refusing to send your API key over an insecure or invalid endpoint. Use an https:// URL."
+    );
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const response = await fetch(`${base}/models`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { Authorization: `Bearer ${key}` },
       signal: controller.signal,
     });
     if (response.status === 401 || response.status === 403) {

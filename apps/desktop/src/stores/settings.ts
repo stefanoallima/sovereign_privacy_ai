@@ -164,8 +164,53 @@ const isCustomModelId = (id: string) => id.startsWith(CUSTOM_MODEL_PREFIX);
 
 type CloudProvider = "nebius" | "normattiva";
 
+// Plain identifiers only (no whitespace/control chars), bounded length. Mirrors
+// services/model-discovery isValidModelId; kept local so the store has no service import.
+const isValidApiModelId = (id: string) =>
+  id.length > 0 && id.length <= 200 && /^[^\s\u0000-\u001f\u007f]+$/.test(id);
+
+// The slug is lossy ("a/b" and "a-b" both slug to "a-b"), so a short hash of the exact
+// id is appended: two different api ids can never share a store id.
 function customModelId(provider: CloudProvider, apiModelId: string): string {
-  return `${CUSTOM_MODEL_PREFIX}${provider}-${apiModelId.trim().replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+  const id = apiModelId.trim();
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) h = ((h * 33) ^ id.charCodeAt(i)) >>> 0;
+  const slug = id.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+  return `${CUSTOM_MODEL_PREFIX}${provider}-${slug}-${h.toString(36)}`;
+}
+
+/** Keep only well-formed custom models from persisted state (it is untrusted input). */
+function sanitizeCustomModels(list: unknown): LLMModel[] {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  const out: LLMModel[] = [];
+  for (const m of list as Partial<LLMModel>[]) {
+    if (
+      !m ||
+      typeof m.id !== "string" ||
+      !isCustomModelId(m.id) ||
+      (m.provider !== "nebius" && m.provider !== "normattiva") ||
+      typeof m.apiModelId !== "string" ||
+      !isValidApiModelId(m.apiModelId) ||
+      seen.has(m.id)
+    ) {
+      continue;
+    }
+    seen.add(m.id);
+    out.push(
+      buildCustomModel(m.provider, m.apiModelId, {
+        name: typeof m.name === "string" && m.name.trim() ? m.name.slice(0, 120) : undefined,
+        contextWindow:
+          typeof m.contextWindow === "number" && m.contextWindow > 0 ? m.contextWindow : 128000,
+        speedTier: m.speedTier ?? "medium",
+        intelligenceTier: m.intelligenceTier ?? "high",
+        inputCostPer1M: typeof m.inputCostPer1M === "number" && m.inputCostPer1M >= 0 ? m.inputCostPer1M : 0,
+        outputCostPer1M: typeof m.outputCostPer1M === "number" && m.outputCostPer1M >= 0 ? m.outputCostPer1M : 0,
+        isEnabled: m.isEnabled !== false,
+      })
+    );
+  }
+  return out;
 }
 
 function buildCustomModel(
@@ -185,8 +230,9 @@ function buildCustomModel(
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     isEnabled: true,
-    isDefault: false,
     ...overrides,
+    // Custom models never take over as the default; that is an explicit user action.
+    isDefault: false,
   };
 }
 
@@ -366,7 +412,7 @@ export const useSettingsStore = create<SettingsStore>()(
             model.provider === "normattiva" ? "normattiva" : "nebius";
           const list = provider === "normattiva" ? state.normattivaModels : state.models;
           const apiId = model.apiModelId.trim();
-          if (!apiId || list.some((m) => m.apiModelId === apiId)) return state;
+          if (!isValidApiModelId(apiId) || list.some((m) => m.apiModelId === apiId)) return state;
 
           const newModel = buildCustomModel(provider, apiId, {
             name: model.name?.trim() || undefined,
@@ -394,7 +440,7 @@ export const useSettingsStore = create<SettingsStore>()(
         const before = get();
         const list = provider === "normattiva" ? before.normattivaModels : before.models;
         const known = new Set(list.map((m) => m.apiModelId));
-        const fresh = [...new Set(apiModelIds.map((i) => i.trim()).filter(Boolean))].filter(
+        const fresh = [...new Set(apiModelIds.map((i) => i.trim()).filter(isValidApiModelId))].filter(
           (i) => !known.has(i)
         );
         if (fresh.length === 0) return 0;
@@ -574,10 +620,8 @@ export const useSettingsStore = create<SettingsStore>()(
           models: LLMModel[];
           normattivaModels: LLMModel[];
         }>;
-        const keepCustom = (list: LLMModel[] | undefined, defaults: LLMModel[]) => {
-          const custom = (Array.isArray(list) ? list : []).filter(
-            (m) => m && typeof m.id === "string" && isCustomModelId(m.id)
-          );
+        const keepCustom = (list: unknown, defaults: LLMModel[]) => {
+          const custom = sanitizeCustomModels(list);
           return [...defaults, ...custom.filter((c) => !defaults.some((d) => d.id === c.id))];
         };
         const old = p?.settings ?? {} as Record<string, any>;

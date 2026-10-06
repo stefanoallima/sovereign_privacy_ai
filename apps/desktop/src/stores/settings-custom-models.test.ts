@@ -3,6 +3,11 @@ import { useSettingsStore } from "@/stores/settings";
 import type { LLMModel } from "@/types";
 
 const get = () => useSettingsStore.getState();
+// Custom ids carry a hash of the exact api id, so tests look them up instead of hardcoding.
+const nebId = (apiId = "acme/new-model-1") =>
+  get().models.find((m) => m.apiModelId === apiId)?.id ?? "";
+const norId = (apiId = "legal-xl") =>
+  get().normattivaModels.find((m) => m.apiModelId === apiId)?.id ?? "";
 
 const modelInput = (over: Partial<LLMModel> = {}): Omit<LLMModel, "id"> => ({
   provider: "nebius",
@@ -26,7 +31,7 @@ describe("user-added models", () => {
       get().addCustomModel(modelInput());
       const added = get().models.find((m) => m.apiModelId === "acme/new-model-1");
       expect(added).toBeDefined();
-      expect(added!.id).toBe("custom-nebius-acme-new-model-1");
+      expect(added!.id).toMatch(/^custom-nebius-acme-new-model-1-[a-z0-9]+$/);
       expect(added!.provider).toBe("nebius");
       expect(get().settings.enabledModelIds).toContain(added!.id);
     });
@@ -37,7 +42,7 @@ describe("user-added models", () => {
       expect(get().models).toHaveLength(nebiusBefore);
       const added = get().normattivaModels.find((m) => m.apiModelId === "legal-xl");
       expect(added?.provider).toBe("normattiva");
-      expect(added?.id).toBe("custom-normattiva-legal-xl");
+      expect(added?.id).toMatch(/^custom-normattiva-legal-xl-[a-z0-9]+$/);
     });
 
     it("ignores blanks and duplicates within a provider", () => {
@@ -57,8 +62,36 @@ describe("user-added models", () => {
 
     it("does not enable a model added as disabled", () => {
       get().addCustomModel(modelInput({ isEnabled: false }));
-      expect(get().settings.enabledModelIds).not.toContain("custom-nebius-acme-new-model-1");
+      expect(get().settings.enabledModelIds).not.toContain(nebId());
     });
+
+    it("gives ids that slug identically distinct store ids (a/b vs a-b)", () => {
+      get().addCustomModel(modelInput({ apiModelId: "vendor/m-1" }));
+      get().addCustomModel(modelInput({ apiModelId: "vendor-m-1" }));
+      const a = nebId("vendor/m-1");
+      const b = nebId("vendor-m-1");
+      expect(a).not.toBe("");
+      expect(b).not.toBe("");
+      expect(a).not.toBe(b);
+      get().toggleModel(a);
+      expect(get().models.find((m) => m.id === a)!.isEnabled).toBe(false);
+      expect(get().models.find((m) => m.id === b)!.isEnabled).toBe(true);
+    });
+
+    it("never lets an added model claim default status", () => {
+      get().addCustomModel(modelInput({ isDefault: true }));
+      expect(get().models.find((m) => m.id === nebId())!.isDefault).toBe(false);
+      expect(get().models.filter((m) => m.isDefault).length).toBeLessThanOrEqual(1);
+    });
+
+    it.each(["has space", "tab\tinside", "new\nline", "x".repeat(201), ""])(
+      "rejects an invalid model id (%j)",
+      (bad) => {
+        const before = get().models.length;
+        get().addCustomModel(modelInput({ apiModelId: bad }));
+        expect(get().models).toHaveLength(before);
+      }
+    );
   });
 
   describe("addModelsFromIds", () => {
@@ -68,6 +101,11 @@ describe("user-added models", () => {
       expect(n).toBe(2);
       expect(get().models.filter((m) => m.id.startsWith("custom-nebius-m-"))).toHaveLength(2);
       expect(get().addModelsFromIds("nebius", ["m-a", "m-b"])).toBe(0);
+    });
+
+    it("skips invalid ids from a hostile or buggy endpoint", () => {
+      const n = get().addModelsFromIds("nebius", ["ok-1", "bad id", "x".repeat(300), "ctl\u0001"]);
+      expect(n).toBe(1);
     });
 
     it("routes Normattiva ids to the Normattiva list", () => {
@@ -89,7 +127,7 @@ describe("user-added models", () => {
   describe("getModelById", () => {
     it("finds Normattiva models (needed to route a custom Normattiva model)", () => {
       get().addCustomModel(modelInput({ provider: "normattiva", apiModelId: "legal-xl" }));
-      expect(get().getModelById("custom-normattiva-legal-xl")?.provider).toBe("normattiva");
+      expect(get().getModelById(norId())?.provider).toBe("normattiva");
       expect(get().getModelById("normattiva-legal-pro")?.provider).toBe("normattiva");
     });
   });
@@ -98,11 +136,13 @@ describe("user-added models", () => {
     it("removes a custom model from either list", () => {
       get().addCustomModel(modelInput());
       get().addCustomModel(modelInput({ provider: "normattiva", apiModelId: "legal-xl" }));
-      get().removeCustomModel("custom-nebius-acme-new-model-1");
-      get().removeCustomModel("custom-normattiva-legal-xl");
-      expect(get().getModelById("custom-nebius-acme-new-model-1")).toBeUndefined();
-      expect(get().getModelById("custom-normattiva-legal-xl")).toBeUndefined();
-      expect(get().settings.enabledModelIds).not.toContain("custom-nebius-acme-new-model-1");
+      const nid = nebId();
+      const rid = norId();
+      get().removeCustomModel(nid);
+      get().removeCustomModel(rid);
+      expect(get().getModelById(nid)).toBeUndefined();
+      expect(get().getModelById(rid)).toBeUndefined();
+      expect(get().settings.enabledModelIds).not.toContain(nid);
     });
 
     it("never removes a built-in model", () => {
@@ -115,7 +155,7 @@ describe("user-added models", () => {
 
     it("moves a selected default off a removed model so nothing points at a ghost", () => {
       get().addCustomModel(modelInput());
-      const id = "custom-nebius-acme-new-model-1";
+      const id = nebId();
       get().updateSettings({ defaultModelId: id, cloudModeModel: id, hybridModeModel: id });
       get().removeCustomModel(id);
       const { defaultModelId, cloudModeModel, hybridModeModel } = get().settings;
@@ -132,7 +172,7 @@ describe("user-added models", () => {
       get().replaceCloudModels(["listed/a", "listed/b"]);
       const apiIds = get().models.map((m) => m.apiModelId);
       expect(apiIds).toEqual(expect.arrayContaining(["listed/a", "listed/b", "acme/new-model-1"]));
-      expect(get().settings.enabledModelIds).toContain("custom-nebius-acme-new-model-1");
+      expect(get().settings.enabledModelIds).toContain(nebId());
     });
   });
 
@@ -159,6 +199,8 @@ describe("user-added models", () => {
       get().addCustomModel(modelInput());
       get().addCustomModel(modelInput({ provider: "normattiva", apiModelId: "legal-xl" }));
       const s = get();
+      const nid = nebId();
+      const rid = norId();
       const persisted = {
         settings: s.settings,
         models: [...s.models, { ...s.models[0], id: "stale-builtin" }],
@@ -167,12 +209,12 @@ describe("user-added models", () => {
 
       const out = await migrate(persisted);
 
-      expect(out.models.some((m) => m.id === "custom-nebius-acme-new-model-1")).toBe(true);
-      expect(out.normattivaModels.some((m) => m.id === "custom-normattiva-legal-xl")).toBe(true);
+      expect(out.models.some((m) => m.id === nid)).toBe(true);
+      expect(out.normattivaModels.some((m) => m.id === rid)).toBe(true);
       // built-ins are reset to current defaults, so stale non-custom entries are dropped
       expect(out.models.some((m) => m.id === "stale-builtin")).toBe(false);
       // custom models stay enabled
-      expect(out.settings.enabledModelIds).toContain("custom-nebius-acme-new-model-1");
+      expect(out.settings.enabledModelIds).toContain(nid);
     });
 
     it("tolerates old persisted state with no model lists", async () => {
@@ -187,6 +229,32 @@ describe("user-added models", () => {
         models: [{ ...get().models[0] }, { ...get().models[0], id: "custom-nebius-dup" }],
       });
       expect(out.models.filter((m) => m.id === get().models[0].id)).toHaveLength(1);
+    });
+
+    it("drops malformed persisted custom models and repairs bad numbers", async () => {
+      const base = { ...get().models[0] };
+      const good = { ...base, id: "custom-nebius-good-1", provider: "nebius", apiModelId: "good/model" };
+      const out = await migrate({
+        settings: {},
+        models: [
+          good,
+          { ...good, id: "custom-nebius-good-1" }, // duplicate id
+          { ...good, id: "custom-bad-provider", provider: "evil" },
+          { ...good, id: "custom-no-api", apiModelId: undefined },
+          { ...good, id: "custom-spacey", apiModelId: "has space" },
+          { ...good, id: "custom-badnums", apiModelId: "nums/ok", contextWindow: -5, inputCostPer1M: "x", outputCostPer1M: -1 },
+          "garbage",
+          null,
+        ],
+        normattivaModels: "not-a-list",
+      });
+      const custom = out.models.filter((m) => m.id.startsWith("custom-"));
+      expect(custom.map((m) => m.apiModelId).sort()).toEqual(["good/model", "nums/ok"]);
+      const nums = custom.find((m) => m.apiModelId === "nums/ok")!;
+      expect(nums.contextWindow).toBe(128000);
+      expect(nums.inputCostPer1M).toBe(0);
+      expect(nums.outputCostPer1M).toBe(0);
+      expect(out.normattivaModels.every((m) => !m.id.startsWith("custom-"))).toBe(true);
     });
   });
 });
