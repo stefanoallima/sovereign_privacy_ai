@@ -6,6 +6,7 @@ import { Bot, Copy, Check, ShieldAlert, Send, FileText, File, Lock, ShieldCheck,
 import { PrivacyIndicator, PrivacyLevel } from "./PrivacyIndicator";
 import { useChatStore } from "@/stores";
 import type { FileAttachment, Citation, RateLimitInfo } from "@/types";
+import { quotaUsed } from "@/services/quota";
 
 // Backend privacy modes for personas
 export type BackendPrivacyMode = 'local' | 'hybrid' | 'cloud';
@@ -450,12 +451,12 @@ export const MessageBubble = React.memo(function MessageBubble({
                 )}
 
                 {/* Quota footer (C2) — "N di M query usate questo mese" from X-RateLimit-* */}
-                {typeof quota?.limit === "number" && typeof quota?.remaining === "number" && (
+                {quotaUsed(quota) !== undefined && (
                   <div
                     data-testid="message-quota"
                     className="px-4 pb-2 text-[11px] text-[hsl(var(--muted-foreground)/0.7)]"
                   >
-                    {quota.limit - quota.remaining} di {quota.limit} query usate questo mese
+                    {quotaUsed(quota)} di {quota?.limit} query usate questo mese
                   </div>
                 )}
 
