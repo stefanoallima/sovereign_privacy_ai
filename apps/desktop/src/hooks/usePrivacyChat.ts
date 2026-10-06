@@ -26,7 +26,7 @@ import {
   type BackendDecision,
 } from "@/services/backend-routing-service";
 import { invoke } from "@tauri-apps/api/core";
-import type { Persona, FileAttachment, NormattivaExtension } from "@/types";
+import type { Persona, FileAttachment, NormattivaExtension, RateLimitInfo } from "@/types";
 
 /**
  * Pick the right cloud client for a persona + model. Defaults to Nebius
@@ -1472,14 +1472,16 @@ export function usePrivacyChat() {
         let xNormattiva: NormattivaExtension | undefined;
         let streamInputTokens: number | undefined;
         let streamOutputTokens: number | undefined;
+        let streamQuota: RateLimitInfo | undefined;
         // Manual iteration so we capture the generator's RETURN value (x_normattiva
-        // citations/cost + exact token usage); `for await` discards it.
+        // citations/cost + exact token usage + quota); `for await` discards it.
         while (true) {
           const next = await stream.next();
           if (next.done) {
             xNormattiva = next.value?.xNormattiva;
             streamInputTokens = next.value?.inputTokens;
             streamOutputTokens = next.value?.outputTokens;
+            streamQuota = next.value?.quota;
             break;
           }
           fullContent += next.value;
@@ -1515,8 +1517,12 @@ export function usePrivacyChat() {
           latencyMs,
           targetPersona?.id,
           {
-            ...(xNormattiva
-              ? { citations: xNormattiva.citations, costEstimateEur: xNormattiva.cost_estimate_eur }
+            ...(xNormattiva || streamQuota
+              ? {
+                  citations: xNormattiva?.citations,
+                  costEstimateEur: xNormattiva?.cost_estimate_eur,
+                  quota: streamQuota,
+                }
               : {}),
             ...(taxGrounding
               ? {
@@ -2176,13 +2182,15 @@ export function usePrivacyChat() {
       let xNormattiva: NormattivaExtension | undefined;
       let streamInputTokens: number | undefined;
       let streamOutputTokens: number | undefined;
-      // Manual iteration to capture the generator RETURN (x_normattiva + exact usage).
+      let streamQuota: RateLimitInfo | undefined;
+      // Manual iteration to capture the generator RETURN (x_normattiva + exact usage + quota).
       while (true) {
         const next = await stream.next();
         if (next.done) {
           xNormattiva = next.value?.xNormattiva;
           streamInputTokens = next.value?.inputTokens;
           streamOutputTokens = next.value?.outputTokens;
+          streamQuota = next.value?.quota;
           break;
         }
         fullContent += next.value;
@@ -2217,8 +2225,12 @@ export function usePrivacyChat() {
         latencyMs,
         targetPersona?.id,
         {
-          ...(xNormattiva
-            ? { citations: xNormattiva.citations, costEstimateEur: xNormattiva.cost_estimate_eur }
+          ...(xNormattiva || streamQuota
+            ? {
+                citations: xNormattiva?.citations,
+                costEstimateEur: xNormattiva?.cost_estimate_eur,
+                quota: streamQuota,
+              }
             : {}),
           ...(taxGrounding
             ? {

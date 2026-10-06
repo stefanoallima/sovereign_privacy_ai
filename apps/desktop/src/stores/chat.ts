@@ -38,7 +38,7 @@ interface ChatStore {
   // Message actions
   addMessage: (conversationId: string, message: Omit<Message, "id" | "createdAt">) => Promise<void>;
   updateStreamingContent: (content: string) => void;
-  finalizeStreaming: (conversationId: string, modelId: string, inputTokens: number, outputTokens: number, latencyMs: number, personaId?: string, extension?: Pick<Message, 'citations' | 'costEstimateEur' | 'consultedConceptIds' | 'consultedConcepts'>) => Promise<void>;
+  finalizeStreaming: (conversationId: string, modelId: string, inputTokens: number, outputTokens: number, latencyMs: number, personaId?: string, extension?: Pick<Message, 'citations' | 'costEstimateEur' | 'quota' | 'consultedConceptIds' | 'consultedConcepts'>) => Promise<void>;
   approveMessage: (messageId: string) => Promise<void>;
   deleteMessage: (conversationId: string, messageId: string) => Promise<void>;
   linkMessageToCanvas: (messageId: string, canvasDocId: string, canvasIntro: string) => Promise<void>;
@@ -414,6 +414,7 @@ export const useChatStore = create<ChatStore>()(
           // Tax-knowledge concepts that grounded this reply (Sources strip).
           consultedConceptIds: extension?.consultedConceptIds,
           consultedConcepts: extension?.consultedConcepts,
+          quota: extension?.quota,
         };
 
         // Skip persistence for incognito conversations

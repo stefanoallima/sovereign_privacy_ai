@@ -5,7 +5,7 @@ import { SpeakButton } from "./VoiceButton";
 import { Bot, Copy, Check, ShieldAlert, Send, FileText, File, Lock, ShieldCheck, Zap, ClipboardPaste, Scale, ExternalLink } from "lucide-react";
 import { PrivacyIndicator, PrivacyLevel } from "./PrivacyIndicator";
 import { useChatStore } from "@/stores";
-import type { FileAttachment, Citation } from "@/types";
+import type { FileAttachment, Citation, RateLimitInfo } from "@/types";
 
 // Backend privacy modes for personas
 export type BackendPrivacyMode = 'local' | 'hybrid' | 'cloud';
@@ -39,6 +39,8 @@ interface MessageBubbleProps {
   consultedConceptIds?: string[];
   /** Concept metadata for the Sources strip (term + definition for tooltip) */
   consultedConcepts?: { term: string; definition: string; box_number?: string | null; applicable_year?: number | null }[];
+  /** Per-account quota (from the X-RateLimit-* headers) — "used this month" line (C2) */
+  quota?: RateLimitInfo;
 }
 
 // Helper to get privacy icon for backend mode
@@ -137,6 +139,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   costEstimateEur,
   consultedConceptIds,
   consultedConcepts,
+  quota,
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
@@ -443,6 +446,16 @@ export const MessageBubble = React.memo(function MessageBubble({
                         </span>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Quota footer (C2) — "N di M query usate questo mese" from X-RateLimit-* */}
+                {typeof quota?.limit === "number" && typeof quota?.remaining === "number" && (
+                  <div
+                    data-testid="message-quota"
+                    className="px-4 pb-2 text-[11px] text-[hsl(var(--muted-foreground)/0.7)]"
+                  >
+                    {quota.limit - quota.remaining} di {quota.limit} query usate questo mese
                   </div>
                 )}
 
