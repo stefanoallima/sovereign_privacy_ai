@@ -73,3 +73,5 @@ agents/
 # Worktrees (created via using-git-worktrees skill)
 .worktrees/
 
+# build-brand.mjs backup of the Sovereign tauri.conf.json during a normattiva build
+apps/desktop/src-tauri/tauri.conf.sovereign.bak
