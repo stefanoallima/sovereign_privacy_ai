@@ -18,6 +18,8 @@ import { LivingBrief } from "./LivingBrief";
 import { AttachmentButton } from "./AttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { getNebiusClient } from "@/services/nebius";
+import { BRAND } from "@/config/branding";
+import { filterVisiblePersonas } from "@/config/filters";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
@@ -272,6 +274,14 @@ export function ChatWindow() {
     [settings.privacyMode, persona]
   );
 
+  // Brand-filtered personas for menus/selectors. The current conversation's
+  // `persona` (looked up by ID below) still uses the full list so that opening
+  // an old conversation whose persona is filtered out in this build still works.
+  const visiblePersonas = useMemo(
+    () => filterVisiblePersonas(personas, BRAND),
+    [personas],
+  );
+
   // Filtered personas for mention menu (includes @here and @all)
   const filteredPersonas = useMemo(() => {
     if (!showMentionMenu) return [];
@@ -293,13 +303,13 @@ export function ChatWindow() {
     ];
     const q = mentionQuery.toLowerCase();
     return [
-      ...personas.filter(
+      ...visiblePersonas.filter(
         (p) =>
           p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)
       ),
       ...specialMentions.filter((s) => s.name.toLowerCase().includes(q)),
     ];
-  }, [showMentionMenu, mentionQuery, personas]);
+  }, [showMentionMenu, mentionQuery, visiblePersonas]);
 
   // Helper to get privacy icon for a persona
   const getPrivacyIcon = (p: any) => {
@@ -310,11 +320,14 @@ export function ChatWindow() {
   };
 
   // Helper to get backend privacy mode for a persona (for MessageBubble)
-  const getBackendMode = (p: any): "local" | "hybrid" | "cloud" | undefined => {
+  const getBackendMode = (
+    p: any,
+  ): "local" | "hybrid" | "cloud" | "normattiva" | undefined => {
     if (!p) return undefined;
     if (p.preferred_backend === "ollama") return "local";
     if (p.preferred_backend === "hybrid" || p.enable_local_anonymizer)
       return "hybrid";
+    if (p.preferred_backend === "normattiva") return "normattiva";
     return "cloud";
   };
 
@@ -982,7 +995,7 @@ ${attachment.textContent}`;
         )}
 
         <div className="grid grid-cols-2 gap-3 max-w-lg w-full stagger-children">
-          {personas.slice(0, 4).map((p) => (
+          {visiblePersonas.slice(0, 4).map((p) => (
             <button
               key={p.id}
               onClick={() => void createConversation(p.id, currentModel.id)}
@@ -1005,7 +1018,7 @@ ${attachment.textContent}`;
           <button
             onClick={() =>
               void createConversation(
-                personas[0]?.id || "psychologist",
+                visiblePersonas[0]?.id || "psychologist",
                 currentModel.id,
                 undefined,
                 true

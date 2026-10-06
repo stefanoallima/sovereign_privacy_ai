@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AppSettings, LLMModel } from "@/types";
+import { BRAND } from "@/config/branding";
+import { BRAND_DEFAULTS } from "@/config/defaults";
 
 // Embedded local models (llama.cpp backend — no Ollama required)
 // These are the models shown in the chat model selector.
@@ -190,7 +192,18 @@ const DEFAULT_SETTINGS: AppSettings = {
   glinerConfidenceThreshold: 0.4,
   // Auto-redact all cloud-bound content
   autoRedactAllContent: true,
+  // Dual-marketing build flavor (v19)
+  brand: BRAND,
+  legalDisclaimerAcknowledged: false,
 };
+
+// Fresh-install state: DEFAULT_SETTINGS merged with brand-specific overrides
+// (persona, backend, endpoint, model, hideWizard, etc.). Existing fields in
+// DEFAULT_SETTINGS remain the source of truth for non-brand-specific settings.
+const FRESH_INSTALL_DEFAULTS = {
+  ...DEFAULT_SETTINGS,
+  ...BRAND_DEFAULTS[BRAND],
+} as AppSettings;
 
 interface SettingsStore {
   settings: AppSettings;
@@ -232,7 +245,7 @@ interface SettingsStore {
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set, get) => ({
-      settings: DEFAULT_SETTINGS,
+      settings: FRESH_INSTALL_DEFAULTS,
       models: DEFAULT_MODELS,
       ollamaModels: DEFAULT_OLLAMA_MODELS,
       normattivaModels: DEFAULT_NORMATTIVA_MODELS,
@@ -301,14 +314,28 @@ export const useSettingsStore = create<SettingsStore>()(
         })),
 
       setPrivacyMode: (mode) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            privacyMode: mode,
-            // Backward compat: airplaneMode = local
-            airplaneMode: mode === 'local',
-          },
-        })),
+        set((state) => {
+          // Defense-in-depth: on the Normattiva build the privacy mode radio
+          // cards are hidden in PrivacySettings.tsx, but anything that calls
+          // this action programmatically (tour, deep link, dev tool) would
+          // otherwise silently switch the user off the only available backend.
+          // local/hybrid are blocked; 'cloud' maps to the Normattiva cloud
+          // backend and is the only legal value.
+          if (
+            BRAND_DEFAULTS[BRAND].hideOllama &&
+            (mode === 'local' || mode === 'hybrid')
+          ) {
+            return state;
+          }
+          return {
+            settings: {
+              ...state.settings,
+              privacyMode: mode,
+              // Backward compat: airplaneMode = local
+              airplaneMode: mode === 'local',
+            },
+          };
+        }),
 
       updateModelPricing: (modelId, inputCost, outputCost) =>
         set((state) => ({
@@ -469,7 +496,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "assistant-settings",
-      version: 18, // v18: repoint normattiva endpoint to the live codicecivile.ai host (B5)
+      version: 19, // v19: add brand + legalDisclaimerAcknowledged (dual-marketing build flavor); v18 = normattiva endpoint repoint (B5)
       migrate: (persisted: unknown, _version: number) => {
         // On version change, preserve user settings but reset model lists to new defaults
         const p = persisted as Partial<{ settings: Record<string, any> }>;
@@ -483,9 +510,15 @@ export const useSettingsStore = create<SettingsStore>()(
             privacyMode,
             theme: 'light',
             localModeModel: old.localModeModel ?? old.airplaneModeModel ?? 'qwen3-1.7b',
-            hybridModeModel: 'minimax-m2',
-            cloudModeModel: 'minimax-m2',
-            defaultModelId: 'minimax-m2',
+            hybridModeModel: BRAND_DEFAULTS[BRAND].defaultModelId,
+            cloudModeModel: BRAND_DEFAULTS[BRAND].defaultModelId,
+            defaultModelId: BRAND_DEFAULTS[BRAND].defaultModelId,
+            // Override the API endpoint with the brand default. On the Normattiva
+            // build this swaps the default Nebius URL for api.normattiva.ai; on
+            // Sovereign (where defaultApiEndpoint is "") we fall back to the
+            // existing DEFAULT_SETTINGS.nebiusApiEndpoint so nothing changes for
+            // existing Sovereign users.
+            nebiusApiEndpoint: BRAND_DEFAULTS[BRAND].defaultApiEndpoint || DEFAULT_SETTINGS.nebiusApiEndpoint,
             airplaneMode: privacyMode === 'local',
             airplaneModeModel: old.airplaneModeModel ?? 'qwen3-1.7b',
             glinerEnabled: old.glinerEnabled ?? false,
@@ -497,6 +530,10 @@ export const useSettingsStore = create<SettingsStore>()(
             normattivaApiKey: old.normattivaApiKey ?? "",
             // B5: move installs off the dead default; keep a user's custom endpoint.
             normattivaApiEndpoint: resolveNormattivaEndpoint(old.normattivaApiEndpoint),
+            // v19: brand is informational and tied to the build — always force current BRAND.
+            // legalDisclaimerAcknowledged carries over from previous settings if set.
+            brand: BRAND,
+            legalDisclaimerAcknowledged: old.legalDisclaimerAcknowledged ?? false,
           },
           models: DEFAULT_MODELS,
           ollamaModels: DEFAULT_OLLAMA_MODELS,

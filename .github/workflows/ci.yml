@@ -47,3 +47,8 @@ jobs:
 
       - name: Unit tests
         run: pnpm vitest run
+
+      # Brand build script (runs the real script against a temp tree; no app build needed).
+      - name: Brand build script tests
+        working-directory: .
+        run: node --test scripts/build-brand.test.mjs

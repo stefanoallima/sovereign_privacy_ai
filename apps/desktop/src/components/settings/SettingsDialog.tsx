@@ -8,6 +8,8 @@ import { SharedContextSettings } from "./SharedContextSettings";
 import { PrivacySettings } from "./PrivacySettings";
 import { MyInfoPanel } from "./MyInfoPanel";
 import { TaxKnowledgeSettings } from "./TaxKnowledgeSettings";
+import { BRAND } from "@/config/branding";
+import { BRAND_DEFAULTS } from "@/config/defaults";
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -35,7 +37,9 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
 
           <nav className="p-2 space-y-1 flex-1 overflow-y-auto">
             <TabButton label="API Configuration" active={activeTab === "api"} onClick={() => setActiveTab("api")} icon={<ApiIcon />} testId="settings-tab-api" />
-            <TabButton label="Models" active={activeTab === "models"} onClick={() => setActiveTab("models")} icon={<ModelIcon />} testId="settings-tab-models" />
+            {!BRAND_DEFAULTS[BRAND].hideOllama && (
+              <TabButton label="Models" active={activeTab === "models"} onClick={() => setActiveTab("models")} icon={<ModelIcon />} testId="settings-tab-models" />
+            )}
             <TabButton label="Privacy & Local" active={activeTab === "privacy"} onClick={() => setActiveTab("privacy")} icon={<PrivacyIcon />} testId="settings-tab-privacy" />
             <TabButton label="My Info" active={activeTab === "myinfo"} onClick={() => setActiveTab("myinfo")} icon={<MyInfoIcon />} />
             <div className="my-2 border-t border-[hsl(var(--border))]" />
