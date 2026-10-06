@@ -1488,7 +1488,7 @@ ${attachment.textContent}`;
                   modelLabel: (() => {
                     const m = useSettingsStore
                       .getState()
-                      .models.find((m) => m.id === settings.hybridModeModel);
+                      .getModelById(settings.hybridModeModel);
                     return (
                       m?.name?.replace(/^Qwen3\s*/, "") ||
                       settings.hybridModeModel
@@ -1504,7 +1504,7 @@ ${attachment.textContent}`;
                   modelLabel: (() => {
                     const m = useSettingsStore
                       .getState()
-                      .models.find((m) => m.id === settings.cloudModeModel);
+                      .getModelById(settings.cloudModeModel);
                     return (
                       m?.name?.replace(/^Qwen3\s*/, "") ||
                       settings.cloudModeModel

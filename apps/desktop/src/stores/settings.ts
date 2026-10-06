@@ -155,6 +155,41 @@ export function resolveNormattivaEndpoint(stored: string | undefined | null): st
   return NORMATTIVA_DEFAULT_ENDPOINT;
 }
 
+// ---- User-added models --------------------------------------------------------------
+// Users can add model ids their endpoint serves without an app update. Custom models
+// carry a `custom-` id prefix so migrations and "replace list" can tell them apart from
+// the built-in defaults and keep them.
+const CUSTOM_MODEL_PREFIX = "custom-";
+const isCustomModelId = (id: string) => id.startsWith(CUSTOM_MODEL_PREFIX);
+
+type CloudProvider = "nebius" | "normattiva";
+
+function customModelId(provider: CloudProvider, apiModelId: string): string {
+  return `${CUSTOM_MODEL_PREFIX}${provider}-${apiModelId.trim().replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
+
+function buildCustomModel(
+  provider: CloudProvider,
+  apiModelId: string,
+  overrides: Partial<Omit<LLMModel, "id" | "provider" | "apiModelId">> = {}
+): LLMModel {
+  const apiId = apiModelId.trim();
+  return {
+    id: customModelId(provider, apiId),
+    provider,
+    apiModelId: apiId,
+    name: apiId.split("/").pop() || apiId,
+    contextWindow: 128000,
+    speedTier: "medium",
+    intelligenceTier: "high",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    isEnabled: true,
+    isDefault: false,
+    ...overrides,
+  };
+}
+
 const DEFAULT_SETTINGS: AppSettings = {
   nebiusApiKey: "",
   nebiusApiEndpoint: "https://api.tokenfactory.nebius.com/v1",
@@ -213,7 +248,10 @@ interface SettingsStore {
     inputCost: number,
     outputCost: number
   ) => void;
+  /** Add one model for a cloud provider. No-op if that provider already has the apiModelId. */
   addCustomModel: (model: Omit<LLMModel, "id">) => void;
+  /** Bulk-add models discovered from an endpoint. Returns how many were new. */
+  addModelsFromIds: (provider: CloudProvider, apiModelIds: string[]) => number;
   removeCustomModel: (modelId: string) => void;
   replaceCloudModels: (ids: string[]) => void;
   resetToDefaults: () => void;
@@ -268,19 +306,22 @@ export const useSettingsStore = create<SettingsStore>()(
 
       toggleModel: (modelId) =>
         set((state) => {
-          const model = state.models.find((m) => m.id === modelId);
+          const model =
+            state.models.find((m) => m.id === modelId) ||
+            state.normattivaModels.find((m) => m.id === modelId);
           if (!model) return state;
 
           const newEnabled = !model.isEnabled;
           const enabledModelIds = newEnabled
             ? [...state.settings.enabledModelIds, modelId]
             : state.settings.enabledModelIds.filter((id) => id !== modelId);
+          const flip = (m: LLMModel) =>
+            m.id === modelId ? { ...m, isEnabled: newEnabled } : m;
 
           return {
             settings: { ...state.settings, enabledModelIds },
-            models: state.models.map((m) =>
-              m.id === modelId ? { ...m, isEnabled: newEnabled } : m
-            ),
+            models: state.models.map(flip),
+            normattivaModels: state.normattivaModels.map(flip),
           };
         }),
 
@@ -321,29 +362,76 @@ export const useSettingsStore = create<SettingsStore>()(
 
       addCustomModel: (model) =>
         set((state) => {
-          const id = `custom-${Date.now()}`;
-          const newModel: LLMModel = { ...model, id };
+          const provider: CloudProvider =
+            model.provider === "normattiva" ? "normattiva" : "nebius";
+          const list = provider === "normattiva" ? state.normattivaModels : state.models;
+          const apiId = model.apiModelId.trim();
+          if (!apiId || list.some((m) => m.apiModelId === apiId)) return state;
+
+          const newModel = buildCustomModel(provider, apiId, {
+            name: model.name?.trim() || undefined,
+            contextWindow: model.contextWindow,
+            speedTier: model.speedTier,
+            intelligenceTier: model.intelligenceTier,
+            inputCostPer1M: model.inputCostPer1M,
+            outputCostPer1M: model.outputCostPer1M,
+            isEnabled: model.isEnabled,
+          });
           return {
-            models: [...state.models, newModel],
+            ...(provider === "normattiva"
+              ? { normattivaModels: [...state.normattivaModels, newModel] }
+              : { models: [...state.models, newModel] }),
             settings: {
               ...state.settings,
-              enabledModelIds: [...state.settings.enabledModelIds, id],
+              enabledModelIds: newModel.isEnabled
+                ? [...state.settings.enabledModelIds, newModel.id]
+                : state.settings.enabledModelIds,
             },
           };
         }),
 
-      removeCustomModel: (modelId) =>
+      addModelsFromIds: (provider, apiModelIds) => {
+        const before = get();
+        const list = provider === "normattiva" ? before.normattivaModels : before.models;
+        const known = new Set(list.map((m) => m.apiModelId));
+        const fresh = [...new Set(apiModelIds.map((i) => i.trim()).filter(Boolean))].filter(
+          (i) => !known.has(i)
+        );
+        if (fresh.length === 0) return 0;
+        const added = fresh.map((i) => buildCustomModel(provider, i));
         set((state) => ({
-          models: state.models.filter(
-            (m) => m.id !== modelId || !m.id.startsWith("custom-")
-          ),
+          ...(provider === "normattiva"
+            ? { normattivaModels: [...state.normattivaModels, ...added] }
+            : { models: [...state.models, ...added] }),
           settings: {
             ...state.settings,
-            enabledModelIds: state.settings.enabledModelIds.filter(
-              (id) => id !== modelId
-            ),
+            enabledModelIds: [...state.settings.enabledModelIds, ...added.map((m) => m.id)],
           },
-        })),
+        }));
+        return added.length;
+      },
+
+      removeCustomModel: (modelId) =>
+        set((state) => {
+          if (!isCustomModelId(modelId)) return state;
+          const models = state.models.filter((m) => m.id !== modelId);
+          const normattivaModels = state.normattivaModels.filter((m) => m.id !== modelId);
+          // If the removed model was a selected default, fall back to a model that exists.
+          const fallback =
+            models.find((m) => m.isEnabled)?.id ?? models[0]?.id ?? DEFAULT_SETTINGS.defaultModelId;
+          const fix = (id: string) => (id === modelId ? fallback : id);
+          return {
+            models,
+            normattivaModels,
+            settings: {
+              ...state.settings,
+              enabledModelIds: state.settings.enabledModelIds.filter((id) => id !== modelId),
+              defaultModelId: fix(state.settings.defaultModelId),
+              cloudModeModel: fix(state.settings.cloudModeModel),
+              hybridModeModel: fix(state.settings.hybridModeModel),
+            },
+          };
+        }),
 
       replaceCloudModels: (ids) =>
         set((state) => {
@@ -361,11 +449,15 @@ export const useSettingsStore = create<SettingsStore>()(
             isDefault: i === 0,
           }));
           const firstId = newModels[0]?.id ?? state.settings.cloudModeModel;
+          // Keep models the user added by hand; "replace" only swaps the auto-listed ones.
+          const keptCustom = state.models.filter(
+            (m) => isCustomModelId(m.id) && !newModels.some((n) => n.apiModelId === m.apiModelId)
+          );
           return {
-            models: newModels,
+            models: [...newModels, ...keptCustom],
             settings: {
               ...state.settings,
-              enabledModelIds: newModels.map((m) => m.id),
+              enabledModelIds: [...newModels, ...keptCustom].filter((m) => m.isEnabled).map((m) => m.id),
               defaultModelId: firstId,
               cloudModeModel: firstId,
               hybridModeModel: firstId,
@@ -442,8 +534,12 @@ export const useSettingsStore = create<SettingsStore>()(
       },
 
       getModelById: (id) => {
-        const { models, ollamaModels } = get();
-        return models.find((m) => m.id === id) || ollamaModels.find((m) => m.id === id);
+        const { models, ollamaModels, normattivaModels } = get();
+        return (
+          models.find((m) => m.id === id) ||
+          ollamaModels.find((m) => m.id === id) ||
+          normattivaModels.find((m) => m.id === id)
+        );
       },
 
       isAirplaneModeActive: () => get().settings.privacyMode === 'local',
@@ -471,8 +567,19 @@ export const useSettingsStore = create<SettingsStore>()(
       name: "assistant-settings",
       version: 18, // v18: repoint normattiva endpoint to the live codicecivile.ai host (B5)
       migrate: (persisted: unknown, _version: number) => {
-        // On version change, preserve user settings but reset model lists to new defaults
-        const p = persisted as Partial<{ settings: Record<string, any> }>;
+        // On version change, preserve user settings and the models the user added, but
+        // reset the built-in model lists to the new defaults.
+        const p = persisted as Partial<{
+          settings: Record<string, any>;
+          models: LLMModel[];
+          normattivaModels: LLMModel[];
+        }>;
+        const keepCustom = (list: LLMModel[] | undefined, defaults: LLMModel[]) => {
+          const custom = (Array.isArray(list) ? list : []).filter(
+            (m) => m && typeof m.id === "string" && isCustomModelId(m.id)
+          );
+          return [...defaults, ...custom.filter((c) => !defaults.some((d) => d.id === c.id))];
+        };
         const old = p?.settings ?? {} as Record<string, any>;
         // Migrate airplaneMode → privacyMode
         const privacyMode = old.airplaneMode ? 'local' as const : (old.privacyMode ?? 'cloud' as const);
@@ -498,9 +605,9 @@ export const useSettingsStore = create<SettingsStore>()(
             // B5: move installs off the dead default; keep a user's custom endpoint.
             normattivaApiEndpoint: resolveNormattivaEndpoint(old.normattivaApiEndpoint),
           },
-          models: DEFAULT_MODELS,
+          models: keepCustom(p?.models, DEFAULT_MODELS),
           ollamaModels: DEFAULT_OLLAMA_MODELS,
-          normattivaModels: DEFAULT_NORMATTIVA_MODELS,
+          normattivaModels: keepCustom(p?.normattivaModels, DEFAULT_NORMATTIVA_MODELS),
         };
       },
       partialize: (state) => ({

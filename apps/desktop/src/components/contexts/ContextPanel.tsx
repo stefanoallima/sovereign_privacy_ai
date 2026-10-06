@@ -46,7 +46,7 @@ export function ContextPanel() {
   };
 
   const { personas, selectedPersonaId, selectPersona } = usePersonasStore();
-  const { models, getEnabledModels, settings } = useSettingsStore();
+  const { getModelById, getEnabledModels, settings } = useSettingsStore();
   const {
     contexts,
     getCurrentConversation,
@@ -57,7 +57,7 @@ export function ContextPanel() {
   const conversation = getCurrentConversation();
   const enabledModels = getEnabledModels();
   const selectedModelId = conversation?.modelId || enabledModels[0]?.id;
-  const selectedModel = models.find((m) => m.id === selectedModelId);
+  const selectedModel = selectedModelId ? getModelById(selectedModelId) : undefined;
 
   if (!isOpen) {
     return (
