@@ -1,7 +1,21 @@
 export type Brand = "sovereign" | "normattiva";
 
-export const BRAND: Brand =
-  (import.meta.env.VITE_BRAND as Brand) || "sovereign";
+/**
+ * Resolve the build brand from a raw VITE_BRAND value. Anything that isn't a known brand
+ * falls back to sovereign: an unvalidated value (e.g. a typo) would leave BRAND outside
+ * the known set, and every `BRAND_DEFAULTS[BRAND]` lookup would then be undefined and
+ * crash the UI at render time.
+ */
+export function resolveBrand(raw: unknown): Brand {
+  const v = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (v === "normattiva" || v === "sovereign") return v;
+  if (v !== "") {
+    console.warn(`Unknown VITE_BRAND "${String(raw)}"; falling back to "sovereign".`);
+  }
+  return "sovereign";
+}
+
+export const BRAND: Brand = resolveBrand(import.meta.env.VITE_BRAND);
 
 export const IS_NORMATTIVA = BRAND === "normattiva";
 export const IS_SOVEREIGN = BRAND === "sovereign";
