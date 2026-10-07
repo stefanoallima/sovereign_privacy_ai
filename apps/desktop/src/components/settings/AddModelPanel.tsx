@@ -21,7 +21,7 @@ const inputClass =
  * or fetch the endpoint's model list and tick the ones to add.
  */
 export function AddModelPanel() {
-  const { settings, models, normattivaModels, addCustomModel, addModelsFromIds } =
+  const { settings, models, normattivaModels, addCustomModel, addModelsFromIds, toggleModel } =
     useSettingsStore();
 
   const [provider, setProvider] = useState<DiscoveryProvider>("nebius");
@@ -48,6 +48,16 @@ export function AddModelPanel() {
       ),
     [provider, models, normattivaModels]
   );
+
+  // Enabled models of this provider that the endpoint did not list: they will 404 when
+  // chosen (e.g. a built-in id the provider has since retired).
+  const unserved = useMemo(() => {
+    if (!fetched || fetched.length === 0) return [];
+    const served = new Set(fetched);
+    return (provider === "normattiva" ? normattivaModels : models).filter(
+      (m) => m.isEnabled && !served.has(m.apiModelId)
+    );
+  }, [fetched, provider, models, normattivaModels]);
 
   const resetFetch = () => {
     fetchSeq.current += 1;
@@ -299,6 +309,31 @@ export function AddModelPanel() {
                 </div>
               )}
             </div>
+            {unserved.length > 0 && (
+              <div
+                data-testid="unserved-models"
+                className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3"
+              >
+                <p className="text-xs">
+                  {unserved.length === 1 ? "1 enabled model isn't" : `${unserved.length} enabled models aren't`}{" "}
+                  served by this endpoint and will fail with a 404 if selected:
+                </p>
+                <ul className="list-disc pl-5 font-mono text-[11px]">
+                  {unserved.map((m) => (
+                    <li key={m.id} className="break-all">
+                      {m.apiModelId}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  data-testid="disable-unserved-models"
+                  onClick={() => unserved.forEach((m) => toggleModel(m.id))}
+                  className="rounded-lg border border-[hsl(var(--border))] px-3 py-1.5 text-xs font-medium hover:bg-[hsl(var(--accent))]"
+                >
+                  Disable {unserved.length === 1 ? "it" : "them"}
+                </button>
+              </div>
+            )}
             <button
               data-testid="add-selected-models"
               onClick={handleAddSelected}

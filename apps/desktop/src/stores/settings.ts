@@ -306,6 +306,15 @@ interface SettingsStore {
   getEnabledModels: () => LLMModel[];
   getDefaultModel: (persona?: { preferred_backend?: string; preferredModelId?: string }) => LLMModel | undefined;
   getModelById: (id: string) => LLMModel | undefined;
+  /**
+   * The model a chat should actually use: the preferred id (e.g. the conversation's pinned
+   * model) if it still exists AND is enabled, else the global default, else the first
+   * enabled model. A pinned model that was disabled/removed (e.g. a model the endpoint no
+   * longer serves) must not keep being used.
+   */
+  resolveModel: (preferredId?: string | null) => LLMModel | undefined;
+  /** An enabled Nebius cloud model for lightweight jobs such as conversation titles. */
+  getTitleModel: () => LLMModel | undefined;
   isAirplaneModeActive: () => boolean;
   getActivePrivacyMode: (persona?: any) => 'local' | 'hybrid' | 'cloud' | 'custom';
   getAllModels: () => LLMModel[];
@@ -342,13 +351,24 @@ export const useSettingsStore = create<SettingsStore>()(
         })),
 
       setDefaultModel: (modelId) =>
-        set((state) => ({
-          settings: { ...state.settings, defaultModelId: modelId },
-          models: state.models.map((m) => ({
-            ...m,
-            isDefault: m.id === modelId,
-          })),
-        })),
+        set((state) => {
+          const model = state.models.find((m) => m.id === modelId);
+          if (!model) return state;
+          return {
+            // Cloud and Hybrid chat read cloudModeModel / hybridModeModel first, so the
+            // default has to be applied to those too or "Set default" changes nothing.
+            settings: {
+              ...state.settings,
+              defaultModelId: modelId,
+              cloudModeModel: modelId,
+              hybridModeModel: modelId,
+            },
+            models: state.models.map((m) => ({
+              ...m,
+              isDefault: m.id === modelId,
+            })),
+          };
+        }),
 
       toggleModel: (modelId) =>
         set((state) => {
@@ -364,8 +384,20 @@ export const useSettingsStore = create<SettingsStore>()(
           const flip = (m: LLMModel) =>
             m.id === modelId ? { ...m, isEnabled: newEnabled } : m;
 
+          // Disabling the model that is currently the default/cloud/hybrid selection would
+          // leave chat pointing at a model the user turned off: move the selection.
+          const fallback = state.models.find((m) => m.isEnabled && m.id !== modelId)?.id;
+          const move = (id: string) =>
+            !newEnabled && id === modelId && fallback ? fallback : id;
+
           return {
-            settings: { ...state.settings, enabledModelIds },
+            settings: {
+              ...state.settings,
+              enabledModelIds,
+              defaultModelId: move(state.settings.defaultModelId),
+              cloudModeModel: move(state.settings.cloudModeModel),
+              hybridModeModel: move(state.settings.hybridModeModel),
+            },
             models: state.models.map(flip),
             normattivaModels: state.normattivaModels.map(flip),
           };
@@ -588,6 +620,21 @@ export const useSettingsStore = create<SettingsStore>()(
         );
       },
 
+      resolveModel: (preferredId) => {
+        const { settings, getModelById, getEnabledModels } = get();
+        for (const id of [preferredId, settings.defaultModelId]) {
+          const m = id ? getModelById(id) : undefined;
+          if (m?.isEnabled) return m;
+        }
+        return getEnabledModels()[0];
+      },
+
+      getTitleModel: () => {
+        const { settings, models } = get();
+        const enabled = models.filter((m) => m.isEnabled);
+        return enabled.find((m) => m.id === settings.defaultModelId) ?? enabled[0];
+      },
+
       isAirplaneModeActive: () => get().settings.privacyMode === 'local',
 
       getActivePrivacyMode: (_persona?: any) => {
@@ -625,6 +672,12 @@ export const useSettingsStore = create<SettingsStore>()(
           return [...defaults, ...custom.filter((c) => !defaults.some((d) => d.id === c.id))];
         };
         const old = p?.settings ?? {} as Record<string, any>;
+        // Keep the user's chosen default/cloud/hybrid model across a version bump when it
+        // still exists after the reset (built-ins + their custom models); otherwise fall
+        // back to the built-in default. Previously these were always reset to minimax-m2.
+        const migratedModels = keepCustom(p?.models, DEFAULT_MODELS);
+        const keepSelection = (id: unknown): string =>
+          typeof id === 'string' && migratedModels.some((m) => m.id === id) ? id : 'minimax-m2';
         // Migrate airplaneMode → privacyMode
         const privacyMode = old.airplaneMode ? 'local' as const : (old.privacyMode ?? 'cloud' as const);
         return {
@@ -634,9 +687,9 @@ export const useSettingsStore = create<SettingsStore>()(
             privacyMode,
             theme: 'light',
             localModeModel: old.localModeModel ?? old.airplaneModeModel ?? 'qwen3-1.7b',
-            hybridModeModel: 'minimax-m2',
-            cloudModeModel: 'minimax-m2',
-            defaultModelId: 'minimax-m2',
+            hybridModeModel: keepSelection(old.hybridModeModel),
+            cloudModeModel: keepSelection(old.cloudModeModel),
+            defaultModelId: keepSelection(old.defaultModelId),
             airplaneMode: privacyMode === 'local',
             airplaneModeModel: old.airplaneModeModel ?? 'qwen3-1.7b',
             glinerEnabled: old.glinerEnabled ?? false,
@@ -649,7 +702,7 @@ export const useSettingsStore = create<SettingsStore>()(
             // B5: move installs off the dead default; keep a user's custom endpoint.
             normattivaApiEndpoint: resolveNormattivaEndpoint(old.normattivaApiEndpoint),
           },
-          models: keepCustom(p?.models, DEFAULT_MODELS),
+          models: migratedModels,
           ollamaModels: DEFAULT_OLLAMA_MODELS,
           normattivaModels: keepCustom(p?.normattivaModels, DEFAULT_NORMATTIVA_MODELS),
         };

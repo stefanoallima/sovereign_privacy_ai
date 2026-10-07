@@ -258,3 +258,129 @@ describe("user-added models", () => {
     });
   });
 });
+
+describe("default model selection", () => {
+  beforeEach(() => get().resetToDefaults());
+
+  const addNew = (apiId: string) => {
+    get().addCustomModel(modelInput({ apiModelId: apiId }));
+    return nebId(apiId);
+  };
+
+  it("'Set default' applies to Cloud and Hybrid chat, not just defaultModelId", () => {
+    const id = addNew("MiniMaxAI/MiniMax-M3");
+    get().setDefaultModel(id);
+    const { defaultModelId, cloudModeModel, hybridModeModel } = get().settings;
+    expect([defaultModelId, cloudModeModel, hybridModeModel]).toEqual([id, id, id]);
+    // and the model chat actually resolves is the chosen one
+    expect(get().getDefaultModel()?.id).toBe(id);
+    expect(get().resolveModel(undefined)?.id).toBe(id);
+    expect(get().models.filter((m) => m.isDefault).map((m) => m.id)).toEqual([id]);
+  });
+
+  it("ignores an unknown model id", () => {
+    const before = get().settings.cloudModeModel;
+    get().setDefaultModel("does-not-exist");
+    expect(get().settings.cloudModeModel).toBe(before);
+  });
+
+  describe("resolveModel", () => {
+    it("uses the conversation's pinned model while it is enabled", () => {
+      const id = addNew("pinned/model");
+      expect(get().resolveModel(id)?.id).toBe(id);
+    });
+
+    it("falls back to the default when the pinned model is disabled", () => {
+      const pinned = addNew("pinned/model");
+      get().toggleModel(pinned);
+      const def = get().settings.defaultModelId;
+      expect(get().resolveModel(pinned)?.id).toBe(def);
+    });
+
+    it("falls back when the pinned model no longer exists", () => {
+      expect(get().resolveModel("gone-model")?.id).toBe(get().settings.defaultModelId);
+    });
+
+    it("falls back to the first enabled model if the default is also disabled", () => {
+      const other = addNew("other/model");
+      get().setDefaultModel(other);
+      // disable everything except one model
+      for (const m of get().models) if (m.id !== other && m.isEnabled) get().toggleModel(m.id);
+      get().toggleModel(other); // disable the default too -> nothing enabled in nebius
+      expect(get().resolveModel("x")).toBeDefined(); // normattiva/ollama may remain; never throws
+    });
+  });
+
+  describe("disabling the selected default", () => {
+    it("moves default/cloud/hybrid to another enabled model", () => {
+      const a = addNew("model/a");
+      get().setDefaultModel(a);
+      get().toggleModel(a);
+      const { defaultModelId, cloudModeModel, hybridModeModel } = get().settings;
+      for (const sel of [defaultModelId, cloudModeModel, hybridModeModel]) {
+        expect(sel).not.toBe(a);
+        expect(get().getModelById(sel)?.isEnabled).toBe(true);
+      }
+    });
+
+    it("does not touch selections that point elsewhere", () => {
+      const a = addNew("model/a");
+      const before = { ...get().settings };
+      get().toggleModel(a);
+      expect(get().settings.cloudModeModel).toBe(before.cloudModeModel);
+      expect(get().settings.defaultModelId).toBe(before.defaultModelId);
+    });
+  });
+
+  describe("getTitleModel", () => {
+    it("returns an enabled Nebius model, preferring the default", () => {
+      const id = addNew("title/model");
+      get().setDefaultModel(id);
+      expect(get().getTitleModel()?.id).toBe(id);
+      expect(get().getTitleModel()?.provider).toBe("nebius");
+    });
+
+    it("skips disabled models and never returns a hardcoded id", () => {
+      const first = get().models.find((m) => m.isEnabled)!;
+      get().toggleModel(first.id);
+      const t = get().getTitleModel();
+      expect(t?.isEnabled).toBe(true);
+      expect(t?.id).not.toBe(first.id);
+    });
+  });
+
+  describe("migration keeps the user's model choice", () => {
+    const migrate = async (persisted: unknown) => {
+      const mem = new Map<string, string>();
+      vi.stubGlobal("localStorage", {
+        getItem: (k: string) => mem.get(k) ?? null,
+        setItem: (k: string, v: string) => void mem.set(k, v),
+        removeItem: (k: string) => void mem.delete(k),
+      });
+      vi.resetModules();
+      const { useSettingsStore: fresh } = await import("@/stores/settings");
+      return fresh.persist.getOptions().migrate!(persisted, 1) as {
+        settings: { defaultModelId: string; cloudModeModel: string; hybridModeModel: string };
+      };
+    };
+
+    it("keeps a still-existing custom selection instead of resetting to minimax-m2", async () => {
+      const id = addNew("keep/me");
+      get().setDefaultModel(id);
+      const s = get();
+      const out = await migrate({ settings: s.settings, models: s.models, normattivaModels: s.normattivaModels });
+      expect(out.settings.defaultModelId).toBe(id);
+      expect(out.settings.cloudModeModel).toBe(id);
+      expect(out.settings.hybridModeModel).toBe(id);
+    });
+
+    it("falls back to the built-in default when the selected model is gone", async () => {
+      const out = await migrate({
+        settings: { defaultModelId: "custom-nebius-vanished-x", cloudModeModel: "nope", hybridModeModel: 42 },
+      });
+      expect(out.settings.defaultModelId).toBe("minimax-m2");
+      expect(out.settings.cloudModeModel).toBe("minimax-m2");
+      expect(out.settings.hybridModeModel).toBe("minimax-m2");
+    });
+  });
+});

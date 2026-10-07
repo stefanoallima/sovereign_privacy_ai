@@ -432,7 +432,7 @@ export function usePrivacyChat() {
     deleteMessage,
   } = useChatStore();
 
-  const { settings, getModelById, getEnabledModels, isAirplaneModeActive } =
+  const { settings, resolveModel, getEnabledModels, isAirplaneModeActive } =
     useSettingsStore();
   const { getSelectedPersona, personas } = usePersonasStore();
   const activeUserProfile = useUserContextStore(selectActiveProfile);
@@ -508,7 +508,7 @@ export function usePrivacyChat() {
     [
       settings.privacyMode,
       settings,
-      getModelById,
+      resolveModel,
       getCurrentConversation,
       getCurrentMessages,
       contexts,
@@ -551,9 +551,7 @@ export function usePrivacyChat() {
           : getSelectedPersona();
 
       // Prefer conversation-specific model (set via context panel), fall back to global default, then first enabled model
-      const model =
-        getModelById(conversation.modelId || settings.defaultModelId) ??
-        getEnabledModels()[0];
+      const model = resolveModel(conversation.modelId);
 
       // Check for @mention to switch persona
       if (
@@ -601,7 +599,7 @@ export function usePrivacyChat() {
       currentConversationId,
       getCurrentConversation,
       getSelectedPersona,
-      getModelById,
+      resolveModel,
       settings,
       personas,
       addMessage,
@@ -647,9 +645,7 @@ export function usePrivacyChat() {
       // Send to each persona sequentially through privacy pipeline
       for (const targetPersona of targetPersonas) {
         updateStreamingContent("");
-        const model =
-          getModelById(conversation.modelId || settings.defaultModelId) ??
-          getEnabledModels()[0];
+        const model = resolveModel(conversation.modelId);
         await sendSingleMessage(content, targetPersona, model);
       }
 
@@ -663,7 +659,7 @@ export function usePrivacyChat() {
       addMessage,
       setLoading,
       updateStreamingContent,
-      getModelById,
+      resolveModel,
       isAirplaneModeActive,
       sendSingleMessage,
     ]
