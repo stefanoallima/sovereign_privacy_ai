@@ -53,9 +53,17 @@ pub struct Persona {
     pub preferred_backend: String, // 'nebius' | 'ollama' | 'hybrid' | 'normattiva'
     pub anonymization_mode: String, // 'none' | 'optional' | 'required'
     pub local_ollama_model: Option<String>,
-    // Smart cloud delegation (orchestration)
+    // Smart cloud delegation (orchestration). Optional on the wire: built-in personas in the
+    // frontend don't carry these, and a missing field used to fail the whole chat command
+    // with "missing field `enable_cloud_delegation`".
+    #[serde(default)]
     pub enable_cloud_delegation: bool,
+    #[serde(default = "default_cloud_delegation_threshold")]
     pub cloud_delegation_threshold: f64, // 0.0–1.0, default 0.5
+}
+
+fn default_cloud_delegation_threshold() -> f64 {
+    0.5
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
