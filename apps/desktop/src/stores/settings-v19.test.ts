@@ -75,7 +75,7 @@ describe("settings store v19 migration", () => {
       expect(settings.legalDisclaimerAcknowledged).toBe(false);
     });
 
-    it("pre-fills cloudModeModel and hybridModeModel with BRAND_DEFAULTS[BRAND].defaultModelId", async () => {
+    it("falls back to BRAND_DEFAULTS[BRAND].defaultModelId when the saved selection no longer exists", async () => {
       // Regression test: previously the v18 migration hardcoded "minimax-m2"
       // for cloudModeModel/hybridModeModel, ignoring BRAND_DEFAULTS[BRAND].
       // On Sovereign, BRAND_DEFAULTS.sovereign.defaultModelId is
@@ -85,7 +85,7 @@ describe("settings store v19 migration", () => {
         "assistant-settings",
         JSON.stringify({
           state: {
-            settings: { defaultModelId: "minimax-m2" },
+            settings: { defaultModelId: "retired-model" },
             models: [],
             ollamaModels: [],
           },
