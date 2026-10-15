@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { useSettingsStore } from "@/stores";
+import type { LLMModel } from "@/types";
+import { AddModelPanel } from "./AddModelPanel";
 
 interface LocalModelInfo {
   id: string;
@@ -44,6 +46,33 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
   );
 }
 
+function CustomBadge() {
+  return (
+    <span className="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 text-[11px] font-medium text-[hsl(var(--muted-foreground))]">
+      CUSTOM
+    </span>
+  );
+}
+
+function RemoveModelButton({
+  model,
+  onRemove,
+}: {
+  model: LLMModel;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <button
+      data-testid={`remove-model-${model.id}`}
+      onClick={() => onRemove(model.id)}
+      aria-label={`Remove ${model.name}`}
+      className="flex-shrink-0 rounded px-2 py-1 text-[11px] text-red-500 transition-colors hover:bg-red-500/10"
+    >
+      Remove
+    </button>
+  );
+}
+
 const SPEED_LABEL: Record<string, string> = {
   "very-fast": "Very fast",
   fast: "Fast",
@@ -63,7 +92,7 @@ const formatSize = (bytes: number) => {
 };
 
 export function ModelSettings() {
-  const { models, ollamaModels, setDefaultModel, toggleModel, updateSettings } = useSettingsStore();
+  const { models, normattivaModels, ollamaModels, setDefaultModel, toggleModel, removeCustomModel, updateSettings } = useSettingsStore();
 
   // Local model management state
   const [localModels, setLocalModels] = useState<LocalModelInfo[]>([]);
@@ -291,6 +320,7 @@ export function ModelSettings() {
                       DEFAULT
                     </span>
                   )}
+                  {model.id.startsWith("custom-") && <CustomBadge />}
                 </div>
                 <div className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-[hsl(var(--muted-foreground))]">
                   <span>{model.contextWindow / 1000}K ctx</span>
@@ -311,10 +341,56 @@ export function ModelSettings() {
                   Set default
                 </button>
               )}
+              {model.id.startsWith("custom-") && (
+                <RemoveModelButton model={model} onRemove={removeCustomModel} />
+              )}
             </div>
           ))}
         </div>
       </section>
+
+      {/* Normattiva Legal AI models */}
+      <section data-testid="normattiva-models-section">
+        <div className="mb-3 flex items-center gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+            Legal AI Models
+          </h3>
+          <span className="rounded bg-[hsl(var(--primary)/0.1)] px-1.5 py-0.5 text-[11px] font-medium text-[hsl(var(--primary))]">
+            Normattiva
+          </span>
+        </div>
+        <p className="mb-3 text-xs text-[hsl(var(--muted-foreground))]">
+          Models served by the Normattiva endpoint. Requires a Normattiva API key (Privacy tab).
+        </p>
+        <div className="space-y-2">
+          {normattivaModels.map((model) => (
+            <div
+              key={model.id}
+              className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+                model.isEnabled
+                  ? "border-[hsl(var(--border))] bg-[hsl(var(--card))]"
+                  : "border-[hsl(var(--border))]/40 opacity-50"
+              }`}
+            >
+              <Toggle enabled={model.isEnabled} onToggle={() => toggleModel(model.id)} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-sm font-medium">{model.name}</span>
+                  {model.id.startsWith("custom-") && <CustomBadge />}
+                </div>
+                <div className="mt-0.5 break-all font-mono text-[11px] text-[hsl(var(--muted-foreground))]">
+                  {model.apiModelId}
+                </div>
+              </div>
+              {model.id.startsWith("custom-") && (
+                <RemoveModelButton model={model} onRemove={removeCustomModel} />
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <AddModelPanel />
 
       {/* Local Models */}
       <section>

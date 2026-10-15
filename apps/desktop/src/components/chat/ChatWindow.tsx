@@ -495,6 +495,10 @@ export function ChatWindow() {
   const generateTitleFor = useCallback(
     async (convId: string, userMsg: string, assistantMsg: string) => {
       if (!settings.nebiusApiKey) return;
+      // Use a model the user actually has enabled; a hardcoded id 404s once the endpoint
+      // retires it.
+      const titleModel = useSettingsStore.getState().getTitleModel();
+      if (!titleModel) return;
       try {
         const client = getNebiusClient(
           settings.nebiusApiKey,
@@ -514,7 +518,7 @@ export function ChatWindow() {
           ...aRes.mappings,
         ]);
         const response = await client.chatCompletion({
-          model: "Qwen/Qwen3-32B-fast",
+          model: titleModel.apiModelId,
           messages: [
             {
               role: "system",
@@ -1488,7 +1492,7 @@ ${attachment.textContent}`;
                   modelLabel: (() => {
                     const m = useSettingsStore
                       .getState()
-                      .models.find((m) => m.id === settings.hybridModeModel);
+                      .getModelById(settings.hybridModeModel);
                     return (
                       m?.name?.replace(/^Qwen3\s*/, "") ||
                       settings.hybridModeModel
@@ -1504,7 +1508,7 @@ ${attachment.textContent}`;
                   modelLabel: (() => {
                     const m = useSettingsStore
                       .getState()
-                      .models.find((m) => m.id === settings.cloudModeModel);
+                      .getModelById(settings.cloudModeModel);
                     return (
                       m?.name?.replace(/^Qwen3\s*/, "") ||
                       settings.cloudModeModel

@@ -46,7 +46,7 @@ export function ContextPanel() {
   };
 
   const { personas, selectedPersonaId, selectPersona } = usePersonasStore();
-  const { models, getEnabledModels, settings } = useSettingsStore();
+  const { getModelById, getEnabledModels, settings } = useSettingsStore();
   const {
     contexts,
     getCurrentConversation,
@@ -57,7 +57,7 @@ export function ContextPanel() {
   const conversation = getCurrentConversation();
   const enabledModels = getEnabledModels();
   const selectedModelId = conversation?.modelId || enabledModels[0]?.id;
-  const selectedModel = models.find((m) => m.id === selectedModelId);
+  const selectedModel = selectedModelId ? getModelById(selectedModelId) : undefined;
 
   if (!isOpen) {
     return (
@@ -125,7 +125,7 @@ export function ContextPanel() {
               <div className="space-y-4">
                 {/* Group personas by category */}
                 {groupPersonasByCategory(personas).map((group) => (
-                  <div key={group.category} className="space-y-1.5">
+                  <div key={`${group.category}-${group.subcategory ?? ""}`} className="space-y-1.5">
                     {/* Group Header */}
                     <div className="px-3 py-1.5">
                       <h3 className="text-[11px] font-semibold uppercase tracking-widest text-[hsl(var(--foreground-subtle))]">

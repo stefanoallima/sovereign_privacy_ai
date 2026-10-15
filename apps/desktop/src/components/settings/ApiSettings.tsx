@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useSettingsStore } from "@/stores";
+import { fetchEndpointModels, ModelDiscoveryError } from "@/services/model-discovery";
 
 export function ApiSettings() {
   const { settings, updateSettings, replaceCloudModels } = useSettingsStore();
@@ -43,22 +44,14 @@ export function ApiSettings() {
     setIsFetchingModels(true);
     setFetchedModels(null);
     setFetchError(null);
-    const normalizedEndpoint = settings.nebiusApiEndpoint.replace(/\/+$/, '');
     try {
-      const response = await fetch(`${normalizedEndpoint}/models`, {
-        headers: { Authorization: `Bearer ${settings.nebiusApiKey}` },
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        setFetchError(`${response.status}: ${text}`);
-        return;
-      }
-      const data = await response.json();
-      // OpenAI-compatible: { data: [{ id: "model-id", ... }] }
-      const ids: string[] = (data?.data ?? []).map((m: { id: string }) => m.id).sort();
-      setFetchedModels(ids);
+      setFetchedModels(
+        await fetchEndpointModels(settings.nebiusApiEndpoint, settings.nebiusApiKey)
+      );
     } catch (e) {
-      setFetchError(e instanceof Error ? e.message : String(e));
+      setFetchError(
+        e instanceof ModelDiscoveryError ? e.message : "Couldn't fetch the model list."
+      );
     } finally {
       setIsFetchingModels(false);
     }
@@ -164,7 +157,7 @@ export function ApiSettings() {
         {fetchedModels && fetchedModels.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs text-[hsl(var(--muted-foreground))]">
-              {fetchedModels.length} models found. Replace the current cloud model list?
+              {fetchedModels.length} models found. Replace the listed cloud models? Models you added by hand are kept. To pick individual models, use Add a model in the Models tab.
             </p>
             <div className="max-h-48 overflow-y-auto rounded-lg border border-[hsl(var(--border))] divide-y divide-[hsl(var(--border))]">
               {fetchedModels.map(id => (
