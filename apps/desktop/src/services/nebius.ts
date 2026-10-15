@@ -1,4 +1,5 @@
 import type { LLMModel, NormattivaExtension, RateLimitInfo } from "@/types";
+import { isCodicecivileEndpoint, quotaUsed } from "./quota";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -62,30 +63,36 @@ export interface ChatCompletionResponse {
 }
 
 /** Parse the per-account quota from `X-RateLimit-*` response headers (C2). Values may be
- *  an integer or the string "unlimited"; returns undefined when the headers are absent. */
+ *  a non-negative number or the string "unlimited"; anything else (absent, empty,
+ *  negative, non-numeric) is treated as not provided. Returns undefined when nothing
+ *  usable is present. */
 export function parseRateLimit(headers: Headers): RateLimitInfo | undefined {
-  const parseVal = (v: string | null): number | "unlimited" | undefined => {
-    if (v == null) return undefined;
-    if (v.trim().toLowerCase() === "unlimited") return "unlimited";
+  // An empty header value must NOT parse as 0: Number("") === 0, which would read as
+  // "limit 0, 0 remaining" and show a bogus exhausted quota.
+  const parseNum = (v: string | null): number | undefined => {
+    if (v == null || v.trim() === "") return undefined;
     const n = Number(v);
-    return Number.isFinite(n) ? n : undefined;
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  };
+  const parseVal = (v: string | null): number | "unlimited" | undefined => {
+    if (v != null && v.trim().toLowerCase() === "unlimited") return "unlimited";
+    return parseNum(v);
   };
   const limit = parseVal(headers.get("X-RateLimit-Limit"));
   const remaining = parseVal(headers.get("X-RateLimit-Remaining"));
-  const resetRaw = headers.get("X-RateLimit-Reset");
-  const reset =
-    resetRaw != null && Number.isFinite(Number(resetRaw)) ? Number(resetRaw) : undefined;
+  const reset = parseNum(headers.get("X-RateLimit-Reset"));
   if (limit === undefined && remaining === undefined && reset === undefined) return undefined;
   return { limit, remaining, reset };
 }
 
 /** Friendly, provider-aware message for HTTP 429 (rate limit / monthly quota exhausted). */
-function rateLimitMessage(quota: RateLimitInfo | undefined, baseUrl: string): string {
+export function rateLimitMessage(quota: RateLimitInfo | undefined, baseUrl: string): string {
   const parts = ["You've hit the request limit."];
-  if (typeof quota?.limit === "number" && typeof quota?.remaining === "number") {
-    parts.push(`Used ${quota.limit - quota.remaining}/${quota.limit} this month.`);
+  const used = quotaUsed(quota);
+  if (used !== undefined) {
+    parts.push(`Used ${used}/${quota!.limit} this month.`);
   }
-  if (baseUrl.includes("codicecivile.ai")) {
+  if (isCodicecivileEndpoint(baseUrl)) {
     parts.push("Upgrade at codicecivile.ai/pricing to continue.");
   } else {
     parts.push("Please try again later.");
