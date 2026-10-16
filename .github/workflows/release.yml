@@ -129,6 +129,16 @@ jobs:
         working-directory: apps/desktop
         run: pnpm install
 
+      # Switch the working tree to the Sovereign build flavor. This:
+      #   1. writes apps/desktop/.env.local with VITE_BRAND=sovereign (consumed by Vite)
+      #   2. copies apps/desktop/src-tauri/icons-sovereign/ → icons/ (icons/ is gitignored)
+      #   3. leaves tauri.conf.json as the git-tracked Sovereign default
+      - name: Apply Sovereign brand flavor
+        working-directory: apps/desktop
+        env:
+          VITE_BRAND: sovereign
+        run: node ../../scripts/build-brand.mjs
+
       - name: Set version from tag
         shell: bash
         run: |

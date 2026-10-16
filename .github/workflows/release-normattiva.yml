@@ -1,0 +1,230 @@
+name: Release Normattiva
+
+# MANUAL ONLY (for now). This workflow was forked from release.yml before the
+# auto-updater fix (bundle.createUpdaterArtifacts), the macOS ad-hoc-signing fix and the
+# signature verification step landed on main. Tagging v* must not publish a second,
+# stale-pipeline release next to the Sovereign one. Before re-enabling the tag trigger,
+# port those pipeline changes from release.yml and decide where Normattiva releases and
+# its updater feed live.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build and publish (e.g. v0.4.0). Must match ^v[0-9]+\.[0-9]+\.[0-9]+'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Validate release tag
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid tag '$TAG' (expected e.g. v0.4.0)"; exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Windows: initialise MSVC environment so cmake can detect cl.exe
+      - name: Setup MSVC (Windows)
+        if: matrix.platform == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake llvm
+          LLVM_PATH=$(brew --prefix llvm)
+          echo "$LLVM_PATH/bin" >> $GITHUB_PATH
+          echo "LIBCLANG_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+
+          if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
+            # Apple Silicon minimum is macOS 11.0.
+            # cmake crate 0.1.57 emits --target=arm64-apple-macosx (unversioned); with Apple
+            # clang 16+ that unversioned triple overrides -mmacosx-version-min and leaves OS
+            # as "unknown", making std::filesystem appear unavailable.
+            # Fix: append a versioned triple via global CFLAGS/CXXFLAGS.
+            # Global CFLAGS is safe here because the runner IS arm64 (host == target arch),
+            # so host-compiled build scripts and proc-macros also compile as arm64 correctly.
+            echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
+            echo "CFLAGS=--target=arm64-apple-macos11.0 -mmacosx-version-min=11.0" >> $GITHUB_ENV
+            echo "CXXFLAGS=--target=arm64-apple-macos11.0 -mmacosx-version-min=11.0" >> $GITHUB_ENV
+          else
+            # Intel x86_64 cross-compile from an ARM64 runner.
+            # llama.cpp's ggml-backend-reg.cpp uses std::filesystem which requires macOS 10.15+.
+            # clang auto-adds --target=x86_64-apple-macosx (unversioned) when cross-compiling,
+            # which makes the OS version "unknown" and std::filesystem appear unavailable.
+            # Fix: inject the versioned triple via target-specific env vars only (to avoid
+            # contaminating host arm64 builds for proc-macros / build scripts).
+            #
+            #  • CFLAGS_x86_64_apple_darwin  – picked up by cc crate for cc-based crates (ring,
+            #                                  zstd, onig, etc.); does NOT affect host builds.
+            #  • CMAKE_C/CXX_FLAGS           – cmake crate reads these and passes them as
+            #                                  -DCMAKE_C_FLAGS to cmake (llama-cpp-sys-2).
+            TARGET_FLAGS="-target x86_64-apple-macos10.15 -mmacosx-version-min=10.15"
+            echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
+            echo "CFLAGS_x86_64_apple_darwin=$TARGET_FLAGS" >> $GITHUB_ENV
+            echo "CXXFLAGS_x86_64_apple_darwin=$TARGET_FLAGS" >> $GITHUB_ENV
+            echo "CMAKE_C_FLAGS=$TARGET_FLAGS" >> $GITHUB_ENV
+            echo "CMAKE_CXX_FLAGS=$TARGET_FLAGS" >> $GITHUB_ENV
+          fi
+
+          # Use a short target dir to keep paths manageable
+          echo "CARGO_TARGET_DIR=/tmp/ct" >> $GITHUB_ENV
+
+      - name: Install dependencies (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          # cmake is pre-installed on the runner; only install LLVM for bindgen
+          choco install llvm -y
+          echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          # Use a short target dir to avoid Windows MAX_PATH issues with llama.cpp cmake temp files
+          echo "CARGO_TARGET_DIR=D:\ct" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      # Bundle ONNX Runtime 1.20.1 so GLiNER PII detection works on user machines.
+      # Pick the correct architecture — the runner is always arm64 but we cross-compile
+      # for x86_64, so we must fetch the matching ORT dylib for the *target*, not the host.
+      - name: Bundle ONNX Runtime (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p apps/desktop/src-tauri/onnxruntime
+          if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
+            ORT_ARCH="arm64"
+          else
+            ORT_ARCH="x86_64"
+          fi
+          ORT_NAME="onnxruntime-osx-${ORT_ARCH}-1.20.1"
+          curl -L "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/${ORT_NAME}.tgz" -o /tmp/ort.tgz
+          tar -xzf /tmp/ort.tgz -C /tmp/
+          # Copy the versioned dylib, rename to unversioned so ORT_DYLIB_PATH is stable
+          cp "/tmp/${ORT_NAME}/lib/libonnxruntime.1.20.1.dylib" \
+             apps/desktop/src-tauri/onnxruntime/libonnxruntime.dylib
+
+      - name: Bundle ONNX Runtime (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          New-Item -ItemType Directory -Force -Path "apps/desktop/src-tauri/onnxruntime"
+          Invoke-WebRequest -Uri "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-win-x64-1.20.1.zip" -OutFile "$env:TEMP\ort.zip"
+          Expand-Archive -Path "$env:TEMP\ort.zip" -DestinationPath "$env:TEMP\ort"
+          Copy-Item "$env:TEMP\ort\onnxruntime-win-x64-1.20.1\lib\onnxruntime.dll" "apps/desktop/src-tauri/onnxruntime/"
+          Copy-Item "$env:TEMP\ort\onnxruntime-win-x64-1.20.1\lib\onnxruntime_providers_shared.dll" "apps/desktop/src-tauri/onnxruntime/"
+
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: pnpm install
+
+      # Switch the working tree to the Normattiva build flavor. This:
+      #   1. writes apps/desktop/.env.local with VITE_BRAND=normattiva (consumed by Vite)
+      #   2. copies tauri.conf.normattiva.json → tauri.conf.json (changes productName, identifier, window title)
+      #   3. copies apps/desktop/src-tauri/icons-normattiva/ → icons/ (icons/ is gitignored)
+      - name: Apply Normattiva brand flavor
+        working-directory: apps/desktop
+        env:
+          VITE_BRAND: normattiva
+        run: node ../../scripts/build-brand.mjs
+
+      - name: Set version from tag
+        shell: bash
+        run: |
+          VERSION="${{ inputs.tag }}"
+          VERSION="${VERSION#v}"  # strip leading 'v'
+          # Patch version into tauri.conf.json so installer filename matches the tag.
+          # Use perl instead of sed -i because BSD sed (macOS) requires 'sed -i ""' while
+          # GNU sed (Linux/Windows) requires 'sed -i'. perl -i works on all platforms.
+          # After build-brand.mjs ran above, tauri.conf.json is the Normattiva variant,
+          # so patching it here keeps the Normattiva installer versioned correctly.
+          perl -i -pe "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" apps/desktop/src-tauri/tauri.conf.json
+          echo "Building Normattiva version $VERSION"
+
+      # Strip the embedded whitespace from the per-brand updater signing key. The
+      # `base64` CLI wraps at 76 cols by default; Tauri's signer chokes on the
+      # embedded newline. The Normattiva build ideally has its own key (see
+      # TAURI_NORMATTIVA_SIGNING_PRIVATE_KEY below) so installed Normattiva
+      # clients can only install Normattiva updates. If the per-brand key is
+      # not configured, fall back to the Sovereign key for the first release
+      # and rotate the Normattiva pubkey in tauri.conf.normattiva.json
+      # afterward.
+      - name: Normalize Normattiva updater signing key + password
+        shell: bash
+        env:
+          RAW_SIGNING_KEY: ${{ secrets.TAURI_NORMATTIVA_SIGNING_PRIVATE_KEY || secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RAW_SIGNING_PW: ${{ secrets.TAURI_NORMATTIVA_SIGNING_PRIVATE_KEY_PASSWORD || secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          KEY="$(printf '%s' "$RAW_SIGNING_KEY" | tr -d '[:space:]')"
+          PW="$(printf '%s' "$RAW_SIGNING_PW" | tr -d '\r\n')"
+          echo "::add-mask::$KEY"
+          echo "::add-mask::$PW"
+          echo "TAURI_SIGNING_PRIVATE_KEY=$KEY" >> "$GITHUB_ENV"
+          echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$PW" >> "$GITHUB_ENV"
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # MACOSX_DEPLOYMENT_TARGET is set per-target in "Install dependencies (macOS)":
+          #   aarch64 → 11.0,  x86_64 → 10.15  (do NOT hardcode it here)
+          # Updater signing key + password are injected via $GITHUB_ENV by the
+          # "Normalize Normattiva updater signing key + password" step above
+          # (whitespace-stripped to recover single-line base64), so they are
+          # intentionally NOT set here.
+          # macOS signing + notarization is intentionally UNSET: no Apple Developer ID
+          # cert is configured as a secret. Defining APPLE_CERTIFICATE from a missing
+          # secret yields an EMPTY string, which makes tauri-action attempt a keychain
+          # import of an empty cert and fail ("security import: failed to import keychain
+          # certificate"). Leaving these unset makes tauri-action build macOS UNSIGNED
+          # (Gatekeeper warns on first launch; users right-click → Open).
+          # To ship signed + notarized macOS builds, add these as repo secrets and
+          # re-add the env entries: APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
+          # APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID.
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ inputs.tag }}
+          releaseName: 'Normattiva ${{ inputs.tag }}'
+          releaseBody: |
+            Download Normattiva (Italian legal domain AI) for your platform:
+            - **Windows**: `.exe` installer
+            - **macOS (Apple Silicon)**: `.dmg` for M1/M2/M3
+            - **macOS (Intel)**: `.dmg` for Intel Macs
+          releaseDraft: false
+          prerelease: false
+          updaterJsonKeepUniversal: true
+          # --features normattiva enables the Rust BackendType::Normattiva variant.
+          # The VITE_BRAND=normattiva env in "Apply Normattiva brand flavor" already
+          # swapped tauri.conf.json + icons so the bundle IDs match.
+          # The `--` separator is REQUIRED so `--features normattiva` reaches cargo
+          # instead of being parsed by the tauri CLI (which has no such flag).
+          args: --target ${{ matrix.target }} -- --features normattiva

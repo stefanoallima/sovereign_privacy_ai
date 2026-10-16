@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { useSettingsStore } from "@/stores";
 import type { LLMModel } from "@/types";
-import { AddModelPanel } from "./AddModelPanel";
+import { AddModelPanel } from "../AddModelPanel";
 
 interface LocalModelInfo {
   id: string;

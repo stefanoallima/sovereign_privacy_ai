@@ -1,3 +1,5 @@
+import { BRAND } from "@/config/branding";
+import { BRAND_DEFAULTS } from "@/config/defaults";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useSettingsStore } from "@/stores/settings";
 import type { LLMModel } from "@/types";
@@ -378,9 +380,9 @@ describe("default model selection", () => {
       const out = await migrate({
         settings: { defaultModelId: "custom-nebius-vanished-x", cloudModeModel: "nope", hybridModeModel: 42 },
       });
-      expect(out.settings.defaultModelId).toBe("minimax-m2");
-      expect(out.settings.cloudModeModel).toBe("minimax-m2");
-      expect(out.settings.hybridModeModel).toBe("minimax-m2");
+      expect(out.settings.defaultModelId).toBe(BRAND_DEFAULTS[BRAND].defaultModelId);
+      expect(out.settings.cloudModeModel).toBe(BRAND_DEFAULTS[BRAND].defaultModelId);
+      expect(out.settings.hybridModeModel).toBe(BRAND_DEFAULTS[BRAND].defaultModelId);
     });
   });
 });

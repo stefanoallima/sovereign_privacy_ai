@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import type { Persona } from "@/types";
 
 // Default built-in personas
-const DEFAULT_PERSONAS: Persona[] = [
+export const DEFAULT_PERSONAS: Persona[] = [
   {
     id: "psychologist",
     name: "Psychologist",

@@ -1,0 +1,12 @@
+{
+  "name": "ailocalmind-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Privacy-first AI desktop assistant (Sovereign AI + Normattiva build flavors). Root scripts for build orchestration.",
+  "scripts": {
+    "build:brand": "node scripts/build-brand.mjs",
+    "test:build-brand": "node --test scripts/build-brand.test.mjs",
+    "build:sovereign": "cd apps/desktop && node ../../scripts/build-brand.mjs && pnpm tauri build",
+    "build:normattiva": "cd apps/desktop && VITE_BRAND=normattiva node ../../scripts/build-brand.mjs && pnpm tauri build -- --features normattiva"
+  }
+}

@@ -7,6 +7,7 @@ import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 import { VaultBrowser } from "./VaultBrowser";
 import { getCloudClient } from "@/services/nebius";
 import { EncryptionSettings } from "./EncryptionSettings";
+import { BRAND } from "@/config/branding";
 
 interface GlinerModelInfo {
   id: string;
@@ -497,132 +498,156 @@ export function PrivacySettings() {
               <ShieldIcon />
             </div>
             <div>
-              <h3 className="font-semibold text-sm">Default Privacy Mode</h3>
+              <h3 className="font-semibold text-sm">
+                {BRAND === 'normattiva' ? 'Normattiva Backend' : 'Default Privacy Mode'}
+              </h3>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                Choose how your data is processed and select a default model for each mode
+                {BRAND === 'normattiva'
+                  ? 'Italian legal domain via the Normattiva NLP cloud API'
+                  : 'Choose how your data is processed and select a default model for each mode'}
               </p>
             </div>
           </div>
         </div>
 
         <div className="p-4 border-t border-[hsl(var(--border)/0.5)] space-y-3">
-          {/* Local Mode Card */}
-          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-            settings.privacyMode === 'local'
-              ? 'border-[hsl(var(--status-safe-border))] bg-[hsl(var(--status-safe-bg))]'
-              : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
-          }`}>
-            <input
-              type="radio"
-              name="privacyMode"
-              data-testid="privacy-mode-local"
-              checked={settings.privacyMode === 'local'}
-              onChange={() => setPrivacyMode('local')}
-              disabled={!hasAnyLocalModel}
-              className="mt-1"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">🔒 Local</span>
-                {settings.privacyMode === 'local' && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--status-safe))] text-white">ACTIVE</span>
-                )}
-                {!hasAnyLocalModel && (
-                  <span className="text-xs text-[hsl(var(--status-caution))]">No model downloaded</span>
-                )}
+          {BRAND === 'normattiva' ? (
+            <div className="flex items-start gap-4 p-4 rounded-xl border-2 border-[hsl(var(--primary)/0.3)] bg-[hsl(var(--primary)/0.05)]">
+              <div className="p-2 rounded-lg bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))]">
+                <span className="text-xl">⚖️</span>
               </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
-                All processing on your device. No data leaves your machine. Works offline.
-              </p>
-              <div className="mt-2">
-                <select
-                  value={settings.localModeModel}
-                  onChange={(e) => updateSettings({ localModeModel: e.target.value })}
-                  className="w-full text-xs rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1.5"
-                >
-                  {ollamaModels.filter(m => m.isEnabled).map((m) => (
-                    <option key={m.id} value={m.apiModelId}>🖥️ {m.name}</option>
-                  ))}
-                </select>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Normattiva NLP Cloud</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">DEFAULT</span>
+                </div>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+                  Italian legal domain via Normattiva cloud API. Your requests are processed by the
+                  dedicated Normattiva NLP service. No local model required.
+                </p>
               </div>
             </div>
-          </label>
+          ) : (
+            <>
+              {/* Local Mode Card */}
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                settings.privacyMode === 'local'
+                  ? 'border-[hsl(var(--status-safe-border))] bg-[hsl(var(--status-safe-bg))]'
+                  : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
+              }`}>
+                <input
+                  type="radio"
+                  name="privacyMode"
+                  data-testid="privacy-mode-local"
+                  checked={settings.privacyMode === 'local'}
+                  onChange={() => setPrivacyMode('local')}
+                  disabled={!hasAnyLocalModel}
+                  className="mt-1"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">🔒 Local</span>
+                    {settings.privacyMode === 'local' && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--status-safe))] text-white">ACTIVE</span>
+                    )}
+                    {!hasAnyLocalModel && (
+                      <span className="text-xs text-[hsl(var(--status-caution))]">No model downloaded</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                    All processing on your device. No data leaves your machine. Works offline.
+                  </p>
+                  <div className="mt-2">
+                    <select
+                      value={settings.localModeModel}
+                      onChange={(e) => updateSettings({ localModeModel: e.target.value })}
+                      className="w-full text-xs rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1.5"
+                    >
+                      {ollamaModels.filter(m => m.isEnabled).map((m) => (
+                        <option key={m.id} value={m.apiModelId}>🖥️ {m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </label>
 
-          {/* Hybrid Mode Card */}
-          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-            settings.privacyMode === 'hybrid'
-              ? 'border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.05)]'
-              : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
-          }`}>
-            <input
-              type="radio"
-              name="privacyMode"
-              data-testid="privacy-mode-hybrid"
-              checked={settings.privacyMode === 'hybrid'}
-              onChange={() => setPrivacyMode('hybrid')}
-              className="mt-1"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">🛡️ Hybrid</span>
-                {settings.privacyMode === 'hybrid' && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">ACTIVE</span>
-                )}
-              </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
-                PII is redacted locally by the Privacy Guard, then the sanitized prompt is sent to a cloud LLM. Best balance of privacy and quality.
-              </p>
-              <div className="mt-2">
-                <select
-                  value={settings.hybridModeModel}
-                  onChange={(e) => updateSettings({ hybridModeModel: e.target.value })}
-                  className="w-full text-xs rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1.5"
-                >
-                  {models.filter(m => m.isEnabled).map((m) => (
-                    <option key={m.id} value={m.id}>☁️ {m.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </label>
+              {/* Hybrid Mode Card */}
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                settings.privacyMode === 'hybrid'
+                  ? 'border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.05)]'
+                  : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
+              }`}>
+                <input
+                  type="radio"
+                  name="privacyMode"
+                  data-testid="privacy-mode-hybrid"
+                  checked={settings.privacyMode === 'hybrid'}
+                  onChange={() => setPrivacyMode('hybrid')}
+                  className="mt-1"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">🛡️ Hybrid</span>
+                    {settings.privacyMode === 'hybrid' && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">ACTIVE</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                    PII is redacted locally by the Privacy Guard, then the sanitized prompt is sent to a cloud LLM. Best balance of privacy and quality.
+                  </p>
+                  <div className="mt-2">
+                    <select
+                      value={settings.hybridModeModel}
+                      onChange={(e) => updateSettings({ hybridModeModel: e.target.value })}
+                      className="w-full text-xs rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1.5"
+                    >
+                      {models.filter(m => m.isEnabled).map((m) => (
+                        <option key={m.id} value={m.id}>☁️ {m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </label>
 
-          {/* Cloud Mode Card */}
-          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-            settings.privacyMode === 'cloud'
-              ? 'border-[hsl(var(--status-caution-border))] bg-[hsl(var(--status-caution-bg))]'
-              : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
-          }`}>
-            <input
-              type="radio"
-              name="privacyMode"
-              data-testid="privacy-mode-cloud"
-              checked={settings.privacyMode === 'cloud'}
-              onChange={() => setPrivacyMode('cloud')}
-              className="mt-1"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">⚡ Cloud</span>
-                {settings.privacyMode === 'cloud' && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--status-caution))] text-white">ACTIVE</span>
-                )}
-              </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
-                Direct to cloud API. Fastest responses, best model quality. Custom redaction terms still apply.
-              </p>
-              <div className="mt-2">
-                <select
-                  value={settings.cloudModeModel}
-                  onChange={(e) => updateSettings({ cloudModeModel: e.target.value })}
-                  className="w-full text-xs rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1.5"
-                >
-                  {models.filter(m => m.isEnabled).map((m) => (
-                    <option key={m.id} value={m.id}>☁️ {m.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </label>
+              {/* Cloud Mode Card */}
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                settings.privacyMode === 'cloud'
+                  ? 'border-[hsl(var(--status-caution-border))] bg-[hsl(var(--status-caution-bg))]'
+                  : 'border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))]'
+              }`}>
+                <input
+                  type="radio"
+                  name="privacyMode"
+                  data-testid="privacy-mode-cloud"
+                  checked={settings.privacyMode === 'cloud'}
+                  onChange={() => setPrivacyMode('cloud')}
+                  className="mt-1"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">⚡ Cloud</span>
+                    {settings.privacyMode === 'cloud' && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--status-caution))] text-white">ACTIVE</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                    Direct to cloud API. Fastest responses, best model quality. Custom redaction terms still apply.
+                  </p>
+                  <div className="mt-2">
+                    <select
+                      value={settings.cloudModeModel}
+                      onChange={(e) => updateSettings({ cloudModeModel: e.target.value })}
+                      className="w-full text-xs rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1.5"
+                    >
+                      {models.filter(m => m.isEnabled).map((m) => (
+                        <option key={m.id} value={m.id}>☁️ {m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </label>
+            </>
+          )}
         </div>
       </div>
 

@@ -20,8 +20,25 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # runner (and on macOS, which has no CUDA), breaking releases since v0.2.10.
 # Build a GPU binary on a CUDA host with:
 #   cargo build --features cuda      (or)   pnpm tauri build -- --features cuda
+#
+# Brand flavor — opt-in. Default is Sovereign AI (single brand in one binary).
+# The Normattiva flavor swaps in a legal-domain persona + the Normattiva NLP
+# cloud backend. The two flavors share the same HTTP-client code (normattiva
+# routes to the same Nebius stack); the only Rust-side difference is that the
+# `BackendType::Normattiva` variant and its dispatch arms only compile in this
+# build. UI defaults (default persona / model / endpoint) live in the TS layer
+# (apps/desktop/src/config/defaults.ts) and are baked at build time via
+# `scripts/build-brand.mjs`.
+#
+# Build a Normattiva binary in two steps (the cargo feature flag does NOT
+# set VITE_BRAND — that's a Vite-time concern handled by build-brand.mjs):
+#   VITE_BRAND=normattiva node scripts/build-brand.mjs
+#   pnpm tauri build -- --features normattiva
+# Or, equivalently: pnpm build:normattiva (chained script in the root
+# package.json).
 default = []
 cuda = ["llama-cpp-2/cuda"]
+normattiva = []
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
